@@ -1,5 +1,8 @@
 module.exports = {
-  content: ["./templates/**/*.templ", "./*.go"],
+  content: [
+    "./**/*.templ",
+    "./**/*.go"
+  ],
   theme: {
     extend: {},
   },
