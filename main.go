@@ -3,17 +3,22 @@ package main
 import (
 	"fmt"
 	"net/http"
+	"os"
 
-	"github.com/NikolaTosic-sudo/chess-live/components/hello"
+	"github.com/joho/godotenv"
 )
 
 func main() {
+	godotenv.Load()
+	port := os.Getenv("PORT")
+
+	cfg := apiConfig{
+		port: port,
+	}
 
 	http.Handle("/assets/", http.StripPrefix("/assets/", http.FileServer(http.Dir("assets"))))
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		hello.HeaderTemplate("Nikola").Render(r.Context(), w)
-	})
+	http.HandleFunc("/", cfg.headerHandler)
 
-	fmt.Println("Listening on :8080")
-	http.ListenAndServe(":8080", nil)
+	fmt.Printf("Listening on :%v\n", cfg.port)
+	http.ListenAndServe(fmt.Sprintf(":%v", cfg.port), nil)
 }
