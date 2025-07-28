@@ -1,0 +1,63 @@
+package board
+
+import "github.com/NikolaTosic-sudo/chess-live/components/layouts"
+import "fmt"
+
+var cols = [8]string{"a", "b", "c", "d", "e", "f", "g", "h"}
+var rows = [8]int{8, 7, 6, 5, 4, 3, 2, 1}
+
+type Square struct {
+	Piece string
+  Selected bool
+}
+
+func generateColor(n, m int, selected bool) string {
+
+  if selected {
+    return "background-color: #add8e6"
+  }
+
+  if n % 2 == 0 && m % 2 == 1 {
+    return "background-color: #b58863"
+  }
+
+  if n % 2 == 0 && m % 2 == 0 {
+    return "background-color: #f0d9b5"
+  }
+
+  if n % 2 == 1 && m % 2 == 1 {
+    return "background-color: #f0d9b5"
+  }
+
+  return "background-color: #b58863"
+}
+
+templ Board(board map[string]Square) {
+  @layout.Layout() {
+    <div class="w-[800px] h-[800px]">
+      for i, row := range rows {
+        <div class="w-full h-[100px] flex relative">
+          <span class="absolute left-0 z-10">{row}</span>
+          for j, col := range cols {
+            {{ roCol := fmt.Sprintf("%v%v", row, col) }}
+            <div class="w-[100px] h-full border relative" style={ generateColor(i, j, board[roCol].Selected) }>
+              if i == 7 {
+                <span class="absolute bottom-0 right-0">{col}</span>
+              }
+              if board[roCol].Piece != "" {
+                <img
+                  id={roCol}
+                  src={"/assets/pieces/" + board[roCol].Piece + ".svg" }
+                  class="w-full h-full hover:cursor-grab"
+                  hx-post="/move"
+                  hx-vals={`{"currentTile": ${roCol}}`}
+                  hx-params="*"
+                />
+              } 
+            </div>
+          }
+        </div>
+      }
+    </div>
+  }
+}

@@ -12,12 +12,17 @@ func main() {
 	godotenv.Load()
 	port := os.Getenv("PORT")
 
+	startingBoard := MakeBoard()
+
 	cfg := apiConfig{
-		port: port,
+		port:           port,
+		board:          startingBoard,
+		selectedSquare: "",
 	}
 
 	http.Handle("/assets/", http.StripPrefix("/assets/", http.FileServer(http.Dir("assets"))))
-	http.HandleFunc("/", cfg.headerHandler)
+	http.HandleFunc("/", cfg.boardHandler)
+	http.HandleFunc("POST /move", cfg.moveHandler)
 
 	fmt.Printf("Listening on :%v\n", cfg.port)
 	http.ListenAndServe(fmt.Sprintf(":%v", cfg.port), nil)
