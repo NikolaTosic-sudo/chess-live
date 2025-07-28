@@ -1,0 +1,22 @@
+package hello
+
+import "github.com/NikolaTosic-sudo/chess-live/components/layouts"
+
+var greeting = "Welcome!"
+
+templ hello(name string) {
+  <div>Hello, {name}</div>
+}
+
+templ HeaderTemplate(name string) {
+  @layout.Layout() {
+    <header>
+      <h1 class="text-center py-[6px]">
+        { name }
+      </h1>
+      <h2 class="bg-red-300">
+        "{ greeting }" comes from ordinary Go code
+      </h2>
+    </header>
+  }
+}

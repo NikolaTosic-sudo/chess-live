@@ -4,14 +4,15 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/a-h/templ"
+	"github.com/NikolaTosic-sudo/chess-live/components/hello"
 )
 
 func main() {
-	// component := hello("Nikola")
-	component2 := headerTemplate("Nikola")
 
-	http.Handle("/", templ.Handler(component2))
+	http.Handle("/assets/", http.StripPrefix("/assets/", http.FileServer(http.Dir("assets"))))
+	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		hello.HeaderTemplate("Nikola").Render(r.Context(), w)
+	})
 
 	fmt.Println("Listening on :8080")
 	http.ListenAndServe(":8080", nil)
