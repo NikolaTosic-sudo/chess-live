@@ -12,10 +12,12 @@ type Square struct {
 	Color       string
 }
 
-// type Piece struct {
-// 	Name string
-// 	Image string
-// }
+type Piece struct {
+	Name    string
+	Image   string
+	Tile    string
+	IsWhite bool
+}
 
 func genCol(color string) string {
 	return "background-color: " + color

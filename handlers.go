@@ -3,13 +3,12 @@ package main
 import (
 	"fmt"
 	"net/http"
-	"strings"
 
 	"github.com/NikolaTosic-sudo/chess-live/components/board"
 )
 
 func (cfg *apiConfig) boardHandler(w http.ResponseWriter, r *http.Request) {
-	err := board.GridBoard(cfg.board).Render(r.Context(), w)
+	err := board.GridBoard(cfg.board, cfg.pieces).Render(r.Context(), w)
 
 	if err != nil {
 		fmt.Println(err)
@@ -19,11 +18,14 @@ func (cfg *apiConfig) boardHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (cfg *apiConfig) moveHandler(w http.ResponseWriter, r *http.Request) {
-	currentSquare := r.Header.Get("Hx-Trigger")
-	getSquare := cfg.board[currentSquare]
+	currentPieceName := r.Header.Get("Hx-Trigger")
+	currentPiece := cfg.pieces[currentPieceName]
+	currentSquareName := currentPiece.Tile
+	currentSquare := cfg.board[currentSquareName]
+	selectedSquare := cfg.selectedPiece.Tile
 
-	if cfg.selectedSquare != "" && cfg.selectedSquare != currentSquare {
-		selSq := cfg.board[cfg.selectedSquare]
+	if selectedSquare != "" && selectedSquare != currentSquareName {
+		selSq := cfg.board[selectedSquare]
 		fmt.Fprintf(w, `
 			<span id="%v" hx-post="/move" hx-swap-oob="true" hx-swap="outerHTML" class="w-[100px] h-[100px] hover:cursor-grab absolute transition-all" style="bottom: %vpx; left: %vpx">
 				<img src="/assets/pieces/%v.svg" class="bg-sky-300" />
@@ -33,67 +35,68 @@ func (cfg *apiConfig) moveHandler(w http.ResponseWriter, r *http.Request) {
 				<img src="/assets/pieces/%v.svg" />
 			</span>
 		`,
-			currentSquare,
-			getSquare.Coordinates[0],
-			getSquare.Coordinates[1],
-			getSquare.Piece,
-			cfg.selectedSquare,
+			currentPieceName,
+			currentSquare.Coordinates[0],
+			currentSquare.Coordinates[1],
+			currentPiece.Image,
+			cfg.selectedPiece.Name,
 			selSq.Coordinates[0],
 			selSq.Coordinates[1],
-			selSq.Piece,
+			cfg.selectedPiece.Image,
 		)
-		cfg.selectedSquare = currentSquare
+		cfg.selectedPiece = currentPiece
 		return
 	}
 
-	if getSquare.Selected {
-		getSquare.Selected = false
-		cfg.selectedSquare = ""
-		cfg.board[currentSquare] = getSquare
+	if currentSquare.Selected {
+		currentSquare.Selected = false
+		cfg.selectedPiece = board.Piece{}
+		cfg.board[currentSquareName] = currentSquare
 		fmt.Fprintf(w, `
 			<span id="%v" hx-post="/move" hx-swap-oob="true" hx-swap="outerHTML" class="w-[100px] h-[100px] hover:cursor-grab absolute transition-all" style="bottom: %vpx; left: %vpx">
 				<img src="/assets/pieces/%v.svg" />
 			</span>
-		`, currentSquare, getSquare.Coordinates[0], getSquare.Coordinates[1], getSquare.Piece)
+		`, currentPieceName, currentSquare.Coordinates[0], currentSquare.Coordinates[1], currentPiece.Image)
 		return
 	} else {
-		getSquare.Selected = true
-		cfg.selectedSquare = currentSquare
-		cfg.board[currentSquare] = getSquare
+		currentSquare.Selected = true
+		cfg.selectedPiece = currentPiece
+		cfg.board[currentSquareName] = currentSquare
 		fmt.Fprintf(w, `
 			<span id="%v" hx-post="/move" hx-swap-oob="true" hx-swap="outerHTML" class="w-[100px] h-[100px] hover:cursor-grab absolute transition-all" style="bottom: %vpx; left: %vpx">
 				<img src="/assets/pieces/%v.svg" class="bg-sky-300" />
 			</span>
-		`, currentSquare, getSquare.Coordinates[0], getSquare.Coordinates[1], getSquare.Piece)
+		`, currentPieceName, currentSquare.Coordinates[0], currentSquare.Coordinates[1], currentPiece.Image)
 		return
 	}
 }
 
 func (cfg *apiConfig) moveToHandler(w http.ResponseWriter, r *http.Request) {
-	currentSquare := r.Header.Get("Hx-Trigger")
-	triggers := strings.Split(currentSquare, "-")
-	getSquare := cfg.board[triggers[1]]
+	currentSquareName := r.Header.Get("Hx-Trigger")
+	getSquare := cfg.board[currentSquareName]
+	selectedSquare := cfg.selectedPiece.Tile
 
-	if cfg.selectedSquare != "" && cfg.selectedSquare != triggers[1] {
-		selSq := cfg.board[cfg.selectedSquare]
+	if selectedSquare != "" && selectedSquare != currentSquareName {
 		fmt.Fprintf(w, `
-			<div id="tile-%v" hx-post="/move-to" hx-swap-oob="true" class="max-w-[100px] max-h-[100px] h-full w-full" style="background-color: %v"></div>
+			<div id="%v" hx-post="/move-to" hx-swap-oob="true" class="max-w-[100px] max-h-[100px] h-full w-full" style="background-color: %v"></div>
 
 			<span id="%v" hx-post="/move" hx-swap-oob="true" hx-swap="outerHTML" class="w-[100px] h-[100px] hover:cursor-grab absolute transition-all" style="bottom: %vpx; left: %vpx">
 				<img src="/assets/pieces/%v.svg" />
 			</span>
 		`,
-			triggers[1],
+			currentSquareName,
 			getSquare.Color,
-			cfg.selectedSquare,
+			cfg.selectedPiece.Name,
 			getSquare.Coordinates[0],
 			getSquare.Coordinates[1],
-			selSq.Piece,
+			cfg.selectedPiece.Image,
 		)
-		getSquare.Piece = selSq.Piece
-		cfg.board[triggers[1]] = getSquare
-		selSq.Piece = ""
-		cfg.selectedSquare = ""
+		getSquare.Selected = false
+		currentPiece := cfg.pieces[cfg.selectedPiece.Name]
+		currentPiece.Tile = currentSquareName
+		cfg.pieces[cfg.selectedPiece.Name] = currentPiece
+		cfg.selectedPiece = board.Piece{}
+		cfg.board[currentSquareName] = getSquare
 		return
 	}
 

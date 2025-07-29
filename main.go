@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/NikolaTosic-sudo/chess-live/components/board"
 	"github.com/joho/godotenv"
 )
 
@@ -13,11 +14,13 @@ func main() {
 	port := os.Getenv("PORT")
 
 	startingBoard := MakeBoard()
+	startingPieces := MakePieces()
 
 	cfg := apiConfig{
-		port:           port,
-		board:          startingBoard,
-		selectedSquare: "",
+		port:          port,
+		board:         startingBoard,
+		pieces:        startingPieces,
+		selectedPiece: board.Piece{},
 	}
 
 	http.Handle("/assets/", http.StripPrefix("/assets/", http.FileServer(http.Dir("assets"))))
