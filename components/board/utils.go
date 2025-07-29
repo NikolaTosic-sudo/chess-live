@@ -12,26 +12,10 @@ type Square struct {
 	Color       string
 }
 
-func generateColor(n, m int, selected bool) string {
-
-	if selected {
-		return "background-color: #add8e6"
-	}
-
-	if n%2 == 0 && m%2 == 1 {
-		return "background-color: #b58863"
-	}
-
-	if n%2 == 0 && m%2 == 0 {
-		return "background-color: #f0d9b5"
-	}
-
-	if n%2 == 1 && m%2 == 1 {
-		return "background-color: #f0d9b5"
-	}
-
-	return "background-color: #b58863"
-}
+// type Piece struct {
+// 	Name string
+// 	Image string
+// }
 
 func genCol(color string) string {
 	return "background-color: " + color

@@ -23,6 +23,7 @@ func main() {
 	http.Handle("/assets/", http.StripPrefix("/assets/", http.FileServer(http.Dir("assets"))))
 	http.HandleFunc("/", cfg.boardHandler)
 	http.HandleFunc("POST /move", cfg.moveHandler)
+	http.HandleFunc("POST /move-to", cfg.moveToHandler)
 
 	fmt.Printf("Listening on :%v\n", cfg.port)
 	http.ListenAndServe(fmt.Sprintf(":%v", cfg.port), nil)

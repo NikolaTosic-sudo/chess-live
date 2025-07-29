@@ -16,13 +16,13 @@ templ GridBoard(board map[string]Square) {
         if i == 0 {
           <span class="absolute bottom-0 z-10" style={getPosY(j + 1)}>{cols[j]}</span>
         }
-        <div class="max-w-[100px] max-h-[100px] h-full w-full" style={genCol(tile.Color)}></div>
+        <div id={fmt.Sprintf("tile-%v", tileSig)} hx-post="/move-to" hx-swap-oob="true" class="max-w-[100px] max-h-[100px] h-full w-full" style={genCol(tile.Color)}></div>
         if j == len(cols) - 1 {
           {{ i++ }}
           {{ j = -1 }}
         }
         if tile.Piece != "" {
-          <span id={tileSig} hx-post="/move" hx-swap="outerHTML" class="w-[100px] h-[100px] hover:cursor-grab absolute " style={getPiecePos(tile.Coordinates)}>
+          <span id={tileSig} hx-post="/move" hx-swap-oob="true" hx-swap="outerHTML" class="w-[100px] h-[100px] hover:cursor-grab absolute transition-all" style={getPiecePos(tile.Coordinates)}>
             <img src={"/assets/pieces/" + tile.Piece + ".svg" } />
           </span>
         }
