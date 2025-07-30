@@ -19,10 +19,34 @@ func (cfg *apiConfig) boardHandler(w http.ResponseWriter, r *http.Request) {
 
 func (cfg *apiConfig) moveHandler(w http.ResponseWriter, r *http.Request) {
 	currentPieceName := r.Header.Get("Hx-Trigger")
+	canPlay := cfg.canPlay(currentPieceName)
+	if !canPlay {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
 	currentPiece := cfg.pieces[currentPieceName]
 	currentSquareName := currentPiece.Tile
 	currentSquare := cfg.board[currentSquareName]
 	selectedSquare := cfg.selectedPiece.Tile
+
+	if cfg.canEat(cfg.selectedPiece.Name, currentPieceName) {
+		fmt.Fprintf(w, `
+			<span id="%v" hx-post="/move" hx-swap-oob="true" hx-swap="outerHTML" class="w-[100px] h-[100px] hover:cursor-grab absolute transition-all" style="bottom: %vpx; left: %vpx">
+				<img src="/assets/pieces/%v.svg" />
+			</span>
+		`,
+			cfg.selectedPiece.Name,
+			currentSquare.Coordinates[0],
+			currentSquare.Coordinates[1],
+			cfg.selectedPiece.Image,
+		)
+		delete(cfg.pieces, currentPieceName)
+		cfg.selectedPiece.Tile = currentSquareName
+		cfg.pieces[cfg.selectedPiece.Name] = cfg.selectedPiece
+		cfg.selectedPiece = board.Piece{}
+		cfg.isWhiteTurn = !cfg.isWhiteTurn
+		return
+	}
 
 	if selectedSquare != "" && selectedSquare != currentSquareName {
 		selSq := cfg.board[selectedSquare]
@@ -97,6 +121,7 @@ func (cfg *apiConfig) moveToHandler(w http.ResponseWriter, r *http.Request) {
 		cfg.pieces[cfg.selectedPiece.Name] = currentPiece
 		cfg.selectedPiece = board.Piece{}
 		cfg.board[currentSquareName] = getSquare
+		cfg.isWhiteTurn = !cfg.isWhiteTurn
 		return
 	}
 

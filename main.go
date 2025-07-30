@@ -21,6 +21,7 @@ func main() {
 		board:         startingBoard,
 		pieces:        startingPieces,
 		selectedPiece: board.Piece{},
+		isWhiteTurn:   true,
 	}
 
 	http.Handle("/assets/", http.StripPrefix("/assets/", http.FileServer(http.Dir("assets"))))

@@ -7,4 +7,5 @@ type apiConfig struct {
 	board         map[string]board.Square
 	pieces        map[string]board.Piece
 	selectedPiece board.Piece
+	isWhiteTurn   bool
 }
