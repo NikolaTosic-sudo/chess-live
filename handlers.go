@@ -3,11 +3,13 @@ package main
 import (
 	"fmt"
 	"net/http"
+	"slices"
 
 	"github.com/NikolaTosic-sudo/chess-live/components/board"
 )
 
 func (cfg *apiConfig) boardHandler(w http.ResponseWriter, r *http.Request) {
+	cfg.fillBoard()
 	err := board.GridBoard(cfg.board, cfg.pieces).Render(r.Context(), w)
 
 	if err != nil {
@@ -29,7 +31,9 @@ func (cfg *apiConfig) moveHandler(w http.ResponseWriter, r *http.Request) {
 	currentSquare := cfg.board[currentSquareName]
 	selectedSquare := cfg.selectedPiece.Tile
 
-	if cfg.canEat(cfg.selectedPiece.Name, currentPieceName) {
+	legalMoves := cfg.checkLegalMoves()
+
+	if canEat(cfg.selectedPiece.Name, currentPieceName) && slices.Contains(legalMoves, currentSquareName) {
 		fmt.Fprintf(w, `
 			<span id="%v" hx-post="/move" hx-swap-oob="true" hx-swap="outerHTML" class="w-[100px] h-[100px] hover:cursor-grab absolute transition-all" style="bottom: %vpx; left: %vpx">
 				<img src="/assets/pieces/%v.svg" />
@@ -43,6 +47,8 @@ func (cfg *apiConfig) moveHandler(w http.ResponseWriter, r *http.Request) {
 		delete(cfg.pieces, currentPieceName)
 		cfg.selectedPiece.Tile = currentSquareName
 		cfg.pieces[cfg.selectedPiece.Name] = cfg.selectedPiece
+		currentSquare.Piece = cfg.selectedPiece
+		cfg.board[currentSquareName] = currentSquare
 		cfg.selectedPiece = board.Piece{}
 		cfg.isWhiteTurn = !cfg.isWhiteTurn
 		return
@@ -97,8 +103,16 @@ func (cfg *apiConfig) moveHandler(w http.ResponseWriter, r *http.Request) {
 
 func (cfg *apiConfig) moveToHandler(w http.ResponseWriter, r *http.Request) {
 	currentSquareName := r.Header.Get("Hx-Trigger")
-	getSquare := cfg.board[currentSquareName]
+	currentSquare := cfg.board[currentSquareName]
 	selectedSquare := cfg.selectedPiece.Tile
+	selSeq := cfg.board[selectedSquare]
+
+	legalMoves := cfg.checkLegalMoves()
+
+	if !slices.Contains(legalMoves, currentSquareName) {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
 
 	if selectedSquare != "" && selectedSquare != currentSquareName {
 		fmt.Fprintf(w, `
@@ -109,18 +123,21 @@ func (cfg *apiConfig) moveToHandler(w http.ResponseWriter, r *http.Request) {
 			</span>
 		`,
 			currentSquareName,
-			getSquare.Color,
+			currentSquare.Color,
 			cfg.selectedPiece.Name,
-			getSquare.Coordinates[0],
-			getSquare.Coordinates[1],
+			currentSquare.Coordinates[0],
+			currentSquare.Coordinates[1],
 			cfg.selectedPiece.Image,
 		)
-		getSquare.Selected = false
+		currentSquare.Selected = false
 		currentPiece := cfg.pieces[cfg.selectedPiece.Name]
 		currentPiece.Tile = currentSquareName
 		cfg.pieces[cfg.selectedPiece.Name] = currentPiece
+		currentSquare.Piece = currentPiece
 		cfg.selectedPiece = board.Piece{}
-		cfg.board[currentSquareName] = getSquare
+		selSeq.Piece = cfg.selectedPiece
+		cfg.board[selectedSquare] = selSeq
+		cfg.board[currentSquareName] = currentSquare
 		cfg.isWhiteTurn = !cfg.isWhiteTurn
 		return
 	}
