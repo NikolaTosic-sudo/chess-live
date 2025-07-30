@@ -19,6 +19,7 @@ type Piece struct {
 	IsWhite    bool
 	LegalMoves [][]int
 	MovesOnce  bool
+	Moved      bool
 }
 
 func genCol(color string) string {

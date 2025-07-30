@@ -336,6 +336,7 @@ func MakePieces() map[string]board.Piece {
 			Tile:       "8a",
 			IsWhite:    false,
 			LegalMoves: [][]int{{1, 0}, {0, 1}, {-1, 0}, {0, -1}},
+			Moved:      false,
 		},
 		"right_black_knight": {
 			Name:       "right_black_knight",
@@ -344,6 +345,7 @@ func MakePieces() map[string]board.Piece {
 			IsWhite:    false,
 			LegalMoves: [][]int{{2, 1}, {2, -1}, {1, 2}, {1, -2}, {-1, 2}, {-1, -2}, {-2, 1}, {-2, -1}},
 			MovesOnce:  true,
+			Moved:      false,
 		},
 		"right_black_bishop": {
 			Name:       "right_black_bishop",
@@ -351,6 +353,7 @@ func MakePieces() map[string]board.Piece {
 			Tile:       "8c",
 			IsWhite:    false,
 			LegalMoves: [][]int{{1, 1}, {1, -1}, {-1, 1}, {-1, -1}},
+			Moved:      false,
 		},
 		"black_queen": {
 			Name:       "black_queen",
@@ -358,6 +361,7 @@ func MakePieces() map[string]board.Piece {
 			Tile:       "8d",
 			IsWhite:    false,
 			LegalMoves: [][]int{{1, 1}, {1, -1}, {-1, 1}, {-1, -1}, {1, 0}, {0, 1}, {-1, 0}, {0, -1}},
+			Moved:      false,
 		},
 		"black_king": {
 			Name:       "black_king",
@@ -365,6 +369,7 @@ func MakePieces() map[string]board.Piece {
 			Tile:       "8e",
 			IsWhite:    false,
 			LegalMoves: [][]int{{1, 1}, {1, -1}, {-1, 1}, {-1, -1}, {1, 0}, {0, 1}, {-1, 0}, {0, -1}},
+			Moved:      false,
 			MovesOnce:  true,
 		},
 		"left_black_bishop": {
@@ -373,6 +378,7 @@ func MakePieces() map[string]board.Piece {
 			Tile:       "8f",
 			IsWhite:    false,
 			LegalMoves: [][]int{{1, 1}, {1, -1}, {-1, 1}, {-1, -1}},
+			Moved:      false,
 		},
 		"left_black_knight": {
 			Name:       "left_black_knight",
@@ -381,6 +387,7 @@ func MakePieces() map[string]board.Piece {
 			IsWhite:    false,
 			LegalMoves: [][]int{{2, 1}, {2, -1}, {1, 2}, {1, -2}, {-1, 2}, {-1, -2}, {-2, 1}, {-2, -1}},
 			MovesOnce:  true,
+			Moved:      false,
 		},
 		"left_black_rook": {
 			Name:       "left_black_rook",
@@ -388,6 +395,7 @@ func MakePieces() map[string]board.Piece {
 			Tile:       "8h",
 			IsWhite:    false,
 			LegalMoves: [][]int{{1, 0}, {0, 1}, {-1, 0}, {0, -1}},
+			Moved:      false,
 		},
 		"black_pawn_1": {
 			Name:       "black_pawn_1",
@@ -396,6 +404,7 @@ func MakePieces() map[string]board.Piece {
 			IsWhite:    false,
 			LegalMoves: [][]int{{1, 0}},
 			MovesOnce:  true,
+			Moved:      false,
 		},
 		"black_pawn_2": {
 			Name:       "black_pawn_2",
@@ -404,6 +413,7 @@ func MakePieces() map[string]board.Piece {
 			IsWhite:    false,
 			LegalMoves: [][]int{{1, 0}},
 			MovesOnce:  true,
+			Moved:      false,
 		},
 		"black_pawn_3": {
 			Name:       "black_pawn_3",
@@ -412,6 +422,7 @@ func MakePieces() map[string]board.Piece {
 			IsWhite:    false,
 			LegalMoves: [][]int{{1, 0}},
 			MovesOnce:  true,
+			Moved:      false,
 		},
 		"black_pawn_4": {
 			Name:       "black_pawn_4",
@@ -420,6 +431,7 @@ func MakePieces() map[string]board.Piece {
 			IsWhite:    false,
 			LegalMoves: [][]int{{1, 0}},
 			MovesOnce:  true,
+			Moved:      false,
 		},
 		"black_pawn_5": {
 			Name:       "black_pawn_5",
@@ -428,6 +440,7 @@ func MakePieces() map[string]board.Piece {
 			IsWhite:    false,
 			LegalMoves: [][]int{{1, 0}},
 			MovesOnce:  true,
+			Moved:      false,
 		},
 		"black_pawn_6": {
 			Name:       "black_pawn_6",
@@ -436,6 +449,7 @@ func MakePieces() map[string]board.Piece {
 			IsWhite:    false,
 			LegalMoves: [][]int{{1, 0}},
 			MovesOnce:  true,
+			Moved:      false,
 		},
 		"black_pawn_7": {
 			Name:       "black_pawn_7",
@@ -444,6 +458,7 @@ func MakePieces() map[string]board.Piece {
 			IsWhite:    false,
 			LegalMoves: [][]int{{1, 0}},
 			MovesOnce:  true,
+			Moved:      false,
 		},
 		"black_pawn_8": {
 			Name:       "black_pawn_8",
@@ -452,6 +467,7 @@ func MakePieces() map[string]board.Piece {
 			IsWhite:    false,
 			LegalMoves: [][]int{{1, 0}},
 			MovesOnce:  true,
+			Moved:      false,
 		},
 		"right_white_rook": {
 			Name:       "right_white_rook",
@@ -459,6 +475,7 @@ func MakePieces() map[string]board.Piece {
 			Tile:       "1a",
 			IsWhite:    true,
 			LegalMoves: [][]int{{1, 0}, {0, 1}, {-1, 0}, {0, -1}},
+			Moved:      false,
 		},
 		"right_white_knight": {
 			Name:       "right_white_knight",
@@ -467,6 +484,7 @@ func MakePieces() map[string]board.Piece {
 			IsWhite:    true,
 			LegalMoves: [][]int{{2, 1}, {2, -1}, {1, 2}, {1, -2}, {-1, 2}, {-1, -2}, {-2, 1}, {-2, -1}},
 			MovesOnce:  true,
+			Moved:      false,
 		},
 		"right_white_bishop": {
 			Name:       "right_white_bishop",
@@ -474,6 +492,7 @@ func MakePieces() map[string]board.Piece {
 			Tile:       "1c",
 			IsWhite:    true,
 			LegalMoves: [][]int{{1, 1}, {1, -1}, {-1, 1}, {-1, -1}},
+			Moved:      false,
 		},
 		"white_queen": {
 			Name:       "white_queen",
@@ -481,6 +500,7 @@ func MakePieces() map[string]board.Piece {
 			Tile:       "1d",
 			IsWhite:    true,
 			LegalMoves: [][]int{{1, 1}, {1, -1}, {-1, 1}, {-1, -1}, {1, 0}, {0, 1}, {-1, 0}, {0, -1}},
+			Moved:      false,
 		},
 		"white_king": {
 			Name:       "white_king",
@@ -489,6 +509,7 @@ func MakePieces() map[string]board.Piece {
 			IsWhite:    true,
 			LegalMoves: [][]int{{1, 1}, {1, -1}, {-1, 1}, {-1, -1}, {1, 0}, {0, 1}, {-1, 0}, {0, -1}},
 			MovesOnce:  true,
+			Moved:      false,
 		},
 		"left_white_bishop": {
 			Name:       "left_white_bishop",
@@ -496,6 +517,7 @@ func MakePieces() map[string]board.Piece {
 			Tile:       "1f",
 			IsWhite:    true,
 			LegalMoves: [][]int{{1, 1}, {1, -1}, {-1, 1}, {-1, -1}},
+			Moved:      false,
 		},
 		"left_white_knight": {
 			Name:       "left_white_knight",
@@ -504,6 +526,7 @@ func MakePieces() map[string]board.Piece {
 			IsWhite:    true,
 			LegalMoves: [][]int{{2, 1}, {2, -1}, {1, 2}, {1, -2}, {-1, 2}, {-1, -2}, {-2, 1}, {-2, -1}},
 			MovesOnce:  true,
+			Moved:      false,
 		},
 		"left_white_rook": {
 			Name:       "left_white_rook",
@@ -511,6 +534,7 @@ func MakePieces() map[string]board.Piece {
 			Tile:       "1h",
 			IsWhite:    true,
 			LegalMoves: [][]int{{1, 0}, {0, 1}, {-1, 0}, {0, -1}},
+			Moved:      false,
 		},
 		"white_pawn_1": {
 			Name:       "white_pawn_1",
@@ -519,6 +543,7 @@ func MakePieces() map[string]board.Piece {
 			IsWhite:    true,
 			LegalMoves: [][]int{{-1, 0}},
 			MovesOnce:  true,
+			Moved:      false,
 		},
 		"white_pawn_2": {
 			Name:       "white_pawn_2",
@@ -527,6 +552,7 @@ func MakePieces() map[string]board.Piece {
 			IsWhite:    true,
 			LegalMoves: [][]int{{-1, 0}},
 			MovesOnce:  true,
+			Moved:      false,
 		},
 		"white_pawn_3": {
 			Name:       "white_pawn_3",
@@ -535,6 +561,7 @@ func MakePieces() map[string]board.Piece {
 			IsWhite:    true,
 			LegalMoves: [][]int{{-1, 0}},
 			MovesOnce:  true,
+			Moved:      false,
 		},
 		"white_pawn_4": {
 			Name:       "white_pawn_4",
@@ -543,6 +570,7 @@ func MakePieces() map[string]board.Piece {
 			IsWhite:    true,
 			LegalMoves: [][]int{{-1, 0}},
 			MovesOnce:  true,
+			Moved:      false,
 		},
 		"white_pawn_5": {
 			Name:       "white_pawn_5",
@@ -551,6 +579,7 @@ func MakePieces() map[string]board.Piece {
 			IsWhite:    true,
 			LegalMoves: [][]int{{-1, 0}},
 			MovesOnce:  true,
+			Moved:      false,
 		},
 		"white_pawn_6": {
 			Name:       "white_pawn_6",
@@ -559,6 +588,7 @@ func MakePieces() map[string]board.Piece {
 			IsWhite:    true,
 			LegalMoves: [][]int{{-1, 0}},
 			MovesOnce:  true,
+			Moved:      false,
 		},
 		"white_pawn_7": {
 			Name:       "white_pawn_7",
@@ -567,6 +597,7 @@ func MakePieces() map[string]board.Piece {
 			IsWhite:    true,
 			LegalMoves: [][]int{{-1, 0}},
 			MovesOnce:  true,
+			Moved:      false,
 		},
 		"white_pawn_8": {
 			Name:       "white_pawn_8",
@@ -575,6 +606,7 @@ func MakePieces() map[string]board.Piece {
 			IsWhite:    true,
 			LegalMoves: [][]int{{-1, 0}},
 			MovesOnce:  true,
+			Moved:      false,
 		},
 	}
 	return pieces

@@ -21,19 +21,16 @@ func (cfg *apiConfig) boardHandler(w http.ResponseWriter, r *http.Request) {
 
 func (cfg *apiConfig) moveHandler(w http.ResponseWriter, r *http.Request) {
 	currentPieceName := r.Header.Get("Hx-Trigger")
-	canPlay := cfg.canPlay(currentPieceName)
-	if !canPlay {
-		w.WriteHeader(http.StatusNoContent)
-		return
-	}
 	currentPiece := cfg.pieces[currentPieceName]
+	canPlay := cfg.canPlay(currentPiece)
 	currentSquareName := currentPiece.Tile
 	currentSquare := cfg.board[currentSquareName]
 	selectedSquare := cfg.selectedPiece.Tile
+	selSq := cfg.board[selectedSquare]
 
 	legalMoves := cfg.checkLegalMoves()
 
-	if canEat(cfg.selectedPiece.Name, currentPieceName) && slices.Contains(legalMoves, currentSquareName) {
+	if canEat(cfg.selectedPiece, currentPiece) && slices.Contains(legalMoves, currentSquareName) {
 		fmt.Fprintf(w, `
 			<span id="%v" hx-post="/move" hx-swap-oob="true" hx-swap="outerHTML" class="w-[100px] h-[100px] hover:cursor-grab absolute transition-all" style="bottom: %vpx; left: %vpx">
 				<img src="/assets/pieces/%v.svg" />
@@ -46,16 +43,23 @@ func (cfg *apiConfig) moveHandler(w http.ResponseWriter, r *http.Request) {
 		)
 		delete(cfg.pieces, currentPieceName)
 		cfg.selectedPiece.Tile = currentSquareName
+		cfg.selectedPiece.Moved = true
 		cfg.pieces[cfg.selectedPiece.Name] = cfg.selectedPiece
 		currentSquare.Piece = cfg.selectedPiece
+		selSq.Piece = board.Piece{}
 		cfg.board[currentSquareName] = currentSquare
+		cfg.board[selectedSquare] = selSq
 		cfg.selectedPiece = board.Piece{}
 		cfg.isWhiteTurn = !cfg.isWhiteTurn
 		return
 	}
 
-	if selectedSquare != "" && selectedSquare != currentSquareName {
-		selSq := cfg.board[selectedSquare]
+	if !canPlay {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+
+	if selectedSquare != "" && selectedSquare != currentSquareName && samePiece(cfg.selectedPiece, currentPiece) {
 		fmt.Fprintf(w, `
 			<span id="%v" hx-post="/move" hx-swap-oob="true" hx-swap="outerHTML" class="w-[100px] h-[100px] hover:cursor-grab absolute transition-all" style="bottom: %vpx; left: %vpx">
 				<img src="/assets/pieces/%v.svg" class="bg-sky-300" />
@@ -132,6 +136,7 @@ func (cfg *apiConfig) moveToHandler(w http.ResponseWriter, r *http.Request) {
 		currentSquare.Selected = false
 		currentPiece := cfg.pieces[cfg.selectedPiece.Name]
 		currentPiece.Tile = currentSquareName
+		currentPiece.Moved = true
 		cfg.pieces[cfg.selectedPiece.Name] = currentPiece
 		currentSquare.Piece = currentPiece
 		cfg.selectedPiece = board.Piece{}
