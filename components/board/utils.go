@@ -6,17 +6,19 @@ var cols = [8]string{"a", "b", "c", "d", "e", "f", "g", "h"}
 var rows = [8]int{8, 7, 6, 5, 4, 3, 2, 1}
 
 type Square struct {
-	Piece       string
+	Piece       Piece
 	Selected    bool
 	Coordinates [2]int
 	Color       string
 }
 
 type Piece struct {
-	Name    string
-	Image   string
-	Tile    string
-	IsWhite bool
+	Name       string
+	Image      string
+	Tile       string
+	IsWhite    bool
+	LegalMoves [][]int
+	MovesOnce  bool
 }
 
 func genCol(color string) string {
