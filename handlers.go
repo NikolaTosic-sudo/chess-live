@@ -60,6 +60,17 @@ func (cfg *apiConfig) moveHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if selectedSquare != "" && selectedSquare != currentSquareName && samePiece(cfg.selectedPiece, currentPiece) {
+
+		isCastle := checkForCastle(cfg.board, cfg.selectedPiece, currentPiece)
+
+		if isCastle {
+			err := cfg.handleCastle(w, currentPiece)
+			if err != nil {
+				respondWithAnError(w, http.StatusInternalServerError, "error with handling castle", err)
+			}
+			return
+		}
+
 		fmt.Fprintf(w, `
 			<span id="%v" hx-post="/move" hx-swap-oob="true" hx-swap="outerHTML" class="w-[100px] h-[100px] hover:cursor-grab absolute transition-all" style="bottom: %vpx; left: %vpx">
 				<img src="/assets/pieces/%v.svg" class="bg-sky-300" />

@@ -1,6 +1,8 @@
 package main
 
 import (
+	"fmt"
+	"net/http"
 	"strings"
 
 	"github.com/NikolaTosic-sudo/chess-live/components/board"
@@ -15,6 +17,17 @@ var mockBoard = [][]string{
 	{"3a", "3b", "3c", "3d", "3e", "3f", "3g", "3h"},
 	{"2a", "2b", "2c", "2d", "2e", "2f", "2g", "2h"},
 	{"1a", "1b", "1c", "1d", "1e", "1f", "1g", "1h"},
+}
+
+var rowIdxMap = map[string]int{
+	"8": 0,
+	"7": 1,
+	"6": 2,
+	"5": 3,
+	"4": 4,
+	"3": 5,
+	"2": 6,
+	"1": 7,
 }
 
 func (cfg *apiConfig) canPlay(piece board.Piece) bool {
@@ -55,17 +68,6 @@ func (cfg *apiConfig) fillBoard() {
 }
 
 func (cfg *apiConfig) checkLegalMoves() []string {
-	rowIdxMap := map[string]int{
-		"8": 0,
-		"7": 1,
-		"6": 2,
-		"5": 3,
-		"4": 4,
-		"3": 5,
-		"2": 6,
-		"1": 7,
-	}
-
 	var startingPosition [2]int
 
 	var possibleMoves []string
@@ -192,4 +194,118 @@ func samePiece(selectedPiece, currentPiece board.Piece) bool {
 	}
 
 	return false
+}
+
+func checkForCastle(b map[string]board.Square, selectedPiece, currentPiece board.Piece) bool {
+
+	if (strings.Contains(selectedPiece.Name, "king") &&
+		strings.Contains(currentPiece.Name, "rook") ||
+		(strings.Contains(selectedPiece.Name, "rook") &&
+			strings.Contains(currentPiece.Name, "king"))) &&
+		!selectedPiece.Moved &&
+		!currentPiece.Moved {
+
+		var selectedStartingPosition [2]int
+		var currentStartingPosition [2]int
+
+		rowIdx := rowIdxMap[string(selectedPiece.Tile[0])]
+
+		for i := 0; i < len(mockBoard[rowIdx]); i++ {
+			if mockBoard[rowIdx][i] == selectedPiece.Tile {
+				selectedStartingPosition = [2]int{rowIdx, i}
+			}
+			if mockBoard[rowIdx][i] == currentPiece.Tile {
+				currentStartingPosition = [2]int{rowIdx, i}
+			}
+		}
+
+		if selectedStartingPosition[1] > currentStartingPosition[1] {
+			for i := range selectedStartingPosition[1] - currentStartingPosition[1] - 1 {
+				getSquare := mockBoard[selectedStartingPosition[0]][selectedStartingPosition[1]-i-1]
+				pieceOnSquare := b[getSquare]
+				if pieceOnSquare.Piece.Name != "" {
+					return false
+				}
+			}
+		}
+		if selectedStartingPosition[1] < currentStartingPosition[1] {
+			for i := range currentStartingPosition[1] - selectedStartingPosition[1] - 1 {
+				getSquare := mockBoard[selectedStartingPosition[0]][currentStartingPosition[1]-i-1]
+				pieceOnSquare := b[getSquare]
+				if pieceOnSquare.Piece.Name != "" {
+					return false
+				}
+			}
+		}
+
+		return true
+	}
+
+	return false
+}
+
+func (cfg *apiConfig) handleCastle(w http.ResponseWriter, currentPiece board.Piece) error {
+
+	var king board.Piece
+	var rook board.Piece
+
+	if strings.Contains(cfg.selectedPiece.Name, "king") {
+		king = cfg.selectedPiece
+		rook = currentPiece
+	} else {
+		king = currentPiece
+		rook = cfg.selectedPiece
+	}
+
+	kingSquare := cfg.board[king.Tile]
+	rookSquare := cfg.board[rook.Tile]
+
+	if kingSquare.Coordinates[1] < rookSquare.Coordinates[1] {
+		kC := kingSquare.Coordinates[1]
+		rookSquare.Coordinates[1] = kC + 100
+		kingSquare.Coordinates[1] = kC + 200
+	} else {
+		kC := kingSquare.Coordinates[1]
+		rookSquare.Coordinates[1] = kC - 100
+		kingSquare.Coordinates[1] = kC - 200
+	}
+
+	_, err := fmt.Fprintf(w, `
+			<span id="%v" hx-post="/move" hx-swap-oob="true" hx-swap="outerHTML" class="w-[100px] h-[100px] hover:cursor-grab absolute transition-all" style="bottom: %vpx; left: %vpx">
+				<img src="/assets/pieces/%v.svg" />
+			</span>
+
+			<span id="%v" hx-post="/move" hx-swap-oob="true" hx-swap="outerHTML" class="w-[100px] h-[100px] hover:cursor-grab absolute transition-all" style="bottom: %vpx; left: %vpx">
+				<img src="/assets/pieces/%v.svg" />
+			</span>
+		`,
+		king.Name,
+		kingSquare.Coordinates[0],
+		kingSquare.Coordinates[1],
+		king.Image,
+		rook.Name,
+		rookSquare.Coordinates[0],
+		rookSquare.Coordinates[1],
+		rook.Image,
+	)
+
+	if err != nil {
+		return err
+	}
+
+	rowIdx := rowIdxMap[string(king.Tile[0])]
+	king.Tile = mockBoard[rowIdx][kingSquare.Coordinates[1]/100]
+	rook.Tile = mockBoard[rowIdx][rookSquare.Coordinates[1]/100]
+	newKingSquare := cfg.board[king.Tile]
+	newRookSquare := cfg.board[rook.Tile]
+	newKingSquare.Piece = king
+	newRookSquare.Piece = rook
+	cfg.board[king.Tile] = newKingSquare
+	cfg.board[rook.Tile] = newRookSquare
+	cfg.pieces[king.Name] = king
+	cfg.pieces[rook.Name] = rook
+	cfg.selectedPiece = board.Piece{}
+	cfg.isWhiteTurn = !cfg.isWhiteTurn
+
+	return nil
 }
