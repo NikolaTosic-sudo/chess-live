@@ -309,3 +309,104 @@ func (cfg *apiConfig) handleCastle(w http.ResponseWriter, currentPiece board.Pie
 
 	return nil
 }
+
+func (cfg *apiConfig) handleCheckForCheck(currentSquareName string) (bool, board.Piece) {
+	var startingPosition [2]int
+
+	var king board.Piece
+	var pieceColor string
+
+	if currentSquareName != "" {
+		cfg.selectedPiece.Tile = currentSquareName
+		curSq := cfg.board[currentSquareName]
+		curSq.Piece = cfg.selectedPiece
+		cfg.board[currentSquareName] = curSq
+
+		var kingName string
+		if cfg.selectedPiece.IsWhite {
+			kingName = "white_king"
+			pieceColor = "white"
+		} else {
+			kingName = "black_king"
+			pieceColor = "black"
+		}
+
+		king = cfg.pieces[kingName]
+	} else {
+		var kingName string
+		if cfg.selectedPiece.IsWhite {
+			kingName = "black_king"
+			pieceColor = "black"
+		} else {
+			kingName = "white_king"
+			pieceColor = "white"
+		}
+		king = cfg.pieces[kingName]
+	}
+
+	rowIdx := rowIdxMap[string(king.Tile[0])]
+
+	for i := 0; i < len(mockBoard[rowIdx]); i++ {
+		if mockBoard[rowIdx][i] == king.Tile {
+			startingPosition = [2]int{rowIdx, i}
+			break
+		}
+	}
+
+	kingLegalMoves := [][]int{{1, 1}, {1, -1}, {-1, 1}, {-1, -1}, {1, 0}, {0, 1}, {-1, 0}, {0, -1}}
+
+	// isPawn := strings.Contains(cfg.selectedPiece.Name, "pawn")
+
+	// if isPawn {
+	// cfg.getPawnMoves(&possibleMoves, startingPosition, cfg.selectedPiece)
+	// } else {
+	for _, move := range kingLegalMoves {
+		check := cfg.checkCheck(startingPosition, move, pieceColor)
+		fmt.Println(check, "daleko chec")
+		if check {
+			fmt.Println("mora tu doci")
+			return true, king
+		}
+	}
+	// }
+
+	return false, king
+}
+
+func (cfg *apiConfig) checkCheck(startingPosition [2]int, move []int, pieceColor string) bool {
+	currentPosition := [2]int{startingPosition[0] + move[0], startingPosition[1] + move[1]}
+
+	if currentPosition[0] < 0 || currentPosition[1] < 0 {
+		return false
+	}
+
+	if currentPosition[0] >= len(mockBoard) || currentPosition[1] >= len(mockBoard[startingPosition[0]]) {
+		return false
+	}
+
+	currentTile := mockBoard[currentPosition[0]][currentPosition[1]]
+	pieceOnCurrentTile := cfg.board[currentTile].Piece
+
+	fmt.Println(pieceOnCurrentTile)
+	fmt.Println(pieceColor)
+
+	if pieceOnCurrentTile.Name != "" {
+		if strings.Contains(pieceOnCurrentTile.Name, pieceColor) {
+			return false
+		} else if !strings.Contains(pieceOnCurrentTile.Name, pieceColor) && !strings.Contains(cfg.selectedPiece.Name, "pawn") {
+			for _, mv := range pieceOnCurrentTile.LegalMoves {
+				fmt.Println("a odje")
+				fmt.Println(mv[0] == move[0], mv[1] == move[1])
+				if mv[0] == move[0] && mv[1] == move[1] {
+					fmt.Println("dodjem li odje")
+					return true
+				}
+			}
+			return false
+		}
+	}
+
+	check := cfg.checkCheck(currentPosition, move, pieceColor)
+
+	return check
+}

@@ -150,11 +150,36 @@ func (cfg *apiConfig) moveToHandler(w http.ResponseWriter, r *http.Request) {
 		currentPiece.Moved = true
 		cfg.pieces[cfg.selectedPiece.Name] = currentPiece
 		currentSquare.Piece = currentPiece
+
+		check, king := cfg.handleCheckForCheck("")
+		kingSquare := cfg.board[king.Tile]
+
+		fmt.Println(check)
+		fmt.Println(king)
+
+		if check {
+			_, err := fmt.Fprintf(w, `
+			<span id="%v" hx-post="/move" hx-swap-oob="true" hx-swap="outerHTML" class="w-[100px] h-[100px] hover:cursor-grab absolute transition-all" style="bottom: %vpx; left: %vpx">
+				<img src="/assets/pieces/%v.svg" class="bg-red-400" />
+			</span>
+		`,
+				king.Name,
+				kingSquare.Coordinates[0],
+				kingSquare.Coordinates[1],
+				king.Image,
+			)
+
+			if err != nil {
+				fmt.Println(err)
+			}
+		}
+
 		cfg.selectedPiece = board.Piece{}
 		selSeq.Piece = cfg.selectedPiece
 		cfg.board[selectedSquare] = selSeq
 		cfg.board[currentSquareName] = currentSquare
 		cfg.isWhiteTurn = !cfg.isWhiteTurn
+
 		return
 	}
 
