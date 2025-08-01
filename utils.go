@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"net/http"
+	"slices"
 	"strings"
 
 	"github.com/NikolaTosic-sudo/chess-live/components/board"
@@ -310,20 +311,27 @@ func (cfg *apiConfig) handleCastle(w http.ResponseWriter, currentPiece board.Pie
 	return nil
 }
 
-func (cfg *apiConfig) handleCheckForCheck(currentSquareName string) (bool, board.Piece) {
+func (cfg *apiConfig) handleCheckForCheck(currentSquareName string, selectedPiece board.Piece) (bool, board.Piece, []string) {
 	var startingPosition [2]int
 
 	var king board.Piece
 	var pieceColor string
 
+	savedStartingTile := selectedPiece.Tile
+	savedStartSqua := cfg.board[savedStartingTile]
+	saved := cfg.board[currentSquareName]
+
 	if currentSquareName != "" {
-		cfg.selectedPiece.Tile = currentSquareName
+		startingSquare := cfg.board[selectedPiece.Tile]
+		startingSquare.Piece = board.Piece{}
+		cfg.board[selectedPiece.Tile] = startingSquare
+		selectedPiece.Tile = currentSquareName
 		curSq := cfg.board[currentSquareName]
-		curSq.Piece = cfg.selectedPiece
+		curSq.Piece = selectedPiece
 		cfg.board[currentSquareName] = curSq
 
 		var kingName string
-		if cfg.selectedPiece.IsWhite {
+		if selectedPiece.IsWhite {
 			kingName = "white_king"
 			pieceColor = "white"
 		} else {
@@ -334,7 +342,7 @@ func (cfg *apiConfig) handleCheckForCheck(currentSquareName string) (bool, board
 		king = cfg.pieces[kingName]
 	} else {
 		var kingName string
-		if cfg.selectedPiece.IsWhite {
+		if selectedPiece.IsWhite {
 			kingName = "black_king"
 			pieceColor = "black"
 		} else {
@@ -353,27 +361,47 @@ func (cfg *apiConfig) handleCheckForCheck(currentSquareName string) (bool, board
 		}
 	}
 
-	kingLegalMoves := [][]int{{1, 1}, {1, -1}, {-1, 1}, {-1, -1}, {1, 0}, {0, 1}, {-1, 0}, {0, -1}}
+	kingLegalMoves := [][]int{{1, 1}, {1, -1}, {-1, 1}, {-1, -1}, {1, 0}, {0, 1}, {-1, 0}, {0, -1}, {2, 1}, {2, -1}, {1, 2}, {1, -2}, {-1, 2}, {-1, -2}, {-2, 1}, {-2, -1}}
 
-	// isPawn := strings.Contains(cfg.selectedPiece.Name, "pawn")
-
+	// isPawn := strings.Contains(selectedPiece.Name, "pawn")
 	// if isPawn {
-	// cfg.getPawnMoves(&possibleMoves, startingPosition, cfg.selectedPiece)
+	// cfg.getPawnMoves(&possibleMoves, startingPosition, selectedPiece)
 	// } else {
+
+	var tilesComb []string
+
+	var check bool
+
 	for _, move := range kingLegalMoves {
-		check := cfg.checkCheck(startingPosition, move, pieceColor)
-		fmt.Println(check, "daleko chec")
-		if check {
-			fmt.Println("mora tu doci")
-			return true, king
+		var tilesUnderCheck []string
+		checkInFor := cfg.checkCheck(&tilesUnderCheck, startingPosition, startingPosition, move, pieceColor)
+		if checkInFor {
+			check = true
+			if len(tilesComb) == 0 {
+				tilesComb = tilesUnderCheck
+			} else {
+				var tc []string
+				for _, t := range tilesUnderCheck {
+					if slices.Contains(tilesComb, t) {
+						tc = append(tc, t)
+					}
+				}
+				tilesComb = tc
+			}
 		}
 	}
-	// }
 
-	return false, king
+	if check {
+		cfg.board[savedStartingTile] = savedStartSqua
+		cfg.board[currentSquareName] = saved
+
+		return check, king, tilesComb
+	}
+
+	return false, king, []string{}
 }
 
-func (cfg *apiConfig) checkCheck(startingPosition [2]int, move []int, pieceColor string) bool {
+func (cfg *apiConfig) checkCheck(tilesUnderCheck *[]string, startingPosition, startPosCompare [2]int, move []int, pieceColor string) bool {
 	currentPosition := [2]int{startingPosition[0] + move[0], startingPosition[1] + move[1]}
 
 	if currentPosition[0] < 0 || currentPosition[1] < 0 {
@@ -387,18 +415,29 @@ func (cfg *apiConfig) checkCheck(startingPosition [2]int, move []int, pieceColor
 	currentTile := mockBoard[currentPosition[0]][currentPosition[1]]
 	pieceOnCurrentTile := cfg.board[currentTile].Piece
 
-	fmt.Println(pieceOnCurrentTile)
-	fmt.Println(pieceColor)
-
 	if pieceOnCurrentTile.Name != "" {
 		if strings.Contains(pieceOnCurrentTile.Name, pieceColor) {
 			return false
-		} else if !strings.Contains(pieceOnCurrentTile.Name, pieceColor) && !strings.Contains(cfg.selectedPiece.Name, "pawn") {
+		} else if !strings.Contains(pieceOnCurrentTile.Name, pieceColor) &&
+			strings.Contains(pieceOnCurrentTile.Name, "knight") {
+			if startPosCompare[0] == startingPosition[0] && startPosCompare[1] == startingPosition[1] {
+				*tilesUnderCheck = append(*tilesUnderCheck, currentTile)
+				return true
+			} else {
+				return false
+			}
+		} else if !strings.Contains(pieceOnCurrentTile.Name, pieceColor) &&
+			strings.Contains(pieceOnCurrentTile.Name, "pawn") {
+			if (move[0] == 1 || move[0] == -1) && startPosCompare[0] == startingPosition[0] && startPosCompare[1] == startingPosition[1] {
+				*tilesUnderCheck = append(*tilesUnderCheck, currentTile)
+				return true
+			} else {
+				return false
+			}
+		} else if !strings.Contains(pieceOnCurrentTile.Name, pieceColor) {
 			for _, mv := range pieceOnCurrentTile.LegalMoves {
-				fmt.Println("a odje")
-				fmt.Println(mv[0] == move[0], mv[1] == move[1])
 				if mv[0] == move[0] && mv[1] == move[1] {
-					fmt.Println("dodjem li odje")
+					*tilesUnderCheck = append(*tilesUnderCheck, currentTile)
 					return true
 				}
 			}
@@ -406,7 +445,10 @@ func (cfg *apiConfig) checkCheck(startingPosition [2]int, move []int, pieceColor
 		}
 	}
 
-	check := cfg.checkCheck(currentPosition, move, pieceColor)
+	check := cfg.checkCheck(tilesUnderCheck, currentPosition, startPosCompare, move, pieceColor)
+	if check {
+		*tilesUnderCheck = append(*tilesUnderCheck, currentTile)
+	}
 
 	return check
 }
