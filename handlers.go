@@ -33,7 +33,7 @@ func (cfg *apiConfig) moveHandler(w http.ResponseWriter, r *http.Request) {
 
 	if canEat(cfg.selectedPiece, currentPiece) && slices.Contains(legalMoves, currentSquareName) {
 		var kingCheck bool
-		if strings.Contains(cfg.selectedPiece.Name, "king") {
+		if cfg.selectedPiece.IsKing {
 			kingCheck = cfg.handleChecksWhenKingMoves(currentSquareName)
 		} else if cfg.isWhiteTurn && cfg.isWhiteUnderCheck && !slices.Contains(cfg.tilesUnderAttack, currentSquareName) {
 			w.WriteHeader(http.StatusNoContent)
@@ -44,7 +44,7 @@ func (cfg *apiConfig) moveHandler(w http.ResponseWriter, r *http.Request) {
 		}
 
 		var check bool
-		if !strings.Contains(cfg.selectedPiece.Name, "king") {
+		if !cfg.selectedPiece.IsKing {
 			check, _, _ = cfg.handleCheckForCheck(currentSquareName, cfg.selectedPiece)
 		}
 
@@ -235,7 +235,7 @@ func (cfg *apiConfig) moveHandler(w http.ResponseWriter, r *http.Request) {
 
 	if currentSquare.Selected {
 		currentSquare.Selected = false
-		selectedPieceName := cfg.selectedPiece.Name
+		isKing := cfg.selectedPiece.IsKing
 		cfg.selectedPiece = board.Piece{}
 		cfg.board[currentSquareName] = currentSquare
 		var kingsName string
@@ -244,7 +244,7 @@ func (cfg *apiConfig) moveHandler(w http.ResponseWriter, r *http.Request) {
 		} else if !cfg.isWhiteTurn && cfg.isBlackUnderCheck {
 			kingsName = "black_king"
 		}
-		if kingsName != "" && strings.Contains(selectedPieceName, "king") {
+		if kingsName != "" && isKing {
 			fmt.Fprintf(w, `
 			<span id="%v" hx-post="/move" hx-swap-oob="true" hx-swap="outerHTML" class="w-[100px] h-[100px] hover:cursor-grab absolute transition-all" style="bottom: %vpx; left: %vpx">
 				<img src="/assets/pieces/%v.svg" class="bg-red-400" />
@@ -277,19 +277,10 @@ func (cfg *apiConfig) moveToHandler(w http.ResponseWriter, r *http.Request) {
 	selectedSquare := cfg.selectedPiece.Tile
 	selSeq := cfg.board[selectedSquare]
 
-	// TODO: Ne znam treba li mi ovo, ako iskoci bug tu je
-	// if cfg.isWhiteTurn && cfg.isWhiteUnderCheck {
-	// 	w.WriteHeader(http.StatusNoContent)
-	// 	return
-	// } else if !cfg.isWhiteTurn && cfg.isBlackUnderCheck {
-	// 	w.WriteHeader(http.StatusNoContent)
-	// 	return
-	// }
-
 	legalMoves := cfg.checkLegalMoves()
 
 	var kingCheck bool
-	if strings.Contains(cfg.selectedPiece.Name, "king") && slices.Contains(legalMoves, currentSquareName) {
+	if cfg.selectedPiece.IsKing && slices.Contains(legalMoves, currentSquareName) {
 		kingCheck = cfg.handleChecksWhenKingMoves(currentSquareName)
 	} else if !slices.Contains(legalMoves, currentSquareName) {
 		w.WriteHeader(http.StatusNoContent)
@@ -297,7 +288,7 @@ func (cfg *apiConfig) moveToHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var check bool
-	if !strings.Contains(cfg.selectedPiece.Name, "king") {
+	if !cfg.selectedPiece.IsKing {
 		check, _, _ = cfg.handleCheckForCheck(currentSquareName, cfg.selectedPiece)
 	}
 
@@ -416,7 +407,7 @@ func (cfg *apiConfig) coverCheckHandler(w http.ResponseWriter, r *http.Request) 
 	}
 	var check bool
 	var kingCheck bool
-	if strings.Contains(cfg.selectedPiece.Name, "king") {
+	if cfg.selectedPiece.IsKing {
 		kingCheck = cfg.handleChecksWhenKingMoves(currentSquareName)
 	} else {
 		check, _, _ = cfg.handleCheckForCheck(currentSquareName, cfg.selectedPiece)

@@ -371,6 +371,7 @@ func MakePieces() map[string]board.Piece {
 			LegalMoves: [][]int{{1, 1}, {1, -1}, {-1, 1}, {-1, -1}, {1, 0}, {0, 1}, {-1, 0}, {0, -1}},
 			Moved:      false,
 			MovesOnce:  true,
+			IsKing:     true,
 		},
 		"left_black_bishop": {
 			Name:       "left_black_bishop",
@@ -405,6 +406,7 @@ func MakePieces() map[string]board.Piece {
 			LegalMoves: [][]int{{1, 0}},
 			MovesOnce:  true,
 			Moved:      false,
+			IsPawn:     true,
 		},
 		"black_pawn_2": {
 			Name:       "black_pawn_2",
@@ -414,6 +416,7 @@ func MakePieces() map[string]board.Piece {
 			LegalMoves: [][]int{{1, 0}},
 			MovesOnce:  true,
 			Moved:      false,
+			IsPawn:     true,
 		},
 		"black_pawn_3": {
 			Name:       "black_pawn_3",
@@ -423,6 +426,7 @@ func MakePieces() map[string]board.Piece {
 			LegalMoves: [][]int{{1, 0}},
 			MovesOnce:  true,
 			Moved:      false,
+			IsPawn:     true,
 		},
 		"black_pawn_4": {
 			Name:       "black_pawn_4",
@@ -432,6 +436,7 @@ func MakePieces() map[string]board.Piece {
 			LegalMoves: [][]int{{1, 0}},
 			MovesOnce:  true,
 			Moved:      false,
+			IsPawn:     true,
 		},
 		"black_pawn_5": {
 			Name:       "black_pawn_5",
@@ -441,6 +446,7 @@ func MakePieces() map[string]board.Piece {
 			LegalMoves: [][]int{{1, 0}},
 			MovesOnce:  true,
 			Moved:      false,
+			IsPawn:     true,
 		},
 		"black_pawn_6": {
 			Name:       "black_pawn_6",
@@ -450,6 +456,7 @@ func MakePieces() map[string]board.Piece {
 			LegalMoves: [][]int{{1, 0}},
 			MovesOnce:  true,
 			Moved:      false,
+			IsPawn:     true,
 		},
 		"black_pawn_7": {
 			Name:       "black_pawn_7",
@@ -459,6 +466,7 @@ func MakePieces() map[string]board.Piece {
 			LegalMoves: [][]int{{1, 0}},
 			MovesOnce:  true,
 			Moved:      false,
+			IsPawn:     true,
 		},
 		"black_pawn_8": {
 			Name:       "black_pawn_8",
@@ -468,6 +476,7 @@ func MakePieces() map[string]board.Piece {
 			LegalMoves: [][]int{{1, 0}},
 			MovesOnce:  true,
 			Moved:      false,
+			IsPawn:     true,
 		},
 		"right_white_rook": {
 			Name:       "right_white_rook",
@@ -510,6 +519,7 @@ func MakePieces() map[string]board.Piece {
 			LegalMoves: [][]int{{1, 1}, {1, -1}, {-1, 1}, {-1, -1}, {1, 0}, {0, 1}, {-1, 0}, {0, -1}},
 			MovesOnce:  true,
 			Moved:      false,
+			IsKing:     true,
 		},
 		"left_white_bishop": {
 			Name:       "left_white_bishop",
@@ -544,6 +554,7 @@ func MakePieces() map[string]board.Piece {
 			LegalMoves: [][]int{{-1, 0}},
 			MovesOnce:  true,
 			Moved:      false,
+			IsPawn:     true,
 		},
 		"white_pawn_2": {
 			Name:       "white_pawn_2",
@@ -553,6 +564,7 @@ func MakePieces() map[string]board.Piece {
 			LegalMoves: [][]int{{-1, 0}},
 			MovesOnce:  true,
 			Moved:      false,
+			IsPawn:     true,
 		},
 		"white_pawn_3": {
 			Name:       "white_pawn_3",
@@ -562,6 +574,7 @@ func MakePieces() map[string]board.Piece {
 			LegalMoves: [][]int{{-1, 0}},
 			MovesOnce:  true,
 			Moved:      false,
+			IsPawn:     true,
 		},
 		"white_pawn_4": {
 			Name:       "white_pawn_4",
@@ -571,6 +584,7 @@ func MakePieces() map[string]board.Piece {
 			LegalMoves: [][]int{{-1, 0}},
 			MovesOnce:  true,
 			Moved:      false,
+			IsPawn:     true,
 		},
 		"white_pawn_5": {
 			Name:       "white_pawn_5",
@@ -580,6 +594,7 @@ func MakePieces() map[string]board.Piece {
 			LegalMoves: [][]int{{-1, 0}},
 			MovesOnce:  true,
 			Moved:      false,
+			IsPawn:     true,
 		},
 		"white_pawn_6": {
 			Name:       "white_pawn_6",
@@ -589,6 +604,7 @@ func MakePieces() map[string]board.Piece {
 			LegalMoves: [][]int{{-1, 0}},
 			MovesOnce:  true,
 			Moved:      false,
+			IsPawn:     true,
 		},
 		"white_pawn_7": {
 			Name:       "white_pawn_7",
@@ -598,6 +614,7 @@ func MakePieces() map[string]board.Piece {
 			LegalMoves: [][]int{{-1, 0}},
 			MovesOnce:  true,
 			Moved:      false,
+			IsPawn:     true,
 		},
 		"white_pawn_8": {
 			Name:       "white_pawn_8",
@@ -607,6 +624,7 @@ func MakePieces() map[string]board.Piece {
 			LegalMoves: [][]int{{-1, 0}},
 			MovesOnce:  true,
 			Moved:      false,
+			IsPawn:     true,
 		},
 	}
 	return pieces

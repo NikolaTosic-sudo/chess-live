@@ -20,6 +20,8 @@ type Piece struct {
 	LegalMoves [][]int
 	MovesOnce  bool
 	Moved      bool
+	IsKing     bool
+	IsPawn     bool
 }
 
 func genCol(color string) string {
