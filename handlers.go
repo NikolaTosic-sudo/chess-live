@@ -214,7 +214,6 @@ func (cfg *apiConfig) moveToHandler(w http.ResponseWriter, r *http.Request) {
 	currentSquareName := r.Header.Get("Hx-Trigger")
 	currentSquare := cfg.board[currentSquareName]
 	selectedSquare := cfg.selectedPiece.Tile
-	selSeq := cfg.board[selectedSquare]
 
 	legalMoves := cfg.checkLegalMoves()
 
@@ -251,17 +250,8 @@ func (cfg *apiConfig) moveToHandler(w http.ResponseWriter, r *http.Request) {
 			currentSquare.Coordinates[1],
 			cfg.selectedPiece.Image,
 		)
-		currentSquare.Selected = false
-		currentPiece := cfg.pieces[cfg.selectedPiece.Name]
-		currentPiece.Tile = currentSquareName
-		currentPiece.Moved = true
-		cfg.pieces[cfg.selectedPiece.Name] = currentPiece
-		currentSquare.Piece = currentPiece
 		saveSelected := cfg.selectedPiece
-		cfg.selectedPiece = board.Piece{}
-		selSeq.Piece = cfg.selectedPiece
-		cfg.board[selectedSquare] = selSeq
-		cfg.board[currentSquareName] = currentSquare
+		bigCleanup(currentSquareName, cfg)
 
 		noCheck := handleIfCheck(w, cfg, saveSelected)
 		if noCheck {
@@ -281,7 +271,6 @@ func (cfg *apiConfig) coverCheckHandler(w http.ResponseWriter, r *http.Request) 
 	currentSquareName := r.Header.Get("Hx-Trigger")
 	currentSquare := cfg.board[currentSquareName]
 	selectedSquare := cfg.selectedPiece.Tile
-	selSeq := cfg.board[selectedSquare]
 
 	legalMoves := cfg.checkLegalMoves()
 
@@ -335,17 +324,8 @@ func (cfg *apiConfig) coverCheckHandler(w http.ResponseWriter, r *http.Request) 
 			currentSquare.Coordinates[1],
 			cfg.selectedPiece.Image,
 		)
-		currentSquare.Selected = false
-		currentPiece := cfg.pieces[cfg.selectedPiece.Name]
-		currentPiece.Tile = currentSquareName
-		currentPiece.Moved = true
-		cfg.pieces[cfg.selectedPiece.Name] = currentPiece
-		currentSquare.Piece = currentPiece
 		saveSelected := cfg.selectedPiece
-		cfg.selectedPiece = board.Piece{}
-		selSeq.Piece = cfg.selectedPiece
-		cfg.board[selectedSquare] = selSeq
-		cfg.board[currentSquareName] = currentSquare
+		bigCleanup(currentSquareName, cfg)
 
 		for _, tile := range cfg.tilesUnderAttack {
 			t := cfg.board[tile]
