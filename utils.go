@@ -107,6 +107,7 @@ func (cfg *apiConfig) checkLegalMoves() []string {
 	return possibleMoves
 }
 
+// TODO: IMPLEMENT EN PESSANT
 func (cfg *apiConfig) getPawnMoves(possible *[]string, startingPosition [2]int, piece board.Piece) {
 	var moveIndex int
 	if piece.IsWhite {
@@ -322,6 +323,7 @@ func (cfg *apiConfig) handleCastle(w http.ResponseWriter, currentPiece board.Pie
 	cfg.pieces[rook.Name] = rook
 	cfg.selectedPiece = board.Piece{}
 	cfg.isWhiteTurn = !cfg.isWhiteTurn
+	go cfg.gameDone()
 
 	return nil
 }
@@ -478,7 +480,6 @@ func (cfg *apiConfig) checkCheck(tilesUnderCheck *[]string, startingPosition, st
 	return check
 }
 
-// TODO: IMPLEMENT AFTER KING MOVES ---- DISCOVERED CHECK
 func (cfg *apiConfig) handleChecksWhenKingMoves(currentSquareName string) bool {
 	var kingPosition [2]int
 	var king board.Piece
@@ -591,9 +592,33 @@ func (cfg *apiConfig) gameDone() {
 			}
 			fmt.Println("checkmate")
 		} else if cfg.isWhiteTurn {
-			return
+			for _, piece := range cfg.pieces {
+				if strings.Contains(piece.Name, "white") && !strings.Contains(piece.Name, "king") {
+					savePiece := cfg.selectedPiece
+					cfg.selectedPiece = piece
+					legalMoves := cfg.checkLegalMoves()
+					cfg.selectedPiece = savePiece
+
+					if len(legalMoves) > 0 {
+						return
+					}
+				}
+			}
+			fmt.Println("stalemate")
 		} else if !cfg.isWhiteTurn {
-			return
+			for _, piece := range cfg.pieces {
+				if strings.Contains(piece.Name, "white") && !strings.Contains(piece.Name, "king") {
+					savePiece := cfg.selectedPiece
+					cfg.selectedPiece = piece
+					legalMoves := cfg.checkLegalMoves()
+					cfg.selectedPiece = savePiece
+
+					if len(legalMoves) > 0 {
+						return
+					}
+				}
+			}
+			fmt.Println("stalemate")
 		}
 	} else {
 		fmt.Println("you are good")

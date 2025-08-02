@@ -73,7 +73,9 @@ func (cfg *apiConfig) moveHandler(w http.ResponseWriter, r *http.Request) {
 		cfg.board[selectedSquare] = selSq
 		saveSelected := cfg.selectedPiece
 		cfg.selectedPiece = board.Piece{}
+
 		cfg.isWhiteTurn = !cfg.isWhiteTurn
+		go cfg.gameDone()
 
 		check, king, tilesUnderAttack := cfg.handleCheckForCheck("", saveSelected)
 		kingSquare := cfg.board[king.Tile]
@@ -560,6 +562,7 @@ func (cfg *apiConfig) coverCheckHandler(w http.ResponseWriter, r *http.Request) 
 		}
 
 		cfg.isWhiteTurn = !cfg.isWhiteTurn
+		go cfg.gameDone()
 
 		return
 	}
