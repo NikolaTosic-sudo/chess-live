@@ -381,10 +381,11 @@ func (cfg *apiConfig) moveToHandler(w http.ResponseWriter, r *http.Request) {
 					}
 				}
 			}
+		} else {
+			cfg.isWhiteUnderCheck = false
+			cfg.isBlackUnderCheck = false
 		}
 
-		cfg.isWhiteUnderCheck = false
-		cfg.isBlackUnderCheck = false
 		cfg.isWhiteTurn = !cfg.isWhiteTurn
 		go cfg.gameDone()
 
@@ -550,10 +551,10 @@ func (cfg *apiConfig) coverCheckHandler(w http.ResponseWriter, r *http.Request) 
 					}
 				}
 			}
+		} else {
+			cfg.isWhiteUnderCheck = false
+			cfg.isBlackUnderCheck = false
 		}
-
-		cfg.isWhiteUnderCheck = false
-		cfg.isBlackUnderCheck = false
 
 		cfg.isWhiteTurn = !cfg.isWhiteTurn
 		go cfg.gameDone()
