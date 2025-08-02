@@ -151,7 +151,10 @@ func (cfg *apiConfig) getPawnMoves(possible *[]string, startingPosition [2]int, 
 
 	if !piece.Moved {
 		tile := mockBoard[currentPosition[0]+moveIndex][currentPosition[1]]
-		*possible = append(*possible, tile)
+		pT := cfg.board[tile].Piece
+		if pT.Name != "" {
+			*possible = append(*possible, currentTile)
+		}
 	}
 }
 
@@ -433,11 +436,11 @@ func (cfg *apiConfig) checkCheck(tilesUnderCheck *[]string, startingPosition, st
 			return false
 		} else if !strings.Contains(pieceOnCurrentTile.Name, pieceColor) &&
 			strings.Contains(pieceOnCurrentTile.Name, "knight") {
-			if startPosCompare[0] == startingPosition[0] && startPosCompare[1] == startingPosition[1] {
-				*tilesUnderCheck = append(*tilesUnderCheck, currentTile)
-				return true
-			} else {
-				return false
+			for _, mv := range pieceOnCurrentTile.LegalMoves {
+				if (mv[0] == move[0] && mv[1] == move[1]) && startPosCompare[0] == startingPosition[0] && startPosCompare[1] == startingPosition[1] {
+					*tilesUnderCheck = append(*tilesUnderCheck, currentTile)
+					return true
+				}
 			}
 		} else if !strings.Contains(pieceOnCurrentTile.Name, pieceColor) &&
 			strings.Contains(pieceOnCurrentTile.Name, "pawn") {
@@ -475,6 +478,7 @@ func (cfg *apiConfig) checkCheck(tilesUnderCheck *[]string, startingPosition, st
 	return check
 }
 
+// TODO: IMPLEMENT AFTER KING MOVES ---- DISCOVERED CHECK
 func (cfg *apiConfig) handleChecksWhenKingMoves(currentSquareName string) bool {
 	var kingPosition [2]int
 	var king board.Piece
@@ -521,5 +525,78 @@ func (cfg *apiConfig) handleChecksWhenKingMoves(currentSquareName string) bool {
 		}
 	}
 
+	cfg.board[savedStartingTile] = savedStartSqua
+	cfg.board[currentSquareName] = saved
+	king.Tile = savedStartingTile
+
 	return false
+}
+
+func (cfg *apiConfig) gameDone() {
+
+	var king board.Piece
+	if cfg.isWhiteTurn {
+		king = cfg.pieces["white_king"]
+	} else {
+		king = cfg.pieces["black_king"]
+	}
+
+	savePiece := cfg.selectedPiece
+	cfg.selectedPiece = king
+
+	legalMoves := cfg.checkLegalMoves()
+
+	cfg.selectedPiece = savePiece
+	var checkCount []bool
+
+	for _, move := range legalMoves {
+		if cfg.handleChecksWhenKingMoves(move) {
+			checkCount = append(checkCount, true)
+		}
+	}
+
+	if len(legalMoves) == len(checkCount) {
+		if cfg.isWhiteTurn && cfg.isWhiteUnderCheck {
+			for _, piece := range cfg.pieces {
+				if strings.Contains(piece.Name, "white") && !strings.Contains(piece.Name, "king") {
+					savePiece := cfg.selectedPiece
+					cfg.selectedPiece = piece
+					legalMoves := cfg.checkLegalMoves()
+					cfg.selectedPiece = savePiece
+
+					for _, move := range legalMoves {
+						if slices.Contains(cfg.tilesUnderAttack, move) {
+							return
+						}
+					}
+				}
+			}
+			fmt.Println("checkmate")
+		} else if !cfg.isWhiteTurn && cfg.isBlackUnderCheck {
+			for _, piece := range cfg.pieces {
+				if strings.Contains(piece.Name, "black") && !strings.Contains(piece.Name, "king") {
+					savePiece := cfg.selectedPiece
+					cfg.selectedPiece = piece
+					legalMoves := cfg.checkLegalMoves()
+					cfg.selectedPiece = savePiece
+
+					for _, move := range legalMoves {
+						if slices.Contains(cfg.tilesUnderAttack, move) {
+							fmt.Println(piece)
+							fmt.Println(legalMoves)
+							return
+						}
+					}
+				}
+			}
+			fmt.Println("checkmate")
+		} else if cfg.isWhiteTurn {
+			return
+		} else if !cfg.isWhiteTurn {
+			return
+		}
+	} else {
+		fmt.Println("you are good")
+		return
+	}
 }
