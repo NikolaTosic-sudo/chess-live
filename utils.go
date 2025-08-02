@@ -629,3 +629,64 @@ func (cfg *apiConfig) gameDone() {
 		return
 	}
 }
+
+func setUserCheck(king board.Piece, cfg *apiConfig) {
+	if king.IsWhite {
+		cfg.isWhiteUnderCheck = true
+	} else {
+		cfg.isBlackUnderCheck = true
+	}
+}
+
+func handleIfCheck(w http.ResponseWriter, cfg *apiConfig, selected board.Piece) bool {
+	check, king, tilesUnderAttack := cfg.handleCheckForCheck("", selected)
+	kingSquare := cfg.board[king.Tile]
+
+	if check {
+		setUserCheck(king, cfg)
+		err := respondWithCheck(w, kingSquare, king)
+
+		if err != nil {
+			fmt.Println(err)
+		}
+
+		cfg.tilesUnderAttack = tilesUnderAttack
+
+		for _, tile := range tilesUnderAttack {
+			t := cfg.board[tile]
+
+			if t.Piece.Name != "" {
+				err := respondWithNewPiece(w, t)
+
+				if err != nil {
+					fmt.Println(err)
+				}
+			} else {
+				err := respondWithCoverCheck(w, tile, t)
+
+				if err != nil {
+					fmt.Println(err)
+				}
+			}
+		}
+		return false
+	}
+
+	return true
+}
+
+func bigCleanup(currentSquareName string, cfg *apiConfig) {
+	currentSquare := cfg.board[currentSquareName]
+	selectedSquare := cfg.selectedPiece.Tile
+	currentSquare.Selected = false
+	currentPiece := cfg.pieces[cfg.selectedPiece.Name]
+	currentPiece.Tile = currentSquareName
+	currentPiece.Moved = true
+	cfg.pieces[cfg.selectedPiece.Name] = currentPiece
+	currentSquare.Piece = currentPiece
+	cfg.selectedPiece = board.Piece{}
+	selSeq := cfg.board[selectedSquare]
+	selSeq.Piece = cfg.selectedPiece
+	cfg.board[selectedSquare] = selSeq
+	cfg.board[currentSquareName] = currentSquare
+}

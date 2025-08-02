@@ -77,64 +77,8 @@ func (cfg *apiConfig) moveHandler(w http.ResponseWriter, r *http.Request) {
 		cfg.isWhiteTurn = !cfg.isWhiteTurn
 		go cfg.gameDone()
 
-		check, king, tilesUnderAttack := cfg.handleCheckForCheck("", saveSelected)
-		kingSquare := cfg.board[king.Tile]
-
-		if check {
-			if king.IsWhite {
-				cfg.isWhiteUnderCheck = true
-			} else {
-				cfg.isBlackUnderCheck = true
-			}
-			_, err := fmt.Fprintf(w, `
-			<span id="%v" hx-post="/move" hx-swap-oob="true" hx-swap="outerHTML" class="w-[100px] h-[100px] hover:cursor-grab absolute transition-all" style="bottom: %vpx; left: %vpx">
-				<img src="/assets/pieces/%v.svg" class="bg-red-400 " />
-			</span>
-		`,
-				king.Name,
-				kingSquare.Coordinates[0],
-				kingSquare.Coordinates[1],
-				king.Image,
-			)
-
-			if err != nil {
-				fmt.Println(err)
-			}
-
-			cfg.tilesUnderAttack = tilesUnderAttack
-
-			for _, tile := range tilesUnderAttack {
-				t := cfg.board[tile]
-
-				if t.Piece.Name != "" {
-					_, err := fmt.Fprintf(w, `
-					<span id="%v" hx-post="/move" hx-swap-oob="true" hx-swap="outerHTML" class="w-[100px] h-[100px] hover:cursor-grab absolute transition-all" style="bottom: %vpx; left: %vpx">
-						<img src="/assets/pieces/%v.svg" />
-					</span>
-				`,
-						t.Piece.Name,
-						t.Coordinates[0],
-						t.Coordinates[1],
-						t.Piece.Image,
-					)
-
-					if err != nil {
-						fmt.Println(err)
-					}
-				} else {
-					_, err := fmt.Fprintf(w, `
-						<div id="%v" hx-post="/cover-check" hx-swap-oob="true" class="max-w-[100px] max-h-[100px] h-full w-full" style="background-color: %v"></div>
-				`,
-						tile,
-						t.Color,
-					)
-
-					if err != nil {
-						fmt.Println(err)
-					}
-				}
-			}
-		} else {
+		noCheck := handleIfCheck(w, cfg, saveSelected)
+		if noCheck {
 			var kingName string
 			if cfg.isWhiteUnderCheck {
 				kingName = "white_king"
@@ -183,6 +127,7 @@ func (cfg *apiConfig) moveHandler(w http.ResponseWriter, r *http.Request) {
 		}
 
 		var kingsName string
+		var className string
 		if cfg.isWhiteTurn && cfg.isWhiteUnderCheck {
 			kingsName = "white_king"
 		} else if !cfg.isWhiteTurn && cfg.isBlackUnderCheck {
@@ -190,43 +135,31 @@ func (cfg *apiConfig) moveHandler(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if kingsName != "" && strings.Contains(cfg.selectedPiece.Name, kingsName) {
-			fmt.Fprintf(w, `
+			className = `class="bg-red-400"`
+		}
+
+		_, err := fmt.Fprintf(w, `
 				<span id="%v" hx-post="/move" hx-swap-oob="true" hx-swap="outerHTML" class="w-[100px] h-[100px] hover:cursor-grab absolute transition-all" style="bottom: %vpx; left: %vpx">
-					<img src="/assets/pieces/%v.svg" class="bg-sky-300 " />
+					<img src="/assets/pieces/%v.svg" class="bg-sky-300" />
 				</span>
 	
 				<span id="%v" hx-post="/move" hx-swap-oob="true" hx-swap="outerHTML" class="w-[100px] h-[100px] hover:cursor-grab absolute transition-all" style="bottom: %vpx; left: %vpx">
-					<img src="/assets/pieces/%v.svg" class="bg-red-400" />
+					<img src="/assets/pieces/%v.svg" %v  />
 				</span>
 			`,
-				currentPieceName,
-				currentSquare.Coordinates[0],
-				currentSquare.Coordinates[1],
-				currentPiece.Image,
-				cfg.selectedPiece.Name,
-				selSq.Coordinates[0],
-				selSq.Coordinates[1],
-				cfg.selectedPiece.Image,
-			)
-		} else {
-			fmt.Fprintf(w, `
-				<span id="%v" hx-post="/move" hx-swap-oob="true" hx-swap="outerHTML" class="w-[100px] h-[100px] hover:cursor-grab absolute transition-all" style="bottom: %vpx; left: %vpx">
-					<img src="/assets/pieces/%v.svg" class="bg-sky-300 " />
-				</span>
-	
-				<span id="%v" hx-post="/move" hx-swap-oob="true" hx-swap="outerHTML" class="w-[100px] h-[100px] hover:cursor-grab absolute transition-all" style="bottom: %vpx; left: %vpx">
-					<img src="/assets/pieces/%v.svg" />
-				</span>
-			`,
-				currentPieceName,
-				currentSquare.Coordinates[0],
-				currentSquare.Coordinates[1],
-				currentPiece.Image,
-				cfg.selectedPiece.Name,
-				selSq.Coordinates[0],
-				selSq.Coordinates[1],
-				cfg.selectedPiece.Image,
-			)
+			currentPieceName,
+			currentSquare.Coordinates[0],
+			currentSquare.Coordinates[1],
+			currentPiece.Image,
+			cfg.selectedPiece.Name,
+			selSq.Coordinates[0],
+			selSq.Coordinates[1],
+			cfg.selectedPiece.Image,
+			className,
+		)
+
+		if err != nil {
+			fmt.Println(err)
 		}
 
 		cfg.selectedPiece = currentPiece
@@ -239,23 +172,29 @@ func (cfg *apiConfig) moveHandler(w http.ResponseWriter, r *http.Request) {
 		cfg.selectedPiece = board.Piece{}
 		cfg.board[currentSquareName] = currentSquare
 		var kingsName string
+		var className string
 		if cfg.isWhiteTurn && cfg.isWhiteUnderCheck {
 			kingsName = "white_king"
 		} else if !cfg.isWhiteTurn && cfg.isBlackUnderCheck {
 			kingsName = "black_king"
 		}
 		if kingsName != "" && isKing {
-			fmt.Fprintf(w, `
-			<span id="%v" hx-post="/move" hx-swap-oob="true" hx-swap="outerHTML" class="w-[100px] h-[100px] hover:cursor-grab absolute transition-all" style="bottom: %vpx; left: %vpx">
-				<img src="/assets/pieces/%v.svg" class="bg-red-400" />
-			</span>
-		`, currentPieceName, currentSquare.Coordinates[0], currentSquare.Coordinates[1], currentPiece.Image)
-		} else {
-			fmt.Fprintf(w, `
+			className = `class="bg-red-400"`
+		}
+		_, err := fmt.Fprintf(w, `
 				<span id="%v" hx-post="/move" hx-swap-oob="true" hx-swap="outerHTML" class="w-[100px] h-[100px] hover:cursor-grab absolute transition-all" style="bottom: %vpx; left: %vpx">
-					<img src="/assets/pieces/%v.svg" />
+					<img src="/assets/pieces/%v.svg" %v />
 				</span>
-			`, currentPieceName, currentSquare.Coordinates[0], currentSquare.Coordinates[1], currentPiece.Image)
+			`,
+			currentPieceName,
+			currentSquare.Coordinates[0],
+			currentSquare.Coordinates[1],
+			currentPiece.Image,
+			className,
+		)
+
+		if err != nil {
+			fmt.Println(err)
 		}
 		return
 	} else {
@@ -324,64 +263,8 @@ func (cfg *apiConfig) moveToHandler(w http.ResponseWriter, r *http.Request) {
 		cfg.board[selectedSquare] = selSeq
 		cfg.board[currentSquareName] = currentSquare
 
-		check, king, tilesUnderAttack := cfg.handleCheckForCheck("", saveSelected)
-		kingSquare := cfg.board[king.Tile]
-
-		if check {
-			if king.IsWhite {
-				cfg.isWhiteUnderCheck = true
-			} else {
-				cfg.isBlackUnderCheck = true
-			}
-			_, err := fmt.Fprintf(w, `
-			<span id="%v" hx-post="/move" hx-swap-oob="true" hx-swap="outerHTML" class="w-[100px] h-[100px] hover:cursor-grab absolute transition-all" style="bottom: %vpx; left: %vpx">
-				<img src="/assets/pieces/%v.svg" class="bg-red-400 " />
-			</span>
-		`,
-				king.Name,
-				kingSquare.Coordinates[0],
-				kingSquare.Coordinates[1],
-				king.Image,
-			)
-
-			if err != nil {
-				fmt.Println(err)
-			}
-
-			cfg.tilesUnderAttack = tilesUnderAttack
-
-			for _, tile := range tilesUnderAttack {
-				t := cfg.board[tile]
-
-				if t.Piece.Name != "" {
-					_, err := fmt.Fprintf(w, `
-					<span id="%v" hx-post="/move" hx-swap-oob="true" hx-swap="outerHTML" class="w-[100px] h-[100px] hover:cursor-grab absolute transition-all" style="bottom: %vpx; left: %vpx">
-						<img src="/assets/pieces/%v.svg" />
-					</span>
-				`,
-						t.Piece.Name,
-						t.Coordinates[0],
-						t.Coordinates[1],
-						t.Piece.Image,
-					)
-
-					if err != nil {
-						fmt.Println(err)
-					}
-				} else {
-					_, err := fmt.Fprintf(w, `
-						<div id="%v" hx-post="/cover-check" hx-swap-oob="true" class="max-w-[100px] max-h-[100px] h-full w-full" style="background-color: %v"></div>
-				`,
-						tile,
-						t.Color,
-					)
-
-					if err != nil {
-						fmt.Println(err)
-					}
-				}
-			}
-		} else {
+		noCheck := handleIfCheck(w, cfg, saveSelected)
+		if noCheck {
 			cfg.isWhiteUnderCheck = false
 			cfg.isBlackUnderCheck = false
 		}
@@ -467,16 +350,7 @@ func (cfg *apiConfig) coverCheckHandler(w http.ResponseWriter, r *http.Request) 
 		for _, tile := range cfg.tilesUnderAttack {
 			t := cfg.board[tile]
 			if t.Piece.Name != "" {
-				_, err := fmt.Fprintf(w, `
-					<span id="%v" hx-post="/move" hx-swap-oob="true" hx-swap="outerHTML" class="w-[100px] h-[100px] hover:cursor-grab absolute transition-all" style="bottom: %vpx; left: %vpx">
-						<img src="/assets/pieces/%v.svg" />
-					</span>
-				`,
-					t.Piece.Name,
-					t.Coordinates[0],
-					t.Coordinates[1],
-					t.Piece.Image,
-				)
+				err := respondWithNewPiece(w, t)
 
 				if err != nil {
 					fmt.Println(err)
@@ -495,63 +369,8 @@ func (cfg *apiConfig) coverCheckHandler(w http.ResponseWriter, r *http.Request) 
 			}
 		}
 
-		check, king, tilesUnderAttack := cfg.handleCheckForCheck("", saveSelected)
-		kingSquare := cfg.board[king.Tile]
-
-		if check {
-			if king.IsWhite {
-				cfg.isWhiteUnderCheck = true
-			} else {
-				cfg.isBlackUnderCheck = true
-			}
-			_, err := fmt.Fprintf(w, `
-			<span id="%v" hx-post="/move" hx-swap-oob="true" hx-swap="outerHTML" class="w-[100px] h-[100px] hover:cursor-grab absolute transition-all" style="bottom: %vpx; left: %vpx">
-				<img src="/assets/pieces/%v.svg" class="bg-red-400 " />
-			</span>
-		`,
-				king.Name,
-				kingSquare.Coordinates[0],
-				kingSquare.Coordinates[1],
-				king.Image,
-			)
-
-			if err != nil {
-				fmt.Println(err)
-			}
-
-			cfg.tilesUnderAttack = tilesUnderAttack
-
-			for _, tile := range tilesUnderAttack {
-				t := cfg.board[tile]
-
-				if t.Piece.Name != "" {
-					_, err := fmt.Fprintf(w, `
-					<span id="%v" hx-post="/move" hx-swap-oob="true" hx-swap="outerHTML" class="w-[100px] h-[100px] hover:cursor-grab absolute transition-all" style="bottom: %vpx; left: %vpx">
-						<img src="/assets/pieces/%v.svg" />
-					</span>
-				`,
-						t.Piece.Name,
-						t.Coordinates[0],
-						t.Coordinates[1],
-						t.Piece.Image,
-					)
-
-					if err != nil {
-						fmt.Println(err)
-					}
-				} else {
-					_, err := fmt.Fprintf(w, `
-						<div id="%v" hx-post="/cover-check" hx-swap-oob="true" class="max-w-[100px] max-h-[100px] h-full w-full" style="background-color: %v"></div>
-				`,
-						tile,
-						t.Color,
-					)
-					if err != nil {
-						fmt.Println(err)
-					}
-				}
-			}
-		} else {
+		noCheck := handleIfCheck(w, cfg, saveSelected)
+		if noCheck {
 			cfg.isWhiteUnderCheck = false
 			cfg.isBlackUnderCheck = false
 		}
