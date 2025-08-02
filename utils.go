@@ -197,7 +197,7 @@ func samePiece(selectedPiece, currentPiece board.Piece) bool {
 	return false
 }
 
-func checkForCastle(b map[string]board.Square, selectedPiece, currentPiece board.Piece) bool {
+func (cfg *apiConfig) checkForCastle(b map[string]board.Square, selectedPiece, currentPiece board.Piece) (bool, bool) {
 
 	if (strings.Contains(selectedPiece.Name, "king") &&
 		strings.Contains(currentPiece.Name, "rook") ||
@@ -208,6 +208,7 @@ func checkForCastle(b map[string]board.Square, selectedPiece, currentPiece board
 
 		var selectedStartingPosition [2]int
 		var currentStartingPosition [2]int
+		var tilesForCastle []string
 
 		rowIdx := rowIdxMap[string(selectedPiece.Tile[0])]
 
@@ -223,26 +224,37 @@ func checkForCastle(b map[string]board.Square, selectedPiece, currentPiece board
 		if selectedStartingPosition[1] > currentStartingPosition[1] {
 			for i := range selectedStartingPosition[1] - currentStartingPosition[1] - 1 {
 				getSquare := mockBoard[selectedStartingPosition[0]][selectedStartingPosition[1]-i-1]
+				tilesForCastle = append(tilesForCastle, getSquare)
 				pieceOnSquare := b[getSquare]
 				if pieceOnSquare.Piece.Name != "" {
-					return false
+					return false, false
 				}
 			}
 		}
 		if selectedStartingPosition[1] < currentStartingPosition[1] {
 			for i := range currentStartingPosition[1] - selectedStartingPosition[1] - 1 {
 				getSquare := mockBoard[selectedStartingPosition[0]][currentStartingPosition[1]-i-1]
+				tilesForCastle = append(tilesForCastle, getSquare)
 				pieceOnSquare := b[getSquare]
 				if pieceOnSquare.Piece.Name != "" {
-					return false
+					return false, false
 				}
 			}
 		}
 
-		return true
+		var kingCheck bool
+		if slices.ContainsFunc(tilesForCastle, cfg.handleChecksWhenKingMoves) {
+			kingCheck = true
+		}
+
+		if kingCheck {
+			return true, true
+		}
+
+		return true, false
 	}
 
-	return false
+	return false, false
 }
 
 func (cfg *apiConfig) handleCastle(w http.ResponseWriter, currentPiece board.Piece) error {
@@ -394,6 +406,7 @@ func (cfg *apiConfig) handleCheckForCheck(currentSquareName string, selectedPiec
 	if check {
 		cfg.board[savedStartingTile] = savedStartSqua
 		cfg.board[currentSquareName] = saved
+		selectedPiece.Tile = savedStartingTile
 
 		return check, king, tilesComb
 	}
@@ -434,6 +447,15 @@ func (cfg *apiConfig) checkCheck(tilesUnderCheck *[]string, startingPosition, st
 			} else {
 				return false
 			}
+		} else if !strings.Contains(pieceOnCurrentTile.Name, pieceColor) &&
+			strings.Contains(pieceOnCurrentTile.Name, "king") {
+			for _, mv := range pieceOnCurrentTile.LegalMoves {
+				if (mv[0] == move[0] && mv[1] == move[1]) && startPosCompare[0] == startingPosition[0] && startPosCompare[1] == startingPosition[1] {
+					*tilesUnderCheck = append(*tilesUnderCheck, currentTile)
+					return true
+				}
+			}
+			return false
 		} else if !strings.Contains(pieceOnCurrentTile.Name, pieceColor) {
 			for _, mv := range pieceOnCurrentTile.LegalMoves {
 				if mv[0] == move[0] && mv[1] == move[1] {
@@ -451,4 +473,53 @@ func (cfg *apiConfig) checkCheck(tilesUnderCheck *[]string, startingPosition, st
 	}
 
 	return check
+}
+
+func (cfg *apiConfig) handleChecksWhenKingMoves(currentSquareName string) bool {
+	var kingPosition [2]int
+	var king board.Piece
+	var pieceColor string
+
+	if cfg.isWhiteTurn {
+		king = cfg.pieces["white_king"]
+		pieceColor = "white"
+	} else {
+		king = cfg.pieces["black_king"]
+		pieceColor = "black"
+	}
+
+	savedStartingTile := king.Tile
+	savedStartSqua := cfg.board[savedStartingTile]
+	saved := cfg.board[currentSquareName]
+
+	startingSquare := cfg.board[king.Tile]
+	startingSquare.Piece = board.Piece{}
+	cfg.board[king.Tile] = startingSquare
+	king.Tile = currentSquareName
+	curSq := cfg.board[currentSquareName]
+	curSq.Piece = king
+	cfg.board[currentSquareName] = curSq
+
+	rowIdx := rowIdxMap[string(king.Tile[0])]
+
+	for i := 0; i < len(mockBoard[rowIdx]); i++ {
+		if mockBoard[rowIdx][i] == king.Tile {
+			kingPosition = [2]int{rowIdx, i}
+			break
+		}
+	}
+
+	kingLegalMoves := [][]int{{1, 1}, {1, -1}, {-1, 1}, {-1, -1}, {1, 0}, {0, 1}, {-1, 0}, {0, -1}, {2, 1}, {2, -1}, {1, 2}, {1, -2}, {-1, 2}, {-1, -2}, {-2, 1}, {-2, -1}}
+
+	for _, move := range kingLegalMoves {
+		var tilesUnderCheck []string
+		if cfg.checkCheck(&tilesUnderCheck, kingPosition, kingPosition, move, pieceColor) {
+			cfg.board[savedStartingTile] = savedStartSqua
+			cfg.board[currentSquareName] = saved
+			king.Tile = savedStartingTile
+			return true
+		}
+	}
+
+	return false
 }

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"slices"
+	"strings"
 
 	"github.com/NikolaTosic-sudo/chess-live/components/board"
 )
@@ -31,10 +32,23 @@ func (cfg *apiConfig) moveHandler(w http.ResponseWriter, r *http.Request) {
 	legalMoves := cfg.checkLegalMoves()
 
 	if canEat(cfg.selectedPiece, currentPiece) && slices.Contains(legalMoves, currentSquareName) {
-		if cfg.isWhiteTurn && cfg.isWhiteUnderCheck && !slices.Contains(cfg.tilesUnderAttack, currentSquareName) {
+		var kingCheck bool
+		if strings.Contains(cfg.selectedPiece.Name, "king") {
+			kingCheck = cfg.handleChecksWhenKingMoves(currentSquareName)
+		} else if cfg.isWhiteTurn && cfg.isWhiteUnderCheck && !slices.Contains(cfg.tilesUnderAttack, currentSquareName) {
 			w.WriteHeader(http.StatusNoContent)
 			return
 		} else if !cfg.isWhiteTurn && cfg.isBlackUnderCheck && !slices.Contains(cfg.tilesUnderAttack, currentSquareName) {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+
+		var check bool
+		if !strings.Contains(cfg.selectedPiece.Name, "king") {
+			check, _, _ = cfg.handleCheckForCheck(currentSquareName, cfg.selectedPiece)
+		}
+
+		if check || kingCheck {
 			w.WriteHeader(http.StatusNoContent)
 			return
 		}
@@ -148,7 +162,6 @@ func (cfg *apiConfig) moveHandler(w http.ResponseWriter, r *http.Request) {
 
 		return
 	}
-
 	if !canPlay {
 		w.WriteHeader(http.StatusNoContent)
 		return
@@ -156,9 +169,10 @@ func (cfg *apiConfig) moveHandler(w http.ResponseWriter, r *http.Request) {
 
 	if selectedSquare != "" && selectedSquare != currentSquareName && samePiece(cfg.selectedPiece, currentPiece) {
 
-		isCastle := checkForCastle(cfg.board, cfg.selectedPiece, currentPiece)
+		isCastle, kingCheck := cfg.checkForCastle(cfg.board, cfg.selectedPiece, currentPiece)
 
-		if isCastle {
+		if isCastle && !cfg.isBlackUnderCheck && !cfg.isWhiteUnderCheck && !kingCheck {
+
 			err := cfg.handleCastle(w, currentPiece)
 			if err != nil {
 				respondWithAnError(w, http.StatusInternalServerError, "error with handling castle", err)
@@ -166,24 +180,53 @@ func (cfg *apiConfig) moveHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		fmt.Fprintf(w, `
-			<span id="%v" hx-post="/move" hx-swap-oob="true" hx-swap="outerHTML" class="w-[100px] h-[100px] hover:cursor-grab absolute transition-all" style="bottom: %vpx; left: %vpx">
-				<img src="/assets/pieces/%v.svg" class="bg-sky-300 " />
-			</span>
+		var kingsName string
+		if cfg.isWhiteTurn && cfg.isWhiteUnderCheck {
+			kingsName = "white_king"
+		} else if !cfg.isWhiteTurn && cfg.isBlackUnderCheck {
+			kingsName = "black_king"
+		}
 
-			<span id="%v" hx-post="/move" hx-swap-oob="true" hx-swap="outerHTML" class="w-[100px] h-[100px] hover:cursor-grab absolute transition-all" style="bottom: %vpx; left: %vpx">
-				<img src="/assets/pieces/%v.svg" />
-			</span>
-		`,
-			currentPieceName,
-			currentSquare.Coordinates[0],
-			currentSquare.Coordinates[1],
-			currentPiece.Image,
-			cfg.selectedPiece.Name,
-			selSq.Coordinates[0],
-			selSq.Coordinates[1],
-			cfg.selectedPiece.Image,
-		)
+		if kingsName != "" && strings.Contains(cfg.selectedPiece.Name, kingsName) {
+			fmt.Fprintf(w, `
+				<span id="%v" hx-post="/move" hx-swap-oob="true" hx-swap="outerHTML" class="w-[100px] h-[100px] hover:cursor-grab absolute transition-all" style="bottom: %vpx; left: %vpx">
+					<img src="/assets/pieces/%v.svg" class="bg-sky-300 " />
+				</span>
+	
+				<span id="%v" hx-post="/move" hx-swap-oob="true" hx-swap="outerHTML" class="w-[100px] h-[100px] hover:cursor-grab absolute transition-all" style="bottom: %vpx; left: %vpx">
+					<img src="/assets/pieces/%v.svg" class="bg-red-400" />
+				</span>
+			`,
+				currentPieceName,
+				currentSquare.Coordinates[0],
+				currentSquare.Coordinates[1],
+				currentPiece.Image,
+				cfg.selectedPiece.Name,
+				selSq.Coordinates[0],
+				selSq.Coordinates[1],
+				cfg.selectedPiece.Image,
+			)
+		} else {
+			fmt.Fprintf(w, `
+				<span id="%v" hx-post="/move" hx-swap-oob="true" hx-swap="outerHTML" class="w-[100px] h-[100px] hover:cursor-grab absolute transition-all" style="bottom: %vpx; left: %vpx">
+					<img src="/assets/pieces/%v.svg" class="bg-sky-300 " />
+				</span>
+	
+				<span id="%v" hx-post="/move" hx-swap-oob="true" hx-swap="outerHTML" class="w-[100px] h-[100px] hover:cursor-grab absolute transition-all" style="bottom: %vpx; left: %vpx">
+					<img src="/assets/pieces/%v.svg" />
+				</span>
+			`,
+				currentPieceName,
+				currentSquare.Coordinates[0],
+				currentSquare.Coordinates[1],
+				currentPiece.Image,
+				cfg.selectedPiece.Name,
+				selSq.Coordinates[0],
+				selSq.Coordinates[1],
+				cfg.selectedPiece.Image,
+			)
+		}
+
 		cfg.selectedPiece = currentPiece
 		return
 	}
@@ -192,11 +235,25 @@ func (cfg *apiConfig) moveHandler(w http.ResponseWriter, r *http.Request) {
 		currentSquare.Selected = false
 		cfg.selectedPiece = board.Piece{}
 		cfg.board[currentSquareName] = currentSquare
-		fmt.Fprintf(w, `
+		var kingsName string
+		if cfg.isWhiteTurn && cfg.isWhiteUnderCheck {
+			kingsName = "white_king"
+		} else if !cfg.isWhiteTurn && cfg.isBlackUnderCheck {
+			kingsName = "black_king"
+		}
+		if kingsName != "" {
+			fmt.Fprintf(w, `
 			<span id="%v" hx-post="/move" hx-swap-oob="true" hx-swap="outerHTML" class="w-[100px] h-[100px] hover:cursor-grab absolute transition-all" style="bottom: %vpx; left: %vpx">
-				<img src="/assets/pieces/%v.svg" />
+				<img src="/assets/pieces/%v.svg" class="bg-red-400" />
 			</span>
 		`, currentPieceName, currentSquare.Coordinates[0], currentSquare.Coordinates[1], currentPiece.Image)
+		} else {
+			fmt.Fprintf(w, `
+				<span id="%v" hx-post="/move" hx-swap-oob="true" hx-swap="outerHTML" class="w-[100px] h-[100px] hover:cursor-grab absolute transition-all" style="bottom: %vpx; left: %vpx">
+					<img src="/assets/pieces/%v.svg" />
+				</span>
+			`, currentPieceName, currentSquare.Coordinates[0], currentSquare.Coordinates[1], currentPiece.Image)
+		}
 		return
 	} else {
 		currentSquare.Selected = true
@@ -217,24 +274,35 @@ func (cfg *apiConfig) moveToHandler(w http.ResponseWriter, r *http.Request) {
 	selectedSquare := cfg.selectedPiece.Tile
 	selSeq := cfg.board[selectedSquare]
 
-	if cfg.isWhiteTurn && cfg.isWhiteUnderCheck {
-		w.WriteHeader(http.StatusNoContent)
-		return
-	} else if !cfg.isWhiteTurn && cfg.isBlackUnderCheck {
-		w.WriteHeader(http.StatusNoContent)
-		return
-	}
+	// TODO: Ne znam treba li mi ovo, ako iskoci bug tu je
+	// if cfg.isWhiteTurn && cfg.isWhiteUnderCheck {
+	// 	w.WriteHeader(http.StatusNoContent)
+	// 	return
+	// } else if !cfg.isWhiteTurn && cfg.isBlackUnderCheck {
+	// 	w.WriteHeader(http.StatusNoContent)
+	// 	return
+	// }
 
 	legalMoves := cfg.checkLegalMoves()
 
-	if !slices.Contains(legalMoves, currentSquareName) {
+	var kingCheck bool
+	if strings.Contains(cfg.selectedPiece.Name, "king") {
+		kingCheck = cfg.handleChecksWhenKingMoves(currentSquareName)
+	} else if !slices.Contains(legalMoves, currentSquareName) {
+		fmt.Println("tu?3")
 		w.WriteHeader(http.StatusNoContent)
 		return
 	}
 
-	check, _, _ := cfg.handleCheckForCheck(currentSquareName, cfg.selectedPiece)
+	var check bool
+	if !strings.Contains(cfg.selectedPiece.Name, "king") {
+		check, _, _ = cfg.handleCheckForCheck(currentSquareName, cfg.selectedPiece)
+	}
 
-	if check {
+	fmt.Println(check)
+	fmt.Println(kingCheck)
+
+	if check || kingCheck {
 		w.WriteHeader(http.StatusNoContent)
 		return
 	}
@@ -342,6 +410,17 @@ func (cfg *apiConfig) coverCheckHandler(w http.ResponseWriter, r *http.Request) 
 	legalMoves := cfg.checkLegalMoves()
 
 	if !slices.Contains(legalMoves, currentSquareName) {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+	var check bool
+	var kingCheck bool
+	if strings.Contains(cfg.selectedPiece.Name, "king") {
+		kingCheck = cfg.handleChecksWhenKingMoves(currentSquareName)
+	} else {
+		check, _, _ = cfg.handleCheckForCheck(currentSquareName, cfg.selectedPiece)
+	}
+	if check || kingCheck {
 		w.WriteHeader(http.StatusNoContent)
 		return
 	}
@@ -474,7 +553,6 @@ func (cfg *apiConfig) coverCheckHandler(w http.ResponseWriter, r *http.Request) 
 						tile,
 						t.Color,
 					)
-
 					if err != nil {
 						fmt.Println(err)
 					}
