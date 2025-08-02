@@ -292,8 +292,6 @@ func (cfg *apiConfig) moveToHandler(w http.ResponseWriter, r *http.Request) {
 	if strings.Contains(cfg.selectedPiece.Name, "king") && slices.Contains(legalMoves, currentSquareName) {
 		kingCheck = cfg.handleChecksWhenKingMoves(currentSquareName)
 	} else if !slices.Contains(legalMoves, currentSquareName) {
-		fmt.Println(legalMoves)
-		fmt.Println(currentSquareName)
 		w.WriteHeader(http.StatusNoContent)
 		return
 	}
@@ -394,6 +392,8 @@ func (cfg *apiConfig) moveToHandler(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
+		cfg.isWhiteUnderCheck = false
+		cfg.isBlackUnderCheck = false
 		cfg.isWhiteTurn = !cfg.isWhiteTurn
 		go cfg.gameDone()
 
@@ -560,6 +560,9 @@ func (cfg *apiConfig) coverCheckHandler(w http.ResponseWriter, r *http.Request) 
 				}
 			}
 		}
+
+		cfg.isWhiteUnderCheck = false
+		cfg.isBlackUnderCheck = false
 
 		cfg.isWhiteTurn = !cfg.isWhiteTurn
 		go cfg.gameDone()

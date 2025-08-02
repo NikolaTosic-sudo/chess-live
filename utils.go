@@ -153,8 +153,8 @@ func (cfg *apiConfig) getPawnMoves(possible *[]string, startingPosition [2]int, 
 	if !piece.Moved {
 		tile := mockBoard[currentPosition[0]+moveIndex][currentPosition[1]]
 		pT := cfg.board[tile].Piece
-		if pT.Name != "" {
-			*possible = append(*possible, currentTile)
+		if pT.Name == "" {
+			*possible = append(*possible, tile)
 		}
 	}
 }
@@ -274,6 +274,10 @@ func (cfg *apiConfig) handleCastle(w http.ResponseWriter, currentPiece board.Pie
 		rook = cfg.selectedPiece
 	}
 
+	kTile := king.Tile
+	rTile := rook.Tile
+	savedKingTile := cfg.board[king.Tile]
+	savedRookTile := cfg.board[rook.Tile]
 	kingSquare := cfg.board[king.Tile]
 	rookSquare := cfg.board[rook.Tile]
 
@@ -321,6 +325,10 @@ func (cfg *apiConfig) handleCastle(w http.ResponseWriter, currentPiece board.Pie
 	cfg.board[rook.Tile] = newRookSquare
 	cfg.pieces[king.Name] = king
 	cfg.pieces[rook.Name] = rook
+	savedKingTile.Piece = board.Piece{}
+	savedRookTile.Piece = board.Piece{}
+	cfg.board[kTile] = savedKingTile
+	cfg.board[rTile] = savedRookTile
 	cfg.selectedPiece = board.Piece{}
 	cfg.isWhiteTurn = !cfg.isWhiteTurn
 	go cfg.gameDone()
@@ -446,7 +454,7 @@ func (cfg *apiConfig) checkCheck(tilesUnderCheck *[]string, startingPosition, st
 			}
 		} else if !strings.Contains(pieceOnCurrentTile.Name, pieceColor) &&
 			strings.Contains(pieceOnCurrentTile.Name, "pawn") {
-			if (move[0] == 1 || move[0] == -1) && startPosCompare[0] == startingPosition[0] && startPosCompare[1] == startingPosition[1] {
+			if ((move[0] == 1 && (move[1] == 1 || move[1] == -1)) || (move[0] == -1 && (move[1] == 1 || move[1] == -1))) && startPosCompare[0] == startingPosition[0] && startPosCompare[1] == startingPosition[1] {
 				*tilesUnderCheck = append(*tilesUnderCheck, currentTile)
 				return true
 			} else {
@@ -583,8 +591,6 @@ func (cfg *apiConfig) gameDone() {
 
 					for _, move := range legalMoves {
 						if slices.Contains(cfg.tilesUnderAttack, move) {
-							fmt.Println(piece)
-							fmt.Println(legalMoves)
 							return
 						}
 					}
