@@ -4,14 +4,31 @@ import (
 	"fmt"
 	"net/http"
 	"slices"
+	"strconv"
 	"strings"
 
-	"github.com/NikolaTosic-sudo/chess-live/components/board"
+	"github.com/NikolaTosic-sudo/chess-live/containers/components"
+	layout "github.com/NikolaTosic-sudo/chess-live/containers/layouts"
 )
 
 func (cfg *apiConfig) boardHandler(w http.ResponseWriter, r *http.Request) {
 	cfg.fillBoard()
-	err := board.GridBoard(cfg.board, cfg.pieces).Render(r.Context(), w)
+
+	timer := 600
+
+	whitePlayer := components.PlayerStruct{
+		Image:  "/assets/images/user-icon.png",
+		Name:   "Nikola",
+		Timer:  formatTime(timer),
+		Pieces: "white",
+	}
+	blackPlayer := components.PlayerStruct{
+		Image:  "/assets/images/user-icon.png",
+		Name:   "Ilma",
+		Timer:  formatTime(timer),
+		Pieces: "black",
+	}
+	err := layout.MainPage(cfg.board, cfg.pieces, cfg.coordinateMultiplier, whitePlayer, blackPlayer).Render(r.Context(), w)
 
 	if err != nil {
 		fmt.Println(err)
@@ -54,7 +71,7 @@ func (cfg *apiConfig) moveHandler(w http.ResponseWriter, r *http.Request) {
 		}
 
 		fmt.Fprintf(w, `
-			<span id="%v" hx-post="/move" hx-swap-oob="true" hx-swap="outerHTML" class="w-[100px] h-[100px] hover:cursor-grab absolute transition-all" style="bottom: %vpx; left: %vpx">
+			<span id="%v" hx-post="/move" hx-swap-oob="true" hx-swap="outerHTML" class="tile tile-md hover:cursor-grab absolute transition-all" style="bottom: %vpx; left: %vpx">
 				<img src="/assets/pieces/%v.svg" />
 			</span>
 		`,
@@ -68,11 +85,11 @@ func (cfg *apiConfig) moveHandler(w http.ResponseWriter, r *http.Request) {
 		cfg.selectedPiece.Moved = true
 		cfg.pieces[cfg.selectedPiece.Name] = cfg.selectedPiece
 		currentSquare.Piece = cfg.selectedPiece
-		selSq.Piece = board.Piece{}
+		selSq.Piece = components.Piece{}
 		cfg.board[currentSquareName] = currentSquare
 		cfg.board[selectedSquare] = selSq
 		saveSelected := cfg.selectedPiece
-		cfg.selectedPiece = board.Piece{}
+		cfg.selectedPiece = components.Piece{}
 
 		cfg.isWhiteTurn = !cfg.isWhiteTurn
 		go cfg.gameDone()
@@ -95,7 +112,7 @@ func (cfg *apiConfig) moveHandler(w http.ResponseWriter, r *http.Request) {
 			getKingSquare := cfg.board[getKing.Tile]
 
 			fmt.Fprintf(w, `
-			<span id="%v" hx-post="/move" hx-swap-oob="true" hx-swap="outerHTML" class="w-[100px] h-[100px] hover:cursor-grab absolute transition-all" style="bottom: %vpx; left: %vpx">
+			<span id="%v" hx-post="/move" hx-swap-oob="true" hx-swap="outerHTML" class="tile tile-md hover:cursor-grab absolute transition-all" style="bottom: %vpx; left: %vpx">
 				<img src="/assets/pieces/%v.svg" />
 			</span>
 		`,
@@ -139,11 +156,11 @@ func (cfg *apiConfig) moveHandler(w http.ResponseWriter, r *http.Request) {
 		}
 
 		_, err := fmt.Fprintf(w, `
-				<span id="%v" hx-post="/move" hx-swap-oob="true" hx-swap="outerHTML" class="w-[100px] h-[100px] hover:cursor-grab absolute transition-all" style="bottom: %vpx; left: %vpx">
+				<span id="%v" hx-post="/move" hx-swap-oob="true" hx-swap="outerHTML" class="tile tile-md hover:cursor-grab absolute transition-all" style="bottom: %vpx; left: %vpx">
 					<img src="/assets/pieces/%v.svg" class="bg-sky-300" />
 				</span>
 	
-				<span id="%v" hx-post="/move" hx-swap-oob="true" hx-swap="outerHTML" class="w-[100px] h-[100px] hover:cursor-grab absolute transition-all" style="bottom: %vpx; left: %vpx">
+				<span id="%v" hx-post="/move" hx-swap-oob="true" hx-swap="outerHTML" class="tile tile-md hover:cursor-grab absolute transition-all" style="bottom: %vpx; left: %vpx">
 					<img src="/assets/pieces/%v.svg" %v  />
 				</span>
 			`,
@@ -169,7 +186,7 @@ func (cfg *apiConfig) moveHandler(w http.ResponseWriter, r *http.Request) {
 	if currentSquare.Selected {
 		currentSquare.Selected = false
 		isKing := cfg.selectedPiece.IsKing
-		cfg.selectedPiece = board.Piece{}
+		cfg.selectedPiece = components.Piece{}
 		cfg.board[currentSquareName] = currentSquare
 		var kingsName string
 		var className string
@@ -182,7 +199,7 @@ func (cfg *apiConfig) moveHandler(w http.ResponseWriter, r *http.Request) {
 			className = `class="bg-red-400"`
 		}
 		_, err := fmt.Fprintf(w, `
-				<span id="%v" hx-post="/move" hx-swap-oob="true" hx-swap="outerHTML" class="w-[100px] h-[100px] hover:cursor-grab absolute transition-all" style="bottom: %vpx; left: %vpx">
+				<span id="%v" hx-post="/move" hx-swap-oob="true" hx-swap="outerHTML" class="tile tile-md hover:cursor-grab absolute transition-all" style="bottom: %vpx; left: %vpx">
 					<img src="/assets/pieces/%v.svg" %v />
 				</span>
 			`,
@@ -202,7 +219,7 @@ func (cfg *apiConfig) moveHandler(w http.ResponseWriter, r *http.Request) {
 		cfg.selectedPiece = currentPiece
 		cfg.board[currentSquareName] = currentSquare
 		fmt.Fprintf(w, `
-			<span id="%v" hx-post="/move" hx-swap-oob="true" hx-swap="outerHTML" class="w-[100px] h-[100px] hover:cursor-grab absolute transition-all" style="bottom: %vpx; left: %vpx">
+			<span id="%v" hx-post="/move" hx-swap-oob="true" hx-swap="outerHTML" class="tile tile-md hover:cursor-grab absolute transition-all" style="bottom: %vpx; left: %vpx">
 				<img src="/assets/pieces/%v.svg" class="bg-sky-300 " />
 			</span>
 		`, currentPieceName, currentSquare.Coordinates[0], currentSquare.Coordinates[1], currentPiece.Image)
@@ -237,9 +254,9 @@ func (cfg *apiConfig) moveToHandler(w http.ResponseWriter, r *http.Request) {
 
 	if selectedSquare != "" && selectedSquare != currentSquareName {
 		fmt.Fprintf(w, `
-			<div id="%v" hx-post="/move-to" hx-swap-oob="true" class="max-w-[100px] max-h-[100px] h-full w-full" style="background-color: %v"></div>
+			<div id="%v" hx-post="/move-to" hx-swap-oob="true" class="tile tile-md" style="background-color: %v"></div>
 
-			<span id="%v" hx-post="/move" hx-swap-oob="true" hx-swap="outerHTML" class="w-[100px] h-[100px] hover:cursor-grab absolute transition-all" style="bottom: %vpx; left: %vpx">
+			<span id="%v" hx-post="/move" hx-swap-oob="true" hx-swap="outerHTML" class="tile tile-md hover:cursor-grab absolute transition-all" style="bottom: %vpx; left: %vpx">
 				<img src="/assets/pieces/%v.svg" />
 			</span>
 		`,
@@ -303,13 +320,13 @@ func (cfg *apiConfig) coverCheckHandler(w http.ResponseWriter, r *http.Request) 
 
 	if selectedSquare != "" && selectedSquare != currentSquareName {
 		fmt.Fprintf(w, `
-			<div id="%v" hx-post="/move-to" hx-swap-oob="true" class="max-w-[100px] max-h-[100px] h-full w-full" style="background-color: %v"></div>
+			<div id="%v" hx-post="/move-to" hx-swap-oob="true" class="tile tile-md h-full w-full" style="background-color: %v"></div>
 
-			<span id="%v" hx-post="/move" hx-swap-oob="true" hx-swap="outerHTML" class="w-[100px] h-[100px] hover:cursor-grab absolute transition-all" style="bottom: %vpx; left: %vpx">
+			<span id="%v" hx-post="/move" hx-swap-oob="true" hx-swap="outerHTML" class="tile tile-md hover:cursor-grab absolute transition-all" style="bottom: %vpx; left: %vpx">
 				<img src="/assets/pieces/%v.svg" />
 			</span>
 
-			<span id="%v" hx-post="/move" hx-swap-oob="true" hx-swap="outerHTML" class="w-[100px] h-[100px] hover:cursor-grab absolute transition-all" style="bottom: %vpx; left: %vpx">
+			<span id="%v" hx-post="/move" hx-swap-oob="true" hx-swap="outerHTML" class="tile tile-md hover:cursor-grab absolute transition-all" style="bottom: %vpx; left: %vpx">
 				<img src="/assets/pieces/%v.svg" />
 			</span>
 		`,
@@ -337,7 +354,7 @@ func (cfg *apiConfig) coverCheckHandler(w http.ResponseWriter, r *http.Request) 
 				}
 			} else {
 				_, err := fmt.Fprintf(w, `
-						<div id="%v" hx-post="/move-to" hx-swap-oob="true" class="max-w-[100px] max-h-[100px] h-full w-full" style="background-color: %v"></div>
+						<div id="%v" hx-post="/move-to" hx-swap-oob="true" class="tile tile-md" style="background-color: %v"></div>
 				`,
 					tile,
 					t.Color,
@@ -362,4 +379,72 @@ func (cfg *apiConfig) coverCheckHandler(w http.ResponseWriter, r *http.Request) 
 	}
 
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func (cfg *apiConfig) timerHandler(w http.ResponseWriter, r *http.Request) {
+
+	var toChangeColor string
+	var stayTheSameColor string
+	var toChange int
+	var stayTheSame int
+
+	if cfg.isWhiteTurn {
+		toChangeColor = "white"
+		cfg.whiteTimer -= 1
+		toChange = cfg.whiteTimer
+		stayTheSame = cfg.blackTimer
+		stayTheSameColor = "black"
+	} else {
+		cfg.blackTimer -= 1
+		toChangeColor = "black"
+		toChange = cfg.blackTimer
+		stayTheSame = cfg.whiteTimer
+		stayTheSameColor = "white"
+	}
+
+	fmt.Fprintf(w, `
+				<div id="timer-update" hx-get="/timer" hx-trigger="every 1s" hx-swap-oob="none"></div>
+	
+				<div id="%v" hx-swap-oob="true" class="px-7 py-3 bg-amber-200">%v</div>
+
+				<div id="%v" hx-swap-oob="true" class="px-7 py-3 bg-amber-200">%v</div>
+
+			`, toChangeColor, formatTime(toChange), stayTheSameColor, formatTime(stayTheSame))
+}
+
+type MultiplerBody struct {
+	Multiplier int `json:"multiplier"`
+}
+
+func (cfg *apiConfig) updateMultiplerHandler(w http.ResponseWriter, r *http.Request) {
+
+	err := r.ParseForm()
+
+	if err != nil {
+		respondWithAnError(w, http.StatusInternalServerError, "couldn't decode request", err)
+		return
+	}
+
+	multiplier, err := strconv.Atoi(r.FormValue("multiplier"))
+
+	if err != nil {
+		respondWithAnError(w, http.StatusInternalServerError, "couldn't convert multiplier", err)
+		return
+	}
+
+	cfg.coordinateMultiplier = multiplier
+	UpdateCoordinates(cfg)
+
+	for k, piece := range cfg.pieces {
+		tile := cfg.board[piece.Tile]
+
+		fmt.Println(tile.Coordinates[0])
+
+		fmt.Fprintf(w, `
+			<span id="%v" hx-post="/move" hx-swap-oob="true" hx-swap="outerHTML" class="tile-md tile hover:cursor-grab absolute transition-all" style="bottom: %vpx; left: %vpx">
+				<img src="/assets/pieces/%v.svg" />
+			</span>
+		`,
+			k, tile.Coordinates[0], tile.Coordinates[1], piece.Image)
+	}
 }
