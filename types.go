@@ -1,14 +1,17 @@
 package main
 
-import "github.com/NikolaTosic-sudo/chess-live/components/board"
+import "github.com/NikolaTosic-sudo/chess-live/containers/components"
 
 type apiConfig struct {
-	port              string
-	board             map[string]board.Square
-	pieces            map[string]board.Piece
-	selectedPiece     board.Piece
-	isWhiteTurn       bool
-	isWhiteUnderCheck bool
-	isBlackUnderCheck bool
-	tilesUnderAttack  []string
+	port                 string
+	board                map[string]components.Square
+	pieces               map[string]components.Piece
+	selectedPiece        components.Piece
+	coordinateMultiplier int
+	isWhiteTurn          bool
+	isWhiteUnderCheck    bool
+	isBlackUnderCheck    bool
+	tilesUnderAttack     []string
+	blackTimer           int
+	whiteTimer           int
 }

@@ -6,7 +6,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/NikolaTosic-sudo/chess-live/components/board"
+	"github.com/NikolaTosic-sudo/chess-live/containers/components"
 )
 
 var mockBoard = [][]string{
@@ -31,7 +31,7 @@ var rowIdxMap = map[string]int{
 	"1": 7,
 }
 
-func (cfg *apiConfig) canPlay(piece board.Piece) bool {
+func (cfg *apiConfig) canPlay(piece components.Piece) bool {
 	if cfg.isWhiteTurn {
 		if piece.IsWhite {
 			return true
@@ -49,7 +49,7 @@ func (cfg *apiConfig) canPlay(piece board.Piece) bool {
 	return false
 }
 
-func canEat(selectedPiece, currentPiece board.Piece) bool {
+func canEat(selectedPiece, currentPiece components.Piece) bool {
 	if (selectedPiece.IsWhite &&
 		!currentPiece.IsWhite) ||
 		(!selectedPiece.IsWhite &&
@@ -106,7 +106,7 @@ func (cfg *apiConfig) checkLegalMoves() []string {
 }
 
 // TODO: IMPLEMENT EN PESSANT
-func (cfg *apiConfig) getPawnMoves(possible *[]string, startingPosition [2]int, piece board.Piece) {
+func (cfg *apiConfig) getPawnMoves(possible *[]string, startingPosition [2]int, piece components.Piece) {
 	var moveIndex int
 	if piece.IsWhite {
 		moveIndex = -1
@@ -189,7 +189,7 @@ func (cfg *apiConfig) getMoves(possible *[]string, startingPosition [2]int, move
 	cfg.getMoves(possible, currentPosition, move, checkOnce, pieceColor)
 }
 
-func samePiece(selectedPiece, currentPiece board.Piece) bool {
+func samePiece(selectedPiece, currentPiece components.Piece) bool {
 	if selectedPiece.IsWhite && currentPiece.IsWhite {
 		return true
 	} else if !selectedPiece.IsWhite && !currentPiece.IsWhite {
@@ -199,7 +199,7 @@ func samePiece(selectedPiece, currentPiece board.Piece) bool {
 	return false
 }
 
-func (cfg *apiConfig) checkForCastle(b map[string]board.Square, selectedPiece, currentPiece board.Piece) (bool, bool) {
+func (cfg *apiConfig) checkForCastle(b map[string]components.Square, selectedPiece, currentPiece components.Piece) (bool, bool) {
 
 	if (selectedPiece.IsKing &&
 		strings.Contains(currentPiece.Name, "rook") ||
@@ -259,10 +259,10 @@ func (cfg *apiConfig) checkForCastle(b map[string]board.Square, selectedPiece, c
 	return false, false
 }
 
-func (cfg *apiConfig) handleCastle(w http.ResponseWriter, currentPiece board.Piece) error {
+func (cfg *apiConfig) handleCastle(w http.ResponseWriter, currentPiece components.Piece) error {
 
-	var king board.Piece
-	var rook board.Piece
+	var king components.Piece
+	var rook components.Piece
 
 	if cfg.selectedPiece.IsKing {
 		king = cfg.selectedPiece
@@ -323,21 +323,21 @@ func (cfg *apiConfig) handleCastle(w http.ResponseWriter, currentPiece board.Pie
 	cfg.board[rook.Tile] = newRookSquare
 	cfg.pieces[king.Name] = king
 	cfg.pieces[rook.Name] = rook
-	savedKingTile.Piece = board.Piece{}
-	savedRookTile.Piece = board.Piece{}
+	savedKingTile.Piece = components.Piece{}
+	savedRookTile.Piece = components.Piece{}
 	cfg.board[kTile] = savedKingTile
 	cfg.board[rTile] = savedRookTile
-	cfg.selectedPiece = board.Piece{}
+	cfg.selectedPiece = components.Piece{}
 	cfg.isWhiteTurn = !cfg.isWhiteTurn
 	go cfg.gameDone()
 
 	return nil
 }
 
-func (cfg *apiConfig) handleCheckForCheck(currentSquareName string, selectedPiece board.Piece) (bool, board.Piece, []string) {
+func (cfg *apiConfig) handleCheckForCheck(currentSquareName string, selectedPiece components.Piece) (bool, components.Piece, []string) {
 	var startingPosition [2]int
 
-	var king board.Piece
+	var king components.Piece
 	var pieceColor string
 
 	savedStartingTile := selectedPiece.Tile
@@ -346,7 +346,7 @@ func (cfg *apiConfig) handleCheckForCheck(currentSquareName string, selectedPiec
 
 	if currentSquareName != "" {
 		startingSquare := cfg.board[selectedPiece.Tile]
-		startingSquare.Piece = board.Piece{}
+		startingSquare.Piece = components.Piece{}
 		cfg.board[selectedPiece.Tile] = startingSquare
 		selectedPiece.Tile = currentSquareName
 		curSq := cfg.board[currentSquareName]
@@ -488,7 +488,7 @@ func (cfg *apiConfig) checkCheck(tilesUnderCheck *[]string, startingPosition, st
 
 func (cfg *apiConfig) handleChecksWhenKingMoves(currentSquareName string) bool {
 	var kingPosition [2]int
-	var king board.Piece
+	var king components.Piece
 	var pieceColor string
 
 	if cfg.isWhiteTurn {
@@ -504,7 +504,7 @@ func (cfg *apiConfig) handleChecksWhenKingMoves(currentSquareName string) bool {
 	saved := cfg.board[currentSquareName]
 
 	startingSquare := cfg.board[king.Tile]
-	startingSquare.Piece = board.Piece{}
+	startingSquare.Piece = components.Piece{}
 	cfg.board[king.Tile] = startingSquare
 	king.Tile = currentSquareName
 	curSq := cfg.board[currentSquareName]
@@ -541,7 +541,7 @@ func (cfg *apiConfig) handleChecksWhenKingMoves(currentSquareName string) bool {
 
 func (cfg *apiConfig) gameDone() {
 
-	var king board.Piece
+	var king components.Piece
 	if cfg.isWhiteTurn {
 		king = cfg.pieces["white_king"]
 	} else {
@@ -630,7 +630,7 @@ func (cfg *apiConfig) gameDone() {
 	}
 }
 
-func setUserCheck(king board.Piece, cfg *apiConfig) {
+func setUserCheck(king components.Piece, cfg *apiConfig) {
 	if king.IsWhite {
 		cfg.isWhiteUnderCheck = true
 	} else {
@@ -638,7 +638,7 @@ func setUserCheck(king board.Piece, cfg *apiConfig) {
 	}
 }
 
-func handleIfCheck(w http.ResponseWriter, cfg *apiConfig, selected board.Piece) bool {
+func handleIfCheck(w http.ResponseWriter, cfg *apiConfig, selected components.Piece) bool {
 	check, king, tilesUnderAttack := cfg.handleCheckForCheck("", selected)
 	kingSquare := cfg.board[king.Tile]
 
@@ -678,15 +678,21 @@ func handleIfCheck(w http.ResponseWriter, cfg *apiConfig, selected board.Piece) 
 func bigCleanup(currentSquareName string, cfg *apiConfig) {
 	currentSquare := cfg.board[currentSquareName]
 	selectedSquare := cfg.selectedPiece.Tile
+	selSeq := cfg.board[selectedSquare]
 	currentSquare.Selected = false
 	currentPiece := cfg.pieces[cfg.selectedPiece.Name]
 	currentPiece.Tile = currentSquareName
 	currentPiece.Moved = true
 	cfg.pieces[cfg.selectedPiece.Name] = currentPiece
 	currentSquare.Piece = currentPiece
-	cfg.selectedPiece = board.Piece{}
-	selSeq := cfg.board[selectedSquare]
+	cfg.selectedPiece = components.Piece{}
 	selSeq.Piece = cfg.selectedPiece
 	cfg.board[selectedSquare] = selSeq
 	cfg.board[currentSquareName] = currentSquare
+}
+
+func formatTime(seconds int) string {
+	minutes := seconds / 60
+	secs := seconds % 60
+	return fmt.Sprintf("%02d:%02d", minutes, secs)
 }
