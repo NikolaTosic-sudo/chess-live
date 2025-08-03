@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/NikolaTosic-sudo/chess-live/components/board"
-	"github.com/NikolaTosic-sudo/chess-live/components/errorPage"
+	"github.com/NikolaTosic-sudo/chess-live/containers/components"
+	"github.com/NikolaTosic-sudo/chess-live/containers/errorPage"
 )
 
 func respondWithAnError(w http.ResponseWriter, code int, message string, err error) {
@@ -22,9 +22,9 @@ func respondWithAnErrorPage(w http.ResponseWriter, r *http.Request, code int, me
 	}
 }
 
-func respondWithNewPiece(w http.ResponseWriter, square board.Square) error {
+func respondWithNewPiece(w http.ResponseWriter, square components.Square) error {
 	_, err := fmt.Fprintf(w, `
-					<span id="%v" hx-post="/move" hx-swap-oob="true" hx-swap="outerHTML" class="w-[100px] h-[100px] hover:cursor-grab absolute transition-all" style="bottom: %vpx; left: %vpx">
+					<span id="%v" hx-post="/move" hx-swap-oob="true" hx-swap="outerHTML" class="tile tile-md hover:cursor-grab absolute transition-all" style="bottom: %vpx; left: %vpx">
 						<img src="/assets/pieces/%v.svg" />
 					</span>
 				`,
@@ -41,9 +41,9 @@ func respondWithNewPiece(w http.ResponseWriter, square board.Square) error {
 	return nil
 }
 
-func respondWithCheck(w http.ResponseWriter, square board.Square, king board.Piece) error {
+func respondWithCheck(w http.ResponseWriter, square components.Square, king components.Piece) error {
 	_, err := fmt.Fprintf(w, `
-			<span id="%v" hx-post="/move" hx-swap-oob="true" hx-swap="outerHTML" class="w-[100px] h-[100px] hover:cursor-grab absolute transition-all" style="bottom: %vpx; left: %vpx">
+			<span id="%v" hx-post="/move" hx-swap-oob="true" hx-swap="outerHTML" class="tile tile-md hover:cursor-grab absolute transition-all" style="bottom: %vpx; left: %vpx">
 				<img src="/assets/pieces/%v.svg" class="bg-red-400 " />
 			</span>
 		`,
@@ -60,9 +60,9 @@ func respondWithCheck(w http.ResponseWriter, square board.Square, king board.Pie
 	return nil
 }
 
-func respondWithCoverCheck(w http.ResponseWriter, tile string, t board.Square) error {
+func respondWithCoverCheck(w http.ResponseWriter, tile string, t components.Square) error {
 	_, err := fmt.Fprintf(w, `
-			<div id="%v" hx-post="/cover-check" hx-swap-oob="true" class="max-w-[100px] max-h-[100px] h-full w-full" style="background-color: %v"></div>
+			<div id="%v" hx-post="/cover-check" hx-swap-oob="true" class="tile tile-md" style="background-color: %v"></div>
 		`,
 		tile,
 		t.Color,
