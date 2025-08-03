@@ -1,0 +1,22 @@
+package layout
+
+templ Layout() {
+  <!DOCTYPE html>
+  <html>
+    <head>
+      <title>Chess Live</title>
+      <link rel="icon" type="image/x-icon" href="images/n.ico" />
+      <meta charset="utf-8" />
+      <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1, user-scalable=no"
+      />
+      <link rel="stylesheet" href="/assets/css/output.css" />
+      <script src="/assets/htmx.min.js"></script>
+    </head>
+
+    <body class="m-0 p-2 h-dvh bg-[#312e2b]">
+      { children... }
+    </body>
+  </html>
+}

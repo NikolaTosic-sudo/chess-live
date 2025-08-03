@@ -1,0 +1,11 @@
+package components
+
+templ Player(user PlayerStruct) {
+  <div class="flex justify-between w-full my-2">
+    <div class="flex items-center">
+      <image src={user.Image} class="w-[48px] h-[48px]" />
+      <p class="text-white">{user.Name}</p>
+    </div>
+    <div id={user.Pieces} class="px-7 py-3 bg-amber-200" hx-swap-oob="true">{user.Timer}</div>
+  </div>
+}

@@ -1,0 +1,13 @@
+package errorPage
+
+import "github.com/NikolaTosic-sudo/chess-live/containers/layouts"
+
+templ Error(code int, message string) {
+  @layout.Layout() {
+    <div class="flex gap-2 items-center flex-col h-full justify-center">
+      <h2 class="text-3xl">{ message }</h2>
+      <h4 class="text-2xl">{ code }</h4>
+      <p class="font-bold">Something went wrong, please refresh the page</p>
+    </div>
+  }
+}
