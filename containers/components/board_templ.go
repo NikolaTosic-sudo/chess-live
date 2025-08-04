@@ -31,7 +31,7 @@ func GridBoard(board map[string]Square, pieces map[string]Piece, multiplier int,
 			templ_7745c5c3_Var1 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div id=\"chess-board\" hx-swap-oob=\"true\" hx-swap=\"none\" class=\"w-board w-board-md mx-auto mt-2\"><div id=\"timer-update\" hx-get=\"/timer\" hx-trigger=\"every 1s\" hx-swap-oob=\"none\"></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div id=\"chess-board\" hx-post=\"/update-multiplier\" hx-vals=\"js:{multiplier: getMultiplier()}\" hx-trigger=\"load\" hx-swap=\"none\" class=\"w-board w-board-md mx-auto mt-2 relative\"><div id=\"timer-update\" hx-get=\"/timer\" hx-swap-oob=\"none\"></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -39,7 +39,7 @@ func GridBoard(board map[string]Square, pieces map[string]Piece, multiplier int,
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "<div class=\"grid grid-cols-8 w-full h-board h-board-md relative\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "<div id=\"overlay\" class=\"w-board w-board-md h-board h-board-md absolute z-20 hover:cursor-default\"></div><div class=\"grid grid-cols-8 w-full h-board h-board-md relative\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -55,20 +55,20 @@ func GridBoard(board map[string]Square, pieces map[string]Piece, multiplier int,
 				var templ_7745c5c3_Var2 string
 				templ_7745c5c3_Var2, templ_7745c5c3_Err = templ.JoinStringErrs(rows[i])
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `containers/components/board.templ`, Line: 17, Col: 29}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `containers/components/board.templ`, Line: 20, Col: 29}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var2))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "\" class=\"absolute sm:text-[8px] lg:text-[12px] left-0 z-10\" hx-swap-oob=\"true\" style=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "\" class=\"absolute sm:text-[8px] lg:text-[12px] left-0 z-10\" style=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var3 string
 				templ_7745c5c3_Var3, templ_7745c5c3_Err = templruntime.SanitizeStyleAttributeValues(getPosX(i, multiplier))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `containers/components/board.templ`, Line: 17, Col: 137}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `containers/components/board.templ`, Line: 20, Col: 118}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
 				if templ_7745c5c3_Err != nil {
@@ -81,7 +81,7 @@ func GridBoard(board map[string]Square, pieces map[string]Piece, multiplier int,
 				var templ_7745c5c3_Var4 string
 				templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(rows[i])
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `containers/components/board.templ`, Line: 17, Col: 147}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `containers/components/board.templ`, Line: 20, Col: 128}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
 				if templ_7745c5c3_Err != nil {
@@ -104,20 +104,20 @@ func GridBoard(board map[string]Square, pieces map[string]Piece, multiplier int,
 				var templ_7745c5c3_Var5 string
 				templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(cols[j])
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `containers/components/board.templ`, Line: 20, Col: 29}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `containers/components/board.templ`, Line: 23, Col: 29}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "\" class=\"absolute sm:text-[8px] lg:text-[12px] bottom-0 z-10\" hx-swap-oob=\"true\" style=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "\" class=\"absolute sm:text-[8px] lg:text-[12px] bottom-0 z-10\" style=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var6 string
 				templ_7745c5c3_Var6, templ_7745c5c3_Err = templruntime.SanitizeStyleAttributeValues(getPosY(j+1, multiplier))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `containers/components/board.templ`, Line: 20, Col: 143}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `containers/components/board.templ`, Line: 23, Col: 124}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
 				if templ_7745c5c3_Err != nil {
@@ -130,7 +130,7 @@ func GridBoard(board map[string]Square, pieces map[string]Piece, multiplier int,
 				var templ_7745c5c3_Var7 string
 				templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinStringErrs(cols[j])
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `containers/components/board.templ`, Line: 20, Col: 153}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `containers/components/board.templ`, Line: 23, Col: 134}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var7))
 				if templ_7745c5c3_Err != nil {
@@ -148,20 +148,20 @@ func GridBoard(board map[string]Square, pieces map[string]Piece, multiplier int,
 			var templ_7745c5c3_Var8 string
 			templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("%v", tileSig))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `containers/components/board.templ`, Line: 22, Col: 45}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `containers/components/board.templ`, Line: 25, Col: 45}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var8))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, "\" hx-post=\"/move-to\" hx-swap-oob=\"true\" class=\"tile-md tile\" style=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, "\" hx-post=\"/move-to\" class=\"tile-md tile\" style=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var9 string
 			templ_7745c5c3_Var9, templ_7745c5c3_Err = templruntime.SanitizeStyleAttributeValues(genCol(tile.Color))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `containers/components/board.templ`, Line: 22, Col: 131}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `containers/components/board.templ`, Line: 25, Col: 112}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var9))
 			if templ_7745c5c3_Err != nil {
@@ -185,20 +185,20 @@ func GridBoard(board map[string]Square, pieces map[string]Piece, multiplier int,
 			var templ_7745c5c3_Var10 string
 			templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.JoinStringErrs(k)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `containers/components/board.templ`, Line: 30, Col: 21}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `containers/components/board.templ`, Line: 33, Col: 21}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var10))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 16, "\" hx-post=\"/move\" hx-swap-oob=\"true\" hx-swap=\"outerHTML\" class=\"tile-md tile hover:cursor-grab absolute transition-all\" style=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 16, "\" hx-post=\"/move\" hx-swap=\"outerHTML\" class=\"tile-md tile hover:cursor-grab absolute transition-all\" style=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var11 string
 			templ_7745c5c3_Var11, templ_7745c5c3_Err = templruntime.SanitizeStyleAttributeValues(getPiecePos(tile.Coordinates))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `containers/components/board.templ`, Line: 30, Col: 177}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `containers/components/board.templ`, Line: 33, Col: 158}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var11))
 			if templ_7745c5c3_Err != nil {
@@ -211,7 +211,7 @@ func GridBoard(board map[string]Square, pieces map[string]Piece, multiplier int,
 			var templ_7745c5c3_Var12 string
 			templ_7745c5c3_Var12, templ_7745c5c3_Err = templ.JoinStringErrs("/assets/pieces/" + v.Image + ".svg")
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `containers/components/board.templ`, Line: 31, Col: 58}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `containers/components/board.templ`, Line: 34, Col: 58}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var12))
 			if templ_7745c5c3_Err != nil {
@@ -230,7 +230,7 @@ func GridBoard(board map[string]Square, pieces map[string]Piece, multiplier int,
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 20, "</div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 20, "</div><script>\n    const board = document.getElementById('chess-board');\n    let width = board.clientWidth\n    function getMultiplier() {\n      if (width < 480) return 40;\n      if (width < 640) return 60;\n      if (width < 800) return 80;\n      return 100;\n    }\n  </script>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

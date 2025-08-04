@@ -5,21 +5,24 @@ import "fmt"
 templ GridBoard(board map[string]Square, pieces map[string]Piece, multiplier int, whitePlayer, blackPlayer PlayerStruct) {
   // TODO: Seems laggy a bit, figure out faster way
   // hx-post="/update-multiplier" hx-vals="js:{multiplier: getMultiplier()}" hx-trigger="load" 
-  <div id="chess-board" hx-swap-oob="true" hx-swap="none" class="w-board w-board-md mx-auto mt-2">
-    <div id="timer-update" hx-get="/timer" hx-trigger="every 1s" hx-swap-oob="none"></div>
+  <div id="chess-board" hx-post="/update-multiplier" hx-vals="js:{multiplier: getMultiplier()}" hx-trigger="load"  hx-swap="none" class="w-board w-board-md mx-auto mt-2 relative">
+    <div id="timer-update" hx-get="/timer" hx-swap-oob="none"></div>
     @Player(blackPlayer)
+    <div id="overlay" class="w-board w-board-md h-board h-board-md absolute z-20 hover:cursor-default">
+    </div>
+
       <div class="grid grid-cols-8 w-full h-board h-board-md relative">
         {{ i := 0}}
         for j := 0; j < len(cols) && i < len(rows); j++ {
           {{ tileSig := fmt.Sprintf("%v%v", rows[i], cols[j]) }}
           {{ tile := board[tileSig] }}
           if j == 0 {
-            <span id={rows[i]} class="absolute sm:text-[8px] lg:text-[12px] left-0 z-10" hx-swap-oob="true" style={getPosX(i, multiplier)}>{rows[i]}</span>
+            <span id={rows[i]} class="absolute sm:text-[8px] lg:text-[12px] left-0 z-10" style={getPosX(i, multiplier)}>{rows[i]}</span>
           }
           if i == 0 {
-            <span id={cols[j]} class="absolute sm:text-[8px] lg:text-[12px] bottom-0 z-10" hx-swap-oob="true" style={getPosY(j + 1, multiplier)}>{cols[j]}</span>
+            <span id={cols[j]} class="absolute sm:text-[8px] lg:text-[12px] bottom-0 z-10" style={getPosY(j + 1, multiplier)}>{cols[j]}</span>
           }
-          <div id={fmt.Sprintf("%v", tileSig)} hx-post="/move-to" hx-swap-oob="true" class="tile-md tile" style={genCol(tile.Color)}></div>
+          <div id={fmt.Sprintf("%v", tileSig)} hx-post="/move-to" class="tile-md tile" style={genCol(tile.Color)}></div>
           if j == len(cols) - 1 {
             {{ i++ }}
             {{ j = -1 }}
@@ -27,21 +30,21 @@ templ GridBoard(board map[string]Square, pieces map[string]Piece, multiplier int
         }
         for k, v := range pieces {
           {{ tile := board[v.Tile] }}
-          <span id={k} hx-post="/move" hx-swap-oob="true" hx-swap="outerHTML" class="tile-md tile hover:cursor-grab absolute transition-all" style={getPiecePos(tile.Coordinates)}>
+          <span id={k} hx-post="/move" hx-swap="outerHTML" class="tile-md tile hover:cursor-grab absolute transition-all" style={getPiecePos(tile.Coordinates)}>
             <img src={"/assets/pieces/" + v.Image + ".svg" } />
           </span>
         }
       </div>
     @Player(whitePlayer)
   </div>
-  // <script>
-  //   const board = document.getElementById('chess-board');
-  //   let width = board.clientWidth
-  //   function getMultiplier() {
-  //     if (width < 480) return 40;
-  //     if (width < 640) return 60;
-  //     if (width < 800) return 80;
-  //     return 100;
-  //   }
-  // </script>
+  <script>
+    const board = document.getElementById('chess-board');
+    let width = board.clientWidth
+    function getMultiplier() {
+      if (width < 480) return 40;
+      if (width < 640) return 60;
+      if (width < 800) return 80;
+      return 100;
+    }
+  </script>
   }
