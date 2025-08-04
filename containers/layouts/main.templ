@@ -4,6 +4,10 @@ import "github.com/NikolaTosic-sudo/chess-live/containers/components"
 
 templ MainPage(chessBoard map[string]components.Square, pieces map[string]components.Piece, multiplier int, whitePlayer, blackPlayer components.PlayerStruct) {
   @Layout() {
-    @components.GridBoard(chessBoard, pieces, multiplier, whitePlayer, blackPlayer)
+    <div class="flex">
+      @components.LeftSide()
+      @components.GridBoard(chessBoard, pieces, multiplier, whitePlayer, blackPlayer)
+      @components.RightSide()
+    </div>
   }
 }
