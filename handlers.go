@@ -91,8 +91,7 @@ func (cfg *apiConfig) moveHandler(w http.ResponseWriter, r *http.Request) {
 		saveSelected := cfg.selectedPiece
 		cfg.selectedPiece = components.Piece{}
 
-		cfg.isWhiteTurn = !cfg.isWhiteTurn
-		go cfg.gameDone()
+		cfg.endTurn(w, r)
 
 		noCheck := handleIfCheck(w, cfg, saveSelected)
 		if noCheck {
@@ -276,8 +275,7 @@ func (cfg *apiConfig) moveToHandler(w http.ResponseWriter, r *http.Request) {
 			cfg.isBlackUnderCheck = false
 		}
 
-		cfg.isWhiteTurn = !cfg.isWhiteTurn
-		go cfg.gameDone()
+		cfg.endTurn(w, r)
 
 		return
 	}
@@ -372,8 +370,7 @@ func (cfg *apiConfig) coverCheckHandler(w http.ResponseWriter, r *http.Request) 
 			cfg.isBlackUnderCheck = false
 		}
 
-		cfg.isWhiteTurn = !cfg.isWhiteTurn
-		go cfg.gameDone()
+		cfg.endTurn(w, r)
 
 		return
 	}
@@ -402,12 +399,10 @@ func (cfg *apiConfig) timerHandler(w http.ResponseWriter, r *http.Request) {
 		stayTheSameColor = "white"
 	}
 
-	fmt.Fprintf(w, `
-				<div id="timer-update" hx-get="/timer" hx-trigger="every 1s" hx-swap-oob="none"></div>
-	
-				<div id="%v" hx-swap-oob="true" class="px-7 py-3 bg-amber-200">%v</div>
+	fmt.Fprintf(w, `	
+				<div id="%v" hx-swap-oob="true" class="px-7 py-3 bg-white">%v</div>
 
-				<div id="%v" hx-swap-oob="true" class="px-7 py-3 bg-amber-200">%v</div>
+				<div id="%v" hx-swap-oob="true" class="px-7 py-3 bg-gray-500">%v</div>
 
 			`, toChangeColor, formatTime(toChange), stayTheSameColor, formatTime(stayTheSame))
 }
@@ -438,8 +433,6 @@ func (cfg *apiConfig) updateMultiplerHandler(w http.ResponseWriter, r *http.Requ
 	for k, piece := range cfg.pieces {
 		tile := cfg.board[piece.Tile]
 
-		fmt.Println(tile.Coordinates[0])
-
 		fmt.Fprintf(w, `
 			<span id="%v" hx-post="/move" hx-swap-oob="true" hx-swap="outerHTML" class="tile-md tile hover:cursor-grab absolute transition-all" style="bottom: %vpx; left: %vpx">
 				<img src="/assets/pieces/%v.svg" />
@@ -447,4 +440,78 @@ func (cfg *apiConfig) updateMultiplerHandler(w http.ResponseWriter, r *http.Requ
 		`,
 			k, tile.Coordinates[0], tile.Coordinates[1], piece.Image)
 	}
+}
+
+func (cfg *apiConfig) startGameHandler(w http.ResponseWriter, r *http.Request) {
+	fmt.Fprintf(w, `
+
+		<div id="right-side"></div>
+
+		<div id="overlay" hx-swap-oob="true" class="hidden w-board w-board-md h-board h-board-md absolute z-20 hover:cursor-default">
+    </div>
+
+		<div id="timer-update" hx-get="/timer" hx-trigger="every 1s" hx-swap-oob="true"></div>
+	`)
+}
+
+func (cfg *apiConfig) timeOptionHandler(w http.ResponseWriter, r *http.Request) {
+	fmt.Fprintf(w, `
+		<div class="absolute right-0 mt-2 w-48 bg-[#1e1c1a] border border-[#3a3733] text-white rounded-md shadow-lg z-50">
+			<div hx-post="/set-time" hx-vals='{"time": "15"}' hx-target="#timer" class="block px-4 py-2 hover:bg-emerald-600 hover:text-white transition">15 Minutes</div>
+			<div hx-post="/set-time" hx-vals='{"time": "15", "addition": "3"}' hx-target="#timer" class="block px-4 py-2 hover:bg-emerald-600 hover:text-white transition">15 + 3</div>
+			<div hx-post="/set-time" hx-vals='{"time": "10"}' hx-target="#timer" class="block px-4 py-2 hover:bg-emerald-600 hover:text-white transition">10 Minutes</div>
+			<div hx-post="/set-time" hx-vals='{"time": "10", "addition": "3"}' hx-target="#timer" class="block px-4 py-2 hover:bg-emerald-600 hover:text-white transition">10 + 3</div>
+			<div hx-post="/set-time" hx-vals='{"time": "3"}' hx-target="#timer" class="block px-4 py-2 hover:bg-emerald-600 hover:text-white transition">3 Minutes</div>
+			<div hx-post="/set-time" hx-vals='{"time": "3", "addition": "1"}' hx-target="#timer" class="block px-4 py-2 hover:bg-emerald-600 hover:text-white transition">3 + 1</div>
+		</div>
+	`)
+}
+
+func (cfg *apiConfig) setTimeOption(w http.ResponseWriter, r *http.Request) {
+
+	err := r.ParseForm()
+
+	if err != nil {
+		respondWithAnError(w, http.StatusInternalServerError, "couldn't decode request", err)
+		return
+	}
+
+	time := r.FormValue("time")
+	addition := r.FormValue("addition")
+
+	var a int
+	if addition != "" {
+		a, err = strconv.Atoi(addition)
+
+		if err != nil {
+			respondWithAnError(w, http.StatusInternalServerError, "couldn't decode request", err)
+			return
+		}
+	}
+	t, err := strconv.Atoi(time)
+
+	if err != nil {
+		respondWithAnError(w, http.StatusInternalServerError, "couldn't decode request", err)
+		return
+	}
+
+	var seconds string
+
+	if a != 0 {
+		seconds = fmt.Sprintf("+ %v sec", a)
+		cfg.addition = a
+	}
+
+	cfg.whiteTimer = t * 60
+	cfg.blackTimer = t * 60
+
+	fmt.Fprintf(w, `
+		<div id="dropdown-menu" hx-swap-oob="true" class="relative mb-8"></div>
+
+		<div id="white" hx-swap-oob="true" class="px-7 py-3 bg-gray-500">%v</div>
+
+		<div id="black" hx-swap-oob="true" class="px-7 py-3 bg-gray-500">%v</div>
+
+		%v Min %v
+	`, formatTime(cfg.whiteTimer), formatTime(cfg.blackTimer), time, seconds)
 }

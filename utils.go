@@ -696,3 +696,14 @@ func formatTime(seconds int) string {
 	secs := seconds % 60
 	return fmt.Sprintf("%02d:%02d", minutes, secs)
 }
+
+func (cfg *apiConfig) endTurn(w http.ResponseWriter, r *http.Request) {
+	if cfg.isWhiteTurn {
+		cfg.whiteTimer += cfg.addition
+	} else {
+		cfg.blackTimer += cfg.addition
+	}
+	cfg.isWhiteTurn = !cfg.isWhiteTurn
+	go cfg.gameDone()
+	go cfg.timerHandler(w, r)
+}

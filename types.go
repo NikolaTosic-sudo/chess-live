@@ -14,4 +14,5 @@ type apiConfig struct {
 	tilesUnderAttack     []string
 	blackTimer           int
 	whiteTimer           int
+	addition             int
 }

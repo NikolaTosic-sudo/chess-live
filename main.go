@@ -27,16 +27,20 @@ func main() {
 		isBlackUnderCheck:    false,
 		whiteTimer:           600,
 		blackTimer:           600,
+		addition:             0,
 	}
 
 	UpdateCoordinates(&cfg)
 
 	http.Handle("/assets/", http.StripPrefix("/assets/", http.FileServer(http.Dir("assets"))))
 	http.HandleFunc("/", cfg.boardHandler)
+	http.HandleFunc("POST /start", cfg.startGameHandler)
 	http.HandleFunc("POST /move", cfg.moveHandler)
 	http.HandleFunc("POST /move-to", cfg.moveToHandler)
 	http.HandleFunc("POST /cover-check", cfg.coverCheckHandler)
 	http.HandleFunc("GET /timer", cfg.timerHandler)
+	http.HandleFunc("GET /time-options", cfg.timeOptionHandler)
+	http.HandleFunc("POST /set-time", cfg.setTimeOption)
 	http.HandleFunc("POST /update-multiplier", cfg.updateMultiplerHandler)
 
 	fmt.Printf("Listening on :%v\n", cfg.port)
