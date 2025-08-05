@@ -1,0 +1,14 @@
+package layout
+
+import "github.com/NikolaTosic-sudo/chess-live/containers/components"
+
+templ LoginModal() {
+  <div class="fixed inset-0 bg-black/60 flex items-center justify-center z-30"
+    hx-get="/close-modal" hx-trigger="click" hx-target="this" hx-swap="outerHTML">
+
+    <div id="modal-content" class="w-full max-w-md bg-[#3e3a36] rounded-lg shadow-xl p-6 z-40"
+        onclick="event.stopPropagation()">
+        @components.Login()
+    </div>
+  </div>
+}
