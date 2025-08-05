@@ -1,12 +1,16 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/NikolaTosic-sudo/chess-live/containers/components"
+	"github.com/NikolaTosic-sudo/chess-live/internal/auth"
+	"github.com/google/uuid"
 )
 
 var mockBoard = [][]string{
@@ -706,4 +710,103 @@ func (cfg *apiConfig) endTurn(w http.ResponseWriter, r *http.Request) {
 		cfg.blackTimer += cfg.addition
 	}
 	cfg.isWhiteTurn = !cfg.isWhiteTurn
+}
+
+func (cfg *apiConfig) refreshToken(w http.ResponseWriter, r *http.Request) {
+	c, err := r.Cookie("refresh_token")
+
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	dbToken, err := cfg.database.SearchForToken(r.Context(), c.Value)
+
+	if err != nil {
+		fmt.Println(err)
+		fmt.Println("jeste")
+		return
+	}
+
+	if dbToken.ExpiresAt.Before(time.Now()) {
+		fmt.Println("token expired")
+		w.WriteHeader(http.StatusUnauthorized)
+		newUser := CurrentUser{
+			Name: "Guest",
+		}
+		cfg.user = newUser
+		return
+	}
+
+	user, err := cfg.database.GetUserById(r.Context(), dbToken.UserID)
+
+	if err != nil {
+		fmt.Println("couldn't find user")
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	newToken, err := auth.MakeJWT(user.ID, cfg.secret)
+
+	if err != nil {
+		fmt.Println("token err", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	newC := http.Cookie{
+		Name:     "access_token",
+		Value:    newToken,
+		Path:     "/",
+		MaxAge:   3600,
+		HttpOnly: true,
+		Secure:   true,
+		SameSite: http.SameSiteLaxMode,
+	}
+
+	http.SetCookie(w, &newC)
+
+	t := returnTokenJson{
+		Token: newToken,
+	}
+
+	dat, err := json.Marshal(t)
+
+	if err != nil {
+		fmt.Println("couldn't Marshal token", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Add("Hx-Redirect", "/")
+	w.WriteHeader(http.StatusOK)
+	w.Write(dat)
+}
+
+func (cfg *apiConfig) checkUser(w http.ResponseWriter, r *http.Request) {
+	c, err := r.Cookie("access_token")
+
+	if err != nil {
+		fmt.Println(err)
+	} else if c.Value != "" {
+		userId, err := auth.ValidateJWT(c.Value, cfg.secret)
+
+		if err != nil {
+			if strings.Contains(err.Error(), "token is expired") {
+				return
+			}
+			fmt.Println(err)
+		} else if userId != uuid.Nil {
+			userDb, err := cfg.database.GetUserById(r.Context(), userId)
+
+			if err != nil {
+				fmt.Println(err)
+				return
+			}
+
+			cfg.user.Id = userDb.ID
+			cfg.user.Name = userDb.Name
+			cfg.user.email = userDb.Email
+		}
+	}
 }

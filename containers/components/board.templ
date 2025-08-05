@@ -4,7 +4,6 @@ import "fmt"
 
 templ GridBoard(board map[string]Square, pieces map[string]Piece, multiplier int, whitePlayer, blackPlayer PlayerStruct) {
   // TODO: Seems laggy a bit, figure out faster way
-  // hx-post="/update-multiplier" hx-vals="js:{multiplier: getMultiplier()}" hx-trigger="load" 
   <div id="chess-board" hx-post="/update-multiplier" hx-vals="js:{multiplier: getMultiplier()}" hx-trigger="load"  hx-swap="none" class="w-board w-board-md mx-auto mt-2 relative">
     <div id="timer-update" hx-get="/timer" hx-swap-oob="none"></div>
     @Player(blackPlayer)

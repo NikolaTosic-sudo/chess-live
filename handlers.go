@@ -17,6 +17,7 @@ import (
 
 func (cfg *apiConfig) boardHandler(w http.ResponseWriter, r *http.Request) {
 	cfg.fillBoard()
+	cfg.checkUser(w, r)
 
 	whitePlayer := components.PlayerStruct{
 		Image:  "/assets/images/user-icon.png",
@@ -458,6 +459,7 @@ func (cfg *apiConfig) startGameHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (cfg *apiConfig) timeOptionHandler(w http.ResponseWriter, r *http.Request) {
+
 	fmt.Fprintf(w, `
 		<div class="absolute right-0 mt-2 w-48 bg-[#1e1c1a] border border-[#3a3733] text-white rounded-md shadow-lg z-50">
 			<div hx-post="/set-time" hx-vals='{"time": "15"}' hx-target="#timer" class="block px-4 py-2 hover:bg-emerald-600 hover:text-white transition">15 Minutes</div>

@@ -64,6 +64,7 @@ func main() {
 	http.HandleFunc("GET /signup-modal", cfg.signupModalHandler)
 	http.HandleFunc("POST /auth-signup", cfg.signupHandler)
 	http.HandleFunc("POST /auth-login", cfg.loginHandler)
+	http.HandleFunc("GET /api/refresh", cfg.refreshToken)
 
 	fmt.Printf("Listening on :%v\n", port)
 	http.ListenAndServe(fmt.Sprintf(":%v", port), nil)

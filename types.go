@@ -28,3 +28,7 @@ type CurrentUser struct {
 	Name  string
 	email string
 }
+
+type returnTokenJson struct {
+	Token string `json:"token"`
+}
