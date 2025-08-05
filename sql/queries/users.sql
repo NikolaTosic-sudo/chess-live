@@ -7,7 +7,10 @@ VALUES(
   $1,
   $2,
   $3
-) RETURNING name;
+) RETURNING id, name;
 
--- name: LoginUser :one
+-- name: GetUserByEmail :one
 SELECT * FROM users WHERE email = $1;
+
+-- name: GetUserById :one
+SELECT * FROM users WHERE id = $1;

@@ -17,6 +17,7 @@ func main() {
 	godotenv.Load()
 	port := os.Getenv("PORT")
 	dbUrl := os.Getenv("DB_URL")
+	secret := os.Getenv("SECRET")
 	db, err := sql.Open("postgres", dbUrl)
 	if err != nil {
 		log.Fatal(err)
@@ -25,8 +26,14 @@ func main() {
 	startingBoard := MakeBoard()
 	startingPieces := MakePieces()
 
+	user := CurrentUser{
+		Name: "Guest",
+	}
+
 	cfg := apiConfig{
 		database:             dbQueries,
+		secret:               secret,
+		user:                 user,
 		board:                startingBoard,
 		pieces:               startingPieces,
 		selectedPiece:        components.Piece{},

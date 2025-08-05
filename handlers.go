@@ -2,10 +2,12 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"net/http"
 	"slices"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/NikolaTosic-sudo/chess-live/containers/components"
 	layout "github.com/NikolaTosic-sudo/chess-live/containers/layouts"
@@ -18,16 +20,17 @@ func (cfg *apiConfig) boardHandler(w http.ResponseWriter, r *http.Request) {
 
 	whitePlayer := components.PlayerStruct{
 		Image:  "/assets/images/user-icon.png",
-		Name:   "Nikola",
+		Name:   cfg.user.Name,
 		Timer:  formatTime(cfg.whiteTimer),
 		Pieces: "white",
 	}
 	blackPlayer := components.PlayerStruct{
 		Image:  "/assets/images/user-icon.png",
-		Name:   "Ilma",
+		Name:   "Opponent",
 		Timer:  formatTime(cfg.blackTimer),
 		Pieces: "black",
 	}
+
 	err := layout.MainPage(cfg.board, cfg.pieces, cfg.coordinateMultiplier, whitePlayer, blackPlayer).Render(r.Context(), w)
 
 	if err != nil {
@@ -573,6 +576,58 @@ func (cfg *apiConfig) signupHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	token, err := auth.MakeJWT(user.ID, cfg.secret)
+
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	refreshString, err := auth.MakeRefreshToken()
+
+	if err != nil {
+		log.Print("couldn't generate refresh token", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	_, err = cfg.database.CreateRefreshToken(r.Context(), database.CreateRefreshTokenParams{
+		Token:     refreshString,
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+		UserID:    user.ID,
+		ExpiresAt: time.Now().Add(time.Hour * 168),
+	})
+
+	if err != nil {
+		log.Print("couldn't create refresh token", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	c := http.Cookie{
+		Name:     "access_token",
+		Value:    token,
+		Path:     "/",
+		MaxAge:   3600,
+		HttpOnly: true,
+		Secure:   true,
+		SameSite: http.SameSiteLaxMode,
+	}
+
+	refreshC := http.Cookie{
+		Name:     "refresh_token",
+		Value:    refreshString,
+		Path:     "/api/refresh",
+		MaxAge:   604800,
+		HttpOnly: true,
+		Secure:   true,
+		SameSite: http.SameSiteLaxMode,
+	}
+
+	http.SetCookie(w, &c)
+	http.SetCookie(w, &refreshC)
+
 	fmt.Fprintf(w, `
 	<div id="modal-content" hx-swap-oob="innerHTML">
 		<div class="flex justify-between items-center mb-6">
@@ -581,14 +636,14 @@ func (cfg *apiConfig) signupHandler(w http.ResponseWriter, r *http.Request) {
     </div>
 		<div class="text-gray-100">You signed up successfully</div>
 	</div>
-	`, user)
+	`, user.Name)
 }
 
 func (cfg *apiConfig) loginHandler(w http.ResponseWriter, r *http.Request) {
 	email := r.FormValue("email")
 	password := r.FormValue("password")
 
-	user, err := cfg.database.LoginUser(r.Context(), email)
+	user, err := cfg.database.GetUserByEmail(r.Context(), email)
 
 	if err != nil {
 		if strings.Contains(err.Error(), "no rows in result") {
@@ -615,6 +670,58 @@ func (cfg *apiConfig) loginHandler(w http.ResponseWriter, r *http.Request) {
 		fmt.Println(err)
 		return
 	}
+
+	token, err := auth.MakeJWT(user.ID, cfg.secret)
+
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	refreshString, err := auth.MakeRefreshToken()
+
+	if err != nil {
+		log.Print("couldn't generate refresh token", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	_, err = cfg.database.CreateRefreshToken(r.Context(), database.CreateRefreshTokenParams{
+		Token:     refreshString,
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+		UserID:    user.ID,
+		ExpiresAt: time.Now().Add(time.Hour * 168),
+	})
+
+	if err != nil {
+		log.Print("couldn't create refresh token", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	c := http.Cookie{
+		Name:     "access_token",
+		Value:    token,
+		Path:     "/",
+		MaxAge:   3600,
+		HttpOnly: true,
+		Secure:   true,
+		SameSite: http.SameSiteLaxMode,
+	}
+
+	refreshC := http.Cookie{
+		Name:     "refresh_token",
+		Value:    refreshString,
+		Path:     "/api/refresh",
+		MaxAge:   604800,
+		HttpOnly: true,
+		Secure:   true,
+		SameSite: http.SameSiteLaxMode,
+	}
+
+	http.SetCookie(w, &c)
+	http.SetCookie(w, &refreshC)
 
 	fmt.Fprintf(w, `
 	<div id="modal-content" hx-swap-oob="innerHTML">
