@@ -9,24 +9,23 @@ import (
 
 	"github.com/NikolaTosic-sudo/chess-live/containers/components"
 	layout "github.com/NikolaTosic-sudo/chess-live/containers/layouts"
+	"github.com/NikolaTosic-sudo/chess-live/internal/auth"
 	"github.com/NikolaTosic-sudo/chess-live/internal/database"
 )
 
 func (cfg *apiConfig) boardHandler(w http.ResponseWriter, r *http.Request) {
 	cfg.fillBoard()
 
-	timer := 600
-
 	whitePlayer := components.PlayerStruct{
 		Image:  "/assets/images/user-icon.png",
 		Name:   "Nikola",
-		Timer:  formatTime(timer),
+		Timer:  formatTime(cfg.whiteTimer),
 		Pieces: "white",
 	}
 	blackPlayer := components.PlayerStruct{
 		Image:  "/assets/images/user-icon.png",
 		Name:   "Ilma",
-		Timer:  formatTime(timer),
+		Timer:  formatTime(cfg.blackTimer),
 		Pieces: "black",
 	}
 	err := layout.MainPage(cfg.board, cfg.pieces, cfg.coordinateMultiplier, whitePlayer, blackPlayer).Render(r.Context(), w)
@@ -549,10 +548,17 @@ func (cfg *apiConfig) signupHandler(w http.ResponseWriter, r *http.Request) {
 	email := r.FormValue("email")
 	password := r.FormValue("password")
 
+	hashedPassword, err := auth.HashedPassword(password)
+
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
 	user, err := cfg.database.CreateUser(r.Context(), database.CreateUserParams{
 		Name:           name,
 		Email:          email,
-		HashedPassword: password,
+		HashedPassword: hashedPassword,
 	})
 
 	if err != nil {
@@ -582,16 +588,27 @@ func (cfg *apiConfig) loginHandler(w http.ResponseWriter, r *http.Request) {
 	email := r.FormValue("email")
 	password := r.FormValue("password")
 
-	user, err := cfg.database.LoginUser(r.Context(), database.LoginUserParams{
-		Email:          email,
-		HashedPassword: password,
-	})
+	user, err := cfg.database.LoginUser(r.Context(), email)
 
 	if err != nil {
 		if strings.Contains(err.Error(), "no rows in result") {
 			fmt.Fprintf(w, `
 				<div id="password" hx-swap-oob="afterend">
-					<p class="text-red-400 text-center">Incorrect password or email</p>
+					<p class="text-red-400 text-center">User with the email doesn't exist</p>
+				</div>
+			`)
+		}
+		fmt.Println(err)
+		return
+	}
+
+	err = auth.CheckPassword(password, user.HashedPassword)
+
+	if err != nil {
+		if strings.Contains(err.Error(), "hashedPassword is not the hash of the given password") {
+			fmt.Fprintf(w, `
+				<div id="password" hx-swap-oob="afterend">
+					<p class="text-red-400 text-center">Incorrect password</p>
 				</div>
 			`)
 		}
