@@ -698,12 +698,12 @@ func formatTime(seconds int) string {
 }
 
 func (cfg *apiConfig) endTurn(w http.ResponseWriter, r *http.Request) {
+	go cfg.gameDone()
+	go cfg.timerHandler(w, r)
 	if cfg.isWhiteTurn {
 		cfg.whiteTimer += cfg.addition
 	} else {
 		cfg.blackTimer += cfg.addition
 	}
 	cfg.isWhiteTurn = !cfg.isWhiteTurn
-	go cfg.gameDone()
-	go cfg.timerHandler(w, r)
 }

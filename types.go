@@ -1,9 +1,12 @@
 package main
 
-import "github.com/NikolaTosic-sudo/chess-live/containers/components"
+import (
+	"github.com/NikolaTosic-sudo/chess-live/containers/components"
+	"github.com/NikolaTosic-sudo/chess-live/internal/database"
+)
 
 type apiConfig struct {
-	port                 string
+	database             *database.Queries
 	board                map[string]components.Square
 	pieces               map[string]components.Piece
 	selectedPiece        components.Piece

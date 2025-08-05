@@ -1,23 +1,32 @@
 package main
 
 import (
+	"database/sql"
 	"fmt"
+	"log"
 	"net/http"
 	"os"
 
 	"github.com/NikolaTosic-sudo/chess-live/containers/components"
+	"github.com/NikolaTosic-sudo/chess-live/internal/database"
 	"github.com/joho/godotenv"
+	_ "github.com/lib/pq"
 )
 
 func main() {
 	godotenv.Load()
 	port := os.Getenv("PORT")
-
+	dbUrl := os.Getenv("DB_URL")
+	db, err := sql.Open("postgres", dbUrl)
+	if err != nil {
+		log.Fatal(err)
+	}
+	dbQueries := database.New(db)
 	startingBoard := MakeBoard()
 	startingPieces := MakePieces()
 
 	cfg := apiConfig{
-		port:                 port,
+		database:             dbQueries,
 		board:                startingBoard,
 		pieces:               startingPieces,
 		selectedPiece:        components.Piece{},
@@ -43,6 +52,6 @@ func main() {
 	http.HandleFunc("POST /set-time", cfg.setTimeOption)
 	http.HandleFunc("POST /update-multiplier", cfg.updateMultiplerHandler)
 
-	fmt.Printf("Listening on :%v\n", cfg.port)
-	http.ListenAndServe(fmt.Sprintf(":%v", cfg.port), nil)
+	fmt.Printf("Listening on :%v\n", port)
+	http.ListenAndServe(fmt.Sprintf(":%v", port), nil)
 }
