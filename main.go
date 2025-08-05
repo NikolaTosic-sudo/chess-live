@@ -51,6 +51,12 @@ func main() {
 	http.HandleFunc("GET /time-options", cfg.timeOptionHandler)
 	http.HandleFunc("POST /set-time", cfg.setTimeOption)
 	http.HandleFunc("POST /update-multiplier", cfg.updateMultiplerHandler)
+	http.HandleFunc("GET /login", cfg.loginOpenHandler)
+	http.HandleFunc("GET /close-modal", cfg.closeModalHandler)
+	http.HandleFunc("GET /login-modal", cfg.loginModalHandler)
+	http.HandleFunc("GET /signup-modal", cfg.signupModalHandler)
+	http.HandleFunc("POST /auth-signup", cfg.signupHandler)
+	http.HandleFunc("POST /auth-login", cfg.loginHandler)
 
 	fmt.Printf("Listening on :%v\n", port)
 	http.ListenAndServe(fmt.Sprintf(":%v", port), nil)

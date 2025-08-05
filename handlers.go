@@ -9,6 +9,7 @@ import (
 
 	"github.com/NikolaTosic-sudo/chess-live/containers/components"
 	layout "github.com/NikolaTosic-sudo/chess-live/containers/layouts"
+	"github.com/NikolaTosic-sudo/chess-live/internal/database"
 )
 
 func (cfg *apiConfig) boardHandler(w http.ResponseWriter, r *http.Request) {
@@ -514,4 +515,97 @@ func (cfg *apiConfig) setTimeOption(w http.ResponseWriter, r *http.Request) {
 
 		%v Min %v
 	`, formatTime(cfg.whiteTimer), formatTime(cfg.blackTimer), time, seconds)
+}
+
+func (cfg *apiConfig) loginOpenHandler(w http.ResponseWriter, r *http.Request) {
+	err := layout.LoginModal().Render(r.Context(), w)
+	if err != nil {
+		fmt.Println(err)
+	}
+}
+
+func (cfg *apiConfig) closeModalHandler(w http.ResponseWriter, r *http.Request) {
+	w.Write([]byte{})
+}
+
+func (cfg *apiConfig) signupModalHandler(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusOK)
+	err := components.Signup().Render(r.Context(), w)
+	if err != nil {
+		fmt.Println(err)
+	}
+}
+
+func (cfg *apiConfig) loginModalHandler(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusOK)
+	err := components.Login().Render(r.Context(), w)
+	if err != nil {
+		fmt.Println(err)
+	}
+}
+
+func (cfg *apiConfig) signupHandler(w http.ResponseWriter, r *http.Request) {
+	name := r.FormValue("name")
+	email := r.FormValue("email")
+	password := r.FormValue("password")
+
+	user, err := cfg.database.CreateUser(r.Context(), database.CreateUserParams{
+		Name:           name,
+		Email:          email,
+		HashedPassword: password,
+	})
+
+	if err != nil {
+		if strings.Contains(err.Error(), "violates unique constraint") {
+			fmt.Fprintf(w, `
+				<div id="password" hx-swap-oob="afterend">
+					<p class="text-red-400 text-center">User with that email already exists</p>
+				</div>
+			`)
+		}
+		fmt.Println(err)
+		return
+	}
+
+	fmt.Fprintf(w, `
+	<div id="modal-content" hx-swap-oob="innerHTML">
+		<div class="flex justify-between items-center mb-6">
+      <h2 class="text-xl font-semibold text-gray-100" id="modal-title">Welcome %v</h2>
+      <button hx-get="/close-modal" class="text-gray-400 hover:text-gray-200 text-2xl leading-none">&times;</button>
+    </div>
+		<div class="text-gray-100">You signed up successfully</div>
+	</div>
+	`, user)
+}
+
+func (cfg *apiConfig) loginHandler(w http.ResponseWriter, r *http.Request) {
+	email := r.FormValue("email")
+	password := r.FormValue("password")
+
+	user, err := cfg.database.LoginUser(r.Context(), database.LoginUserParams{
+		Email:          email,
+		HashedPassword: password,
+	})
+
+	if err != nil {
+		if strings.Contains(err.Error(), "no rows in result") {
+			fmt.Fprintf(w, `
+				<div id="password" hx-swap-oob="afterend">
+					<p class="text-red-400 text-center">Incorrect password or email</p>
+				</div>
+			`)
+		}
+		fmt.Println(err)
+		return
+	}
+
+	fmt.Fprintf(w, `
+	<div id="modal-content" hx-swap-oob="innerHTML">
+		<div class="flex justify-between items-center mb-6">
+      <h2 class="text-xl font-semibold text-gray-100" id="modal-title">Welcome %v</h2>
+      <button hx-get="/close-modal" class="text-gray-400 hover:text-gray-200 text-2xl leading-none">&times;</button>
+    </div>
+		<div class="text-gray-100">You signed up successfully</div>
+	</div>
+	`, user.Name)
 }
