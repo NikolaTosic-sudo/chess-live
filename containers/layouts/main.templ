@@ -5,6 +5,7 @@ import "github.com/NikolaTosic-sudo/chess-live/containers/components"
 templ MainPage(chessBoard map[string]components.Square, pieces map[string]components.Piece, multiplier int, whitePlayer, blackPlayer components.PlayerStruct) {
   @Layout() {
     <div class="flex">
+      <div hx-get="/api/refresh" hx-trigger="every 1m" hx-swap="none"></div>
       @components.LeftSide()
       @components.GridBoard(chessBoard, pieces, multiplier, whitePlayer, blackPlayer)
       @components.RightSide()
