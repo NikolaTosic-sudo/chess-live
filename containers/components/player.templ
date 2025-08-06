@@ -3,8 +3,13 @@ package components
 templ Player(user PlayerStruct) {
   <div class="flex justify-between w-full my-2">
     <div class="flex items-center">
-      <image src={user.Image} class="w-[48px] h-[48px]" />
-      <p class="text-white">{user.Name}</p>
+      <img src={user.Image} class="w-[48px] h-[48px]" />
+      <div>
+        <p class="text-white">{user.Name}</p>
+        <div class="flex" id={"lost-pieces-"+user.Pieces}>
+
+        </div>
+      </div>
     </div>
     <div id={user.Pieces} class="px-7 py-3 bg-gray-500">{user.Timer}</div>
   </div>

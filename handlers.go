@@ -81,6 +81,12 @@ func (gcfg *gameConfig) moveHandler(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusNoContent)
 			return
 		}
+		var userColor string
+		if cfg.isWhiteTurn {
+			userColor = "white"
+		} else {
+			userColor = "black"
+		}
 
 		fmt.Fprintf(w, `
 			<span id="%v" hx-post="/move" hx-swap-oob="true" hx-swap="outerHTML" class="tile tile-md hover:cursor-grab absolute transition-all" style="bottom: %vpx; left: %vpx">
@@ -92,6 +98,11 @@ func (gcfg *gameConfig) moveHandler(w http.ResponseWriter, r *http.Request) {
 			currentSquare.Coordinates[1],
 			cfg.selectedPiece.Image,
 		)
+		fmt.Fprintf(w, `
+				<div id="lost-pieces-%v" hx-swap-oob="afterbegin">
+					<img src="/assets/pieces/%v.svg" class="w-[18px] h-[18px]" />
+				</div>
+			`, userColor, currentPiece.Image)
 		delete(cfg.pieces, currentPieceName)
 		cfg.selectedPiece.Tile = currentSquareName
 		cfg.selectedPiece.Moved = true

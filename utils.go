@@ -71,6 +71,7 @@ func (gcfg *gameConfig) fillBoard(currentGame string) {
 		getTile.Piece = v
 		cfg.board[v.Tile] = getTile
 	}
+	gcfg.Matches[currentGame] = cfg
 }
 
 func (gcfg *gameConfig) checkLegalMoves(currentGame string) []string {
