@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"slices"
@@ -35,7 +34,8 @@ var rowIdxMap = map[string]int{
 	"1": 7,
 }
 
-func (cfg *apiConfig) canPlay(piece components.Piece) bool {
+func (gcfg *gameConfig) canPlay(piece components.Piece, currentGame string) bool {
+	cfg := gcfg.Matches[currentGame]
 	if cfg.isWhiteTurn {
 		if piece.IsWhite {
 			return true
@@ -64,7 +64,8 @@ func canEat(selectedPiece, currentPiece components.Piece) bool {
 	return false
 }
 
-func (cfg *apiConfig) fillBoard() {
+func (gcfg *gameConfig) fillBoard(currentGame string) {
+	cfg := gcfg.Matches[currentGame]
 	for _, v := range cfg.pieces {
 		getTile := cfg.board[v.Tile]
 		getTile.Piece = v
@@ -72,7 +73,8 @@ func (cfg *apiConfig) fillBoard() {
 	}
 }
 
-func (cfg *apiConfig) checkLegalMoves() []string {
+func (gcfg *gameConfig) checkLegalMoves(currentGame string) []string {
+	cfg := gcfg.Matches[currentGame]
 	var startingPosition [2]int
 
 	var possibleMoves []string
@@ -99,10 +101,10 @@ func (cfg *apiConfig) checkLegalMoves() []string {
 	}
 
 	if cfg.selectedPiece.IsPawn {
-		cfg.getPawnMoves(&possibleMoves, startingPosition, cfg.selectedPiece)
+		gcfg.getPawnMoves(&possibleMoves, startingPosition, cfg.selectedPiece, currentGame)
 	} else {
 		for _, move := range cfg.selectedPiece.LegalMoves {
-			cfg.getMoves(&possibleMoves, startingPosition, move, cfg.selectedPiece.MovesOnce, pieceColor)
+			gcfg.getMoves(&possibleMoves, startingPosition, move, cfg.selectedPiece.MovesOnce, pieceColor, currentGame)
 		}
 	}
 
@@ -110,7 +112,8 @@ func (cfg *apiConfig) checkLegalMoves() []string {
 }
 
 // TODO: IMPLEMENT EN PESSANT
-func (cfg *apiConfig) getPawnMoves(possible *[]string, startingPosition [2]int, piece components.Piece) {
+func (gcfg *gameConfig) getPawnMoves(possible *[]string, startingPosition [2]int, piece components.Piece, currentGame string) {
+	cfg := gcfg.Matches[currentGame]
 	var moveIndex int
 	if piece.IsWhite {
 		moveIndex = -1
@@ -161,7 +164,8 @@ func (cfg *apiConfig) getPawnMoves(possible *[]string, startingPosition [2]int, 
 	}
 }
 
-func (cfg *apiConfig) getMoves(possible *[]string, startingPosition [2]int, move []int, checkOnce bool, pieceColor string) {
+func (gcfg *gameConfig) getMoves(possible *[]string, startingPosition [2]int, move []int, checkOnce bool, pieceColor, currentGame string) {
+	cfg := gcfg.Matches[currentGame]
 	currentPosition := [2]int{startingPosition[0] + move[0], startingPosition[1] + move[1]}
 
 	if currentPosition[0] < 0 || currentPosition[1] < 0 {
@@ -190,7 +194,7 @@ func (cfg *apiConfig) getMoves(possible *[]string, startingPosition [2]int, move
 		return
 	}
 
-	cfg.getMoves(possible, currentPosition, move, checkOnce, pieceColor)
+	gcfg.getMoves(possible, currentPosition, move, checkOnce, pieceColor, currentGame)
 }
 
 func samePiece(selectedPiece, currentPiece components.Piece) bool {
@@ -203,8 +207,7 @@ func samePiece(selectedPiece, currentPiece components.Piece) bool {
 	return false
 }
 
-func (cfg *apiConfig) checkForCastle(b map[string]components.Square, selectedPiece, currentPiece components.Piece) (bool, bool) {
-
+func (gcfg *gameConfig) checkForCastle(b map[string]components.Square, selectedPiece, currentPiece components.Piece, currentGame string) (bool, bool) {
 	if (selectedPiece.IsKing &&
 		strings.Contains(currentPiece.Name, "rook") ||
 		(strings.Contains(selectedPiece.Name, "rook") &&
@@ -249,7 +252,9 @@ func (cfg *apiConfig) checkForCastle(b map[string]components.Square, selectedPie
 		}
 
 		var kingCheck bool
-		if slices.ContainsFunc(tilesForCastle, cfg.handleChecksWhenKingMoves) {
+		if slices.ContainsFunc(tilesForCastle, func(tile string) bool {
+			return gcfg.handleChecksWhenKingMoves(tile, currentGame)
+		}) {
 			kingCheck = true
 		}
 
@@ -263,8 +268,8 @@ func (cfg *apiConfig) checkForCastle(b map[string]components.Square, selectedPie
 	return false, false
 }
 
-func (cfg *apiConfig) handleCastle(w http.ResponseWriter, currentPiece components.Piece) error {
-
+func (gcfg *gameConfig) handleCastle(w http.ResponseWriter, currentPiece components.Piece, currentGame string) error {
+	cfg := gcfg.Matches[currentGame]
 	var king components.Piece
 	var rook components.Piece
 
@@ -285,20 +290,20 @@ func (cfg *apiConfig) handleCastle(w http.ResponseWriter, currentPiece component
 
 	if kingSquare.Coordinates[1] < rookSquare.Coordinates[1] {
 		kC := kingSquare.Coordinates[1]
-		rookSquare.Coordinates[1] = kC + 100
-		kingSquare.Coordinates[1] = kC + 200
+		rookSquare.Coordinates[1] = kC + cfg.coordinateMultiplier
+		kingSquare.Coordinates[1] = kC + cfg.coordinateMultiplier*2
 	} else {
 		kC := kingSquare.Coordinates[1]
-		rookSquare.Coordinates[1] = kC - 100
-		kingSquare.Coordinates[1] = kC - 200
+		rookSquare.Coordinates[1] = kC - cfg.coordinateMultiplier
+		kingSquare.Coordinates[1] = kC - cfg.coordinateMultiplier*2
 	}
 
 	_, err := fmt.Fprintf(w, `
-			<span id="%v" hx-post="/move" hx-swap-oob="true" hx-swap="outerHTML" class="w-[100px] h-[100px] hover:cursor-grab absolute transition-all" style="bottom: %vpx; left: %vpx">
+			<span id="%v" hx-post="/move" hx-swap-oob="true" hx-swap="outerHTML" class="tile tile-md hover:cursor-grab absolute transition-all" style="bottom: %vpx; left: %vpx">
 				<img src="/assets/pieces/%v.svg" />
 			</span>
 
-			<span id="%v" hx-post="/move" hx-swap-oob="true" hx-swap="outerHTML" class="w-[100px] h-[100px] hover:cursor-grab absolute transition-all" style="bottom: %vpx; left: %vpx">
+			<span id="%v" hx-post="/move" hx-swap-oob="true" hx-swap="outerHTML" class="tile tile-md hover:cursor-grab absolute transition-all" style="bottom: %vpx; left: %vpx">
 				<img src="/assets/pieces/%v.svg" />
 			</span>
 		`,
@@ -333,12 +338,14 @@ func (cfg *apiConfig) handleCastle(w http.ResponseWriter, currentPiece component
 	cfg.board[rTile] = savedRookTile
 	cfg.selectedPiece = components.Piece{}
 	cfg.isWhiteTurn = !cfg.isWhiteTurn
-	go cfg.gameDone()
+	gcfg.Matches[currentGame] = cfg
+	go gcfg.gameDone(currentGame)
 
 	return nil
 }
 
-func (cfg *apiConfig) handleCheckForCheck(currentSquareName string, selectedPiece components.Piece) (bool, components.Piece, []string) {
+func (gcfg *gameConfig) handleCheckForCheck(currentSquareName, currentGame string, selectedPiece components.Piece) (bool, components.Piece, []string) {
+	cfg := gcfg.Matches[currentGame]
 	var startingPosition [2]int
 
 	var king components.Piece
@@ -401,7 +408,7 @@ func (cfg *apiConfig) handleCheckForCheck(currentSquareName string, selectedPiec
 
 	for _, move := range kingLegalMoves {
 		var tilesUnderCheck []string
-		checkInFor := cfg.checkCheck(&tilesUnderCheck, startingPosition, startingPosition, move, pieceColor)
+		checkInFor := gcfg.checkCheck(&tilesUnderCheck, startingPosition, startingPosition, move, pieceColor, currentGame)
 		if checkInFor {
 			check = true
 			if len(tilesComb) == 0 {
@@ -422,6 +429,7 @@ func (cfg *apiConfig) handleCheckForCheck(currentSquareName string, selectedPiec
 		cfg.board[savedStartingTile] = savedStartSqua
 		cfg.board[currentSquareName] = saved
 		selectedPiece.Tile = savedStartingTile
+		gcfg.Matches[currentGame] = cfg
 
 		return check, king, tilesComb
 	}
@@ -429,7 +437,8 @@ func (cfg *apiConfig) handleCheckForCheck(currentSquareName string, selectedPiec
 	return false, king, []string{}
 }
 
-func (cfg *apiConfig) checkCheck(tilesUnderCheck *[]string, startingPosition, startPosCompare [2]int, move []int, pieceColor string) bool {
+func (gcfg *gameConfig) checkCheck(tilesUnderCheck *[]string, startingPosition, startPosCompare [2]int, move []int, pieceColor, currentGame string) bool {
+	cfg := gcfg.Matches[currentGame]
 	currentPosition := [2]int{startingPosition[0] + move[0], startingPosition[1] + move[1]}
 
 	if currentPosition[0] < 0 || currentPosition[1] < 0 {
@@ -482,7 +491,7 @@ func (cfg *apiConfig) checkCheck(tilesUnderCheck *[]string, startingPosition, st
 		}
 	}
 
-	check := cfg.checkCheck(tilesUnderCheck, currentPosition, startPosCompare, move, pieceColor)
+	check := gcfg.checkCheck(tilesUnderCheck, currentPosition, startPosCompare, move, pieceColor, currentGame)
 	if check {
 		*tilesUnderCheck = append(*tilesUnderCheck, currentTile)
 	}
@@ -490,7 +499,8 @@ func (cfg *apiConfig) checkCheck(tilesUnderCheck *[]string, startingPosition, st
 	return check
 }
 
-func (cfg *apiConfig) handleChecksWhenKingMoves(currentSquareName string) bool {
+func (gcfg *gameConfig) handleChecksWhenKingMoves(currentSquareName, currentGame string) bool {
+	cfg := gcfg.Matches[currentGame]
 	var kingPosition [2]int
 	var king components.Piece
 	var pieceColor string
@@ -528,7 +538,7 @@ func (cfg *apiConfig) handleChecksWhenKingMoves(currentSquareName string) bool {
 
 	for _, move := range kingLegalMoves {
 		var tilesUnderCheck []string
-		if cfg.checkCheck(&tilesUnderCheck, kingPosition, kingPosition, move, pieceColor) {
+		if gcfg.checkCheck(&tilesUnderCheck, kingPosition, kingPosition, move, pieceColor, currentGame) {
 			cfg.board[savedStartingTile] = savedStartSqua
 			cfg.board[currentSquareName] = saved
 			king.Tile = savedStartingTile
@@ -543,8 +553,8 @@ func (cfg *apiConfig) handleChecksWhenKingMoves(currentSquareName string) bool {
 	return false
 }
 
-func (cfg *apiConfig) gameDone() {
-
+func (gcfg *gameConfig) gameDone(currentGame string) {
+	cfg := gcfg.Matches[currentGame]
 	var king components.Piece
 	if cfg.isWhiteTurn {
 		king = cfg.pieces["white_king"]
@@ -555,13 +565,16 @@ func (cfg *apiConfig) gameDone() {
 	savePiece := cfg.selectedPiece
 	cfg.selectedPiece = king
 
-	legalMoves := cfg.checkLegalMoves()
+	gcfg.Matches[currentGame] = cfg
+
+	legalMoves := gcfg.checkLegalMoves(currentGame)
 
 	cfg.selectedPiece = savePiece
+	gcfg.Matches[currentGame] = cfg
 	var checkCount []bool
 
 	for _, move := range legalMoves {
-		if cfg.handleChecksWhenKingMoves(move) {
+		if gcfg.handleChecksWhenKingMoves(move, currentGame) {
 			checkCount = append(checkCount, true)
 		}
 	}
@@ -572,8 +585,10 @@ func (cfg *apiConfig) gameDone() {
 				if piece.IsWhite && !piece.IsKing {
 					savePiece := cfg.selectedPiece
 					cfg.selectedPiece = piece
-					legalMoves := cfg.checkLegalMoves()
+					gcfg.Matches[currentGame] = cfg
+					legalMoves := gcfg.checkLegalMoves(currentGame)
 					cfg.selectedPiece = savePiece
+					gcfg.Matches[currentGame] = cfg
 
 					for _, move := range legalMoves {
 						if slices.Contains(cfg.tilesUnderAttack, move) {
@@ -588,8 +603,10 @@ func (cfg *apiConfig) gameDone() {
 				if !piece.IsWhite && !piece.IsKing {
 					savePiece := cfg.selectedPiece
 					cfg.selectedPiece = piece
-					legalMoves := cfg.checkLegalMoves()
+					gcfg.Matches[currentGame] = cfg
+					legalMoves := gcfg.checkLegalMoves(currentGame)
 					cfg.selectedPiece = savePiece
+					gcfg.Matches[currentGame] = cfg
 
 					for _, move := range legalMoves {
 						if slices.Contains(cfg.tilesUnderAttack, move) {
@@ -604,8 +621,10 @@ func (cfg *apiConfig) gameDone() {
 				if piece.IsWhite && !piece.IsKing {
 					savePiece := cfg.selectedPiece
 					cfg.selectedPiece = piece
-					legalMoves := cfg.checkLegalMoves()
+					gcfg.Matches[currentGame] = cfg
+					legalMoves := gcfg.checkLegalMoves(currentGame)
 					cfg.selectedPiece = savePiece
+					gcfg.Matches[currentGame] = cfg
 
 					if len(legalMoves) > 0 {
 						return
@@ -618,8 +637,10 @@ func (cfg *apiConfig) gameDone() {
 				if !piece.IsWhite && !piece.IsKing {
 					savePiece := cfg.selectedPiece
 					cfg.selectedPiece = piece
-					legalMoves := cfg.checkLegalMoves()
+					gcfg.Matches[currentGame] = cfg
+					legalMoves := gcfg.checkLegalMoves(currentGame)
 					cfg.selectedPiece = savePiece
+					gcfg.Matches[currentGame] = cfg
 
 					if len(legalMoves) > 0 {
 						return
@@ -634,20 +655,21 @@ func (cfg *apiConfig) gameDone() {
 	}
 }
 
-func setUserCheck(king components.Piece, cfg *apiConfig) {
+func setUserCheck(king components.Piece, currentMatch *Match) {
 	if king.IsWhite {
-		cfg.isWhiteUnderCheck = true
+		currentMatch.isWhiteUnderCheck = true
 	} else {
-		cfg.isBlackUnderCheck = true
+		currentMatch.isBlackUnderCheck = true
 	}
 }
 
-func handleIfCheck(w http.ResponseWriter, cfg *apiConfig, selected components.Piece) bool {
-	check, king, tilesUnderAttack := cfg.handleCheckForCheck("", selected)
+func handleIfCheck(w http.ResponseWriter, gcfg *gameConfig, selected components.Piece, currentGame string) bool {
+	cfg := gcfg.Matches[currentGame]
+	check, king, tilesUnderAttack := gcfg.handleCheckForCheck("", currentGame, selected)
 	kingSquare := cfg.board[king.Tile]
 
 	if check {
-		setUserCheck(king, cfg)
+		setUserCheck(king, &cfg)
 		err := respondWithCheck(w, kingSquare, king)
 
 		if err != nil {
@@ -655,6 +677,7 @@ func handleIfCheck(w http.ResponseWriter, cfg *apiConfig, selected components.Pi
 		}
 
 		cfg.tilesUnderAttack = tilesUnderAttack
+		gcfg.Matches[currentGame] = cfg
 
 		for _, tile := range tilesUnderAttack {
 			t := cfg.board[tile]
@@ -679,7 +702,7 @@ func handleIfCheck(w http.ResponseWriter, cfg *apiConfig, selected components.Pi
 	return true
 }
 
-func bigCleanup(currentSquareName string, cfg *apiConfig) {
+func bigCleanup(currentSquareName string, cfg *Match) {
 	currentSquare := cfg.board[currentSquareName]
 	selectedSquare := cfg.selectedPiece.Tile
 	selSeq := cfg.board[selectedSquare]
@@ -701,15 +724,17 @@ func formatTime(seconds int) string {
 	return fmt.Sprintf("%02d:%02d", minutes, secs)
 }
 
-func (cfg *apiConfig) endTurn(w http.ResponseWriter, r *http.Request) {
-	go cfg.gameDone()
-	go cfg.timerHandler(w, r)
+func (gcfg *gameConfig) endTurn(w http.ResponseWriter, r *http.Request, currentGame string) {
+	cfg := gcfg.Matches[currentGame]
 	if cfg.isWhiteTurn {
 		cfg.whiteTimer += cfg.addition
 	} else {
 		cfg.blackTimer += cfg.addition
 	}
 	cfg.isWhiteTurn = !cfg.isWhiteTurn
+	gcfg.Matches[currentGame] = cfg
+	gcfg.gameDone(currentGame)
+	gcfg.timerHandler(w, r)
 }
 
 func (cfg *apiConfig) refreshToken(w http.ResponseWriter, r *http.Request) {
@@ -766,24 +791,10 @@ func (cfg *apiConfig) refreshToken(w http.ResponseWriter, r *http.Request) {
 
 	http.SetCookie(w, &newC)
 
-	t := returnTokenJson{
-		Token: newToken,
-	}
-
-	dat, err := json.Marshal(t)
-
-	if err != nil {
-		fmt.Println("couldn't Marshal token", err)
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-
-	w.Header().Add("Hx-Redirect", "/")
-	w.WriteHeader(http.StatusOK)
-	w.Write(dat)
+	w.WriteHeader(http.StatusNoContent)
 }
 
-func (cfg *apiConfig) checkUser(w http.ResponseWriter, r *http.Request) {
+func (cfg *apiConfig) checkUser(r *http.Request) {
 	c, err := r.Cookie("access_token")
 
 	if err != nil {
@@ -809,4 +820,10 @@ func (cfg *apiConfig) checkUser(w http.ResponseWriter, r *http.Request) {
 			cfg.user.email = userDb.Email
 		}
 	}
+}
+
+func (cfg *apiConfig) middleWareCheckForUser(next func(http.ResponseWriter, *http.Request)) func(http.ResponseWriter, *http.Request) {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		next(w, r)
+	})
 }

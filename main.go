@@ -31,33 +31,41 @@ func main() {
 	}
 
 	cfg := apiConfig{
-		database:             dbQueries,
-		secret:               secret,
-		user:                 user,
-		board:                startingBoard,
-		pieces:               startingPieces,
-		selectedPiece:        components.Piece{},
-		coordinateMultiplier: 80,
-		isWhiteTurn:          true,
-		isWhiteUnderCheck:    false,
-		isBlackUnderCheck:    false,
-		whiteTimer:           600,
-		blackTimer:           600,
-		addition:             0,
+		database: dbQueries,
+		secret:   secret,
+		user:     user,
 	}
 
-	UpdateCoordinates(&cfg)
+	gcfg := gameConfig{
+		Matches: map[string]Match{
+			"initial": {
+				board:                startingBoard,
+				pieces:               startingPieces,
+				selectedPiece:        components.Piece{},
+				coordinateMultiplier: 80,
+				isWhiteTurn:          true,
+				isWhiteUnderCheck:    false,
+				isBlackUnderCheck:    false,
+				whiteTimer:           600,
+				blackTimer:           600,
+				addition:             0,
+			},
+		},
+	}
+
+	cur := gcfg.Matches["initial"]
+	UpdateCoordinates(&cur)
 
 	http.Handle("/assets/", http.StripPrefix("/assets/", http.FileServer(http.Dir("assets"))))
-	http.HandleFunc("/", cfg.boardHandler)
-	http.HandleFunc("POST /start", cfg.startGameHandler)
-	http.HandleFunc("POST /move", cfg.moveHandler)
-	http.HandleFunc("POST /move-to", cfg.moveToHandler)
-	http.HandleFunc("POST /cover-check", cfg.coverCheckHandler)
-	http.HandleFunc("GET /timer", cfg.timerHandler)
+	http.HandleFunc("/", cfg.middleWareCheckForUser(gcfg.boardHandler))
+	http.HandleFunc("POST /start", gcfg.startGameHandler)
+	http.HandleFunc("POST /move", gcfg.moveHandler)
+	http.HandleFunc("POST /move-to", gcfg.moveToHandler)
+	http.HandleFunc("POST /cover-check", gcfg.coverCheckHandler)
+	http.HandleFunc("GET /timer", gcfg.timerHandler)
 	http.HandleFunc("GET /time-options", cfg.timeOptionHandler)
-	http.HandleFunc("POST /set-time", cfg.setTimeOption)
-	http.HandleFunc("POST /update-multiplier", cfg.updateMultiplerHandler)
+	http.HandleFunc("POST /set-time", gcfg.setTimeOption)
+	http.HandleFunc("POST /update-multiplier", gcfg.updateMultiplerHandler)
 	http.HandleFunc("GET /login", cfg.loginOpenHandler)
 	http.HandleFunc("GET /close-modal", cfg.closeModalHandler)
 	http.HandleFunc("GET /login-modal", cfg.loginModalHandler)
