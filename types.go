@@ -7,9 +7,22 @@ import (
 )
 
 type apiConfig struct {
-	database             *database.Queries
-	secret               string
-	user                 CurrentUser
+	database *database.Queries
+	secret   string
+	user     CurrentUser
+}
+
+type CurrentUser struct {
+	Id    uuid.UUID
+	Name  string
+	email string
+}
+
+type gameConfig struct {
+	Matches map[string]Match
+}
+
+type Match struct {
 	board                map[string]components.Square
 	pieces               map[string]components.Piece
 	selectedPiece        components.Piece
@@ -21,14 +34,4 @@ type apiConfig struct {
 	blackTimer           int
 	whiteTimer           int
 	addition             int
-}
-
-type CurrentUser struct {
-	Id    uuid.UUID
-	Name  string
-	email string
-}
-
-type returnTokenJson struct {
-	Token string `json:"token"`
 }

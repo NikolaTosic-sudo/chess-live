@@ -4,12 +4,12 @@ import (
 	"github.com/NikolaTosic-sudo/chess-live/containers/components"
 )
 
-func UpdateCoordinates(cfg *apiConfig) {
-	for key, square := range cfg.board {
-		square.Coordinates[0] = square.CoordinatePosition[0] * cfg.coordinateMultiplier
-		square.Coordinates[1] = square.CoordinatePosition[1] * cfg.coordinateMultiplier
+func UpdateCoordinates(match *Match) {
+	for key, square := range match.board {
+		square.Coordinates[0] = square.CoordinatePosition[0] * match.coordinateMultiplier
+		square.Coordinates[1] = square.CoordinatePosition[1] * match.coordinateMultiplier
 
-		cfg.board[key] = square
+		match.board[key] = square
 	}
 }
 
