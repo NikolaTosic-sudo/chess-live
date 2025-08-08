@@ -16,24 +16,24 @@ import (
 	"github.com/google/uuid"
 )
 
-func (gcfg *gameConfig) boardHandler(w http.ResponseWriter, r *http.Request) {
-	cfg := gcfg.Matches["initial"]
-	gcfg.fillBoard("initial")
+func (cfg *appConfig) boardHandler(w http.ResponseWriter, r *http.Request) {
+	match := cfg.Matches["initial"]
+	cfg.fillBoard("initial")
 
 	whitePlayer := components.PlayerStruct{
 		Image:  "/assets/images/user-icon.png",
 		Name:   "Guest",
-		Timer:  formatTime(cfg.whiteTimer),
+		Timer:  formatTime(match.whiteTimer),
 		Pieces: "white",
 	}
 	blackPlayer := components.PlayerStruct{
 		Image:  "/assets/images/user-icon.png",
 		Name:   "Opponent",
-		Timer:  formatTime(cfg.blackTimer),
+		Timer:  formatTime(match.blackTimer),
 		Pieces: "black",
 	}
 
-	err := layout.MainPage(cfg.board, cfg.pieces, cfg.coordinateMultiplier, whitePlayer, blackPlayer).Render(r.Context(), w)
+	err := layout.MainPage(match.board, match.pieces, match.coordinateMultiplier, whitePlayer, blackPlayer).Render(r.Context(), w)
 
 	if err != nil {
 		fmt.Println(err)
@@ -42,10 +42,35 @@ func (gcfg *gameConfig) boardHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (gcfg *gameConfig) privateBoardHandler(w http.ResponseWriter, r *http.Request) {
-	c, err := r.Cookie("current_game")
+func (cfg *appConfig) privateBoardHandler(w http.ResponseWriter, r *http.Request) {
+	var userName string
+	userC, err := r.Cookie("access_token")
+
+	if err != nil {
+		fmt.Println(err)
+		userName = "Guest"
+	} else if userC.Value != "" {
+		userId, err := auth.ValidateJWT(userC.Value, cfg.secret)
+
+		if err != nil {
+			fmt.Println(err)
+			userName = "Guest"
+		}
+
+		user, err := cfg.database.GetUserById(r.Context(), userId)
+
+		if err != nil {
+			fmt.Println(err)
+			userName = "Guest"
+		} else if user.Name != "" {
+			userName = user.Name
+		}
+	} else {
+		userName = "Guest"
+	}
 
 	var game string
+	c, err := r.Cookie("current_game")
 
 	if err != nil {
 		fmt.Println(err)
@@ -56,40 +81,32 @@ func (gcfg *gameConfig) privateBoardHandler(w http.ResponseWriter, r *http.Reque
 		game = "initial"
 	}
 
-	cfg := gcfg.Matches[game]
-	gcfg.fillBoard(game)
+	match := cfg.Matches[game]
+	cfg.fillBoard(game)
 
 	whitePlayer := components.PlayerStruct{
 		Image:  "/assets/images/user-icon.png",
-		Name:   "Guest",
-		Timer:  formatTime(cfg.whiteTimer),
+		Name:   userName,
+		Timer:  formatTime(match.whiteTimer),
 		Pieces: "white",
 	}
 	blackPlayer := components.PlayerStruct{
 		Image:  "/assets/images/user-icon.png",
 		Name:   "Opponent",
-		Timer:  formatTime(cfg.blackTimer),
+		Timer:  formatTime(match.blackTimer),
 		Pieces: "black",
 	}
 
-	err = layout.MainPagePrivate(cfg.board, cfg.pieces, cfg.coordinateMultiplier, whitePlayer, blackPlayer).Render(r.Context(), w)
+	err = layout.MainPagePrivate(match.board, match.pieces, match.coordinateMultiplier, whitePlayer, blackPlayer).Render(r.Context(), w)
 
 	if err != nil {
 		fmt.Println(err)
 		respondWithAnErrorPage(w, r, http.StatusInternalServerError, "Couldn't render template")
 		return
 	}
-
-	fmt.Fprintf(w, `
-		<div id="playonline" hx-swap-oob="true" class="relative group inline-block cursor-pointer mt-8">
-      <button hx-post="/start" hx-target="#right-side" class="bg-emerald-500/60 hover:bg-emerald-600/60 text-white font-semibold py-3 px-6 rounded cursor-pointer w-[200px]">
-        Play Online
-      </button>
-    </div>
-	`)
 }
 
-func (gcfg *gameConfig) moveHandler(w http.ResponseWriter, r *http.Request) {
+func (cfg *appConfig) moveHandler(w http.ResponseWriter, r *http.Request) {
 	currentPieceName := r.Header.Get("Hx-Trigger")
 	c, err := r.Cookie("current_game")
 	if err != nil {
@@ -97,31 +114,31 @@ func (gcfg *gameConfig) moveHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	currentGame := c.Value
-	cfg := gcfg.Matches[currentGame]
-	currentPiece := cfg.pieces[currentPieceName]
-	canPlay := gcfg.canPlay(currentPiece, currentGame)
+	match := cfg.Matches[currentGame]
+	currentPiece := match.pieces[currentPieceName]
+	canPlay := cfg.canPlay(currentPiece, currentGame)
 	currentSquareName := currentPiece.Tile
-	currentSquare := cfg.board[currentSquareName]
-	selectedSquare := cfg.selectedPiece.Tile
-	selSq := cfg.board[selectedSquare]
+	currentSquare := match.board[currentSquareName]
+	selectedSquare := match.selectedPiece.Tile
+	selSq := match.board[selectedSquare]
 
-	legalMoves := gcfg.checkLegalMoves(currentGame)
+	legalMoves := cfg.checkLegalMoves(currentGame)
 
-	if canEat(cfg.selectedPiece, currentPiece) && slices.Contains(legalMoves, currentSquareName) {
+	if canEat(match.selectedPiece, currentPiece) && slices.Contains(legalMoves, currentSquareName) {
 		var kingCheck bool
-		if cfg.selectedPiece.IsKing {
-			kingCheck = gcfg.handleChecksWhenKingMoves(currentSquareName, currentGame)
-		} else if cfg.isWhiteTurn && cfg.isWhiteUnderCheck && !slices.Contains(cfg.tilesUnderAttack, currentSquareName) {
+		if match.selectedPiece.IsKing {
+			kingCheck = cfg.handleChecksWhenKingMoves(currentSquareName, currentGame)
+		} else if match.isWhiteTurn && match.isWhiteUnderCheck && !slices.Contains(match.tilesUnderAttack, currentSquareName) {
 			w.WriteHeader(http.StatusNoContent)
 			return
-		} else if !cfg.isWhiteTurn && cfg.isBlackUnderCheck && !slices.Contains(cfg.tilesUnderAttack, currentSquareName) {
+		} else if !match.isWhiteTurn && match.isBlackUnderCheck && !slices.Contains(match.tilesUnderAttack, currentSquareName) {
 			w.WriteHeader(http.StatusNoContent)
 			return
 		}
 
 		var check bool
-		if !cfg.selectedPiece.IsKing {
-			check, _, _ = gcfg.handleCheckForCheck(currentSquareName, currentGame, cfg.selectedPiece)
+		if !match.selectedPiece.IsKing {
+			check, _, _ = cfg.handleCheckForCheck(currentSquareName, currentGame, match.selectedPiece)
 		}
 
 		if check || kingCheck {
@@ -129,7 +146,7 @@ func (gcfg *gameConfig) moveHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		var userColor string
-		if cfg.isWhiteTurn {
+		if match.isWhiteTurn {
 			userColor = "white"
 		} else {
 			userColor = "black"
@@ -144,43 +161,43 @@ func (gcfg *gameConfig) moveHandler(w http.ResponseWriter, r *http.Request) {
 				<img src="/assets/pieces/%v.svg" class="w-[18px] h-[18px]" />
 			</div>
 		`,
-			cfg.selectedPiece.Name,
+			match.selectedPiece.Name,
 			currentSquare.Coordinates[0],
 			currentSquare.Coordinates[1],
-			cfg.selectedPiece.Image,
+			match.selectedPiece.Image,
 			userColor,
 			currentPiece.Image,
 		)
-		delete(cfg.pieces, currentPieceName)
-		cfg.selectedPiece.Tile = currentSquareName
-		cfg.selectedPiece.Moved = true
-		cfg.pieces[cfg.selectedPiece.Name] = cfg.selectedPiece
-		currentSquare.Piece = cfg.selectedPiece
+		delete(match.pieces, currentPieceName)
+		match.selectedPiece.Tile = currentSquareName
+		match.selectedPiece.Moved = true
+		match.pieces[match.selectedPiece.Name] = match.selectedPiece
+		currentSquare.Piece = match.selectedPiece
 		selSq.Piece = components.Piece{}
-		cfg.board[currentSquareName] = currentSquare
-		cfg.board[selectedSquare] = selSq
-		saveSelected := cfg.selectedPiece
-		cfg.selectedPiece = components.Piece{}
+		match.board[currentSquareName] = currentSquare
+		match.board[selectedSquare] = selSq
+		saveSelected := match.selectedPiece
+		match.selectedPiece = components.Piece{}
 
-		gcfg.Matches[currentGame] = cfg
+		cfg.Matches[currentGame] = match
 
-		noCheck := handleIfCheck(w, gcfg, saveSelected, currentGame)
+		noCheck := handleIfCheck(w, cfg, saveSelected, currentGame)
 		if noCheck {
 			var kingName string
-			if cfg.isWhiteUnderCheck {
+			if match.isWhiteUnderCheck {
 				kingName = "white_king"
-			} else if cfg.isBlackUnderCheck {
+			} else if match.isBlackUnderCheck {
 				kingName = "black_king"
 			} else {
-				gcfg.endTurn(w, r, currentGame)
+				cfg.endTurn(w, r, currentGame)
 				return
 			}
 
-			cfg.isWhiteUnderCheck = false
-			cfg.isBlackUnderCheck = false
-			cfg.tilesUnderAttack = []string{}
-			getKing := cfg.pieces[kingName]
-			getKingSquare := cfg.board[getKing.Tile]
+			match.isWhiteUnderCheck = false
+			match.isBlackUnderCheck = false
+			match.tilesUnderAttack = []string{}
+			getKing := match.pieces[kingName]
+			getKingSquare := match.board[getKing.Tile]
 
 			fmt.Fprintf(w, `
 			<span id="%v" hx-post="/move" hx-swap-oob="true" hx-swap="outerHTML" class="tile tile-md hover:cursor-grab absolute transition-all" style="bottom: %vpx; left: %vpx">
@@ -193,7 +210,7 @@ func (gcfg *gameConfig) moveHandler(w http.ResponseWriter, r *http.Request) {
 				getKing.Image,
 			)
 		}
-		gcfg.endTurn(w, r, currentGame)
+		cfg.endTurn(w, r, currentGame)
 
 		return
 	}
@@ -202,13 +219,13 @@ func (gcfg *gameConfig) moveHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if selectedSquare != "" && selectedSquare != currentSquareName && samePiece(cfg.selectedPiece, currentPiece) {
+	if selectedSquare != "" && selectedSquare != currentSquareName && samePiece(match.selectedPiece, currentPiece) {
 
-		isCastle, kingCheck := gcfg.checkForCastle(cfg.board, cfg.selectedPiece, currentPiece, currentGame)
+		isCastle, kingCheck := cfg.checkForCastle(match.board, match.selectedPiece, currentPiece, currentGame)
 
-		if isCastle && !cfg.isBlackUnderCheck && !cfg.isWhiteUnderCheck && !kingCheck {
+		if isCastle && !match.isBlackUnderCheck && !match.isWhiteUnderCheck && !kingCheck {
 
-			err := gcfg.handleCastle(w, currentPiece, currentGame)
+			err := cfg.handleCastle(w, currentPiece, currentGame)
 			if err != nil {
 				respondWithAnError(w, http.StatusInternalServerError, "error with handling castle", err)
 			}
@@ -217,13 +234,13 @@ func (gcfg *gameConfig) moveHandler(w http.ResponseWriter, r *http.Request) {
 
 		var kingsName string
 		var className string
-		if cfg.isWhiteTurn && cfg.isWhiteUnderCheck {
+		if match.isWhiteTurn && match.isWhiteUnderCheck {
 			kingsName = "white_king"
-		} else if !cfg.isWhiteTurn && cfg.isBlackUnderCheck {
+		} else if !match.isWhiteTurn && match.isBlackUnderCheck {
 			kingsName = "black_king"
 		}
 
-		if kingsName != "" && strings.Contains(cfg.selectedPiece.Name, kingsName) {
+		if kingsName != "" && strings.Contains(match.selectedPiece.Name, kingsName) {
 			className = `class="bg-red-400"`
 		}
 
@@ -240,10 +257,10 @@ func (gcfg *gameConfig) moveHandler(w http.ResponseWriter, r *http.Request) {
 			currentSquare.Coordinates[0],
 			currentSquare.Coordinates[1],
 			currentPiece.Image,
-			cfg.selectedPiece.Name,
+			match.selectedPiece.Name,
 			selSq.Coordinates[0],
 			selSq.Coordinates[1],
-			cfg.selectedPiece.Image,
+			match.selectedPiece.Image,
 			className,
 		)
 
@@ -251,21 +268,21 @@ func (gcfg *gameConfig) moveHandler(w http.ResponseWriter, r *http.Request) {
 			fmt.Println(err)
 		}
 
-		cfg.selectedPiece = currentPiece
-		gcfg.Matches[currentGame] = cfg
+		match.selectedPiece = currentPiece
+		cfg.Matches[currentGame] = match
 		return
 	}
 
 	if currentSquare.Selected {
 		currentSquare.Selected = false
-		isKing := cfg.selectedPiece.IsKing
-		cfg.selectedPiece = components.Piece{}
-		cfg.board[currentSquareName] = currentSquare
+		isKing := match.selectedPiece.IsKing
+		match.selectedPiece = components.Piece{}
+		match.board[currentSquareName] = currentSquare
 		var kingsName string
 		var className string
-		if cfg.isWhiteTurn && cfg.isWhiteUnderCheck {
+		if match.isWhiteTurn && match.isWhiteUnderCheck {
 			kingsName = "white_king"
-		} else if !cfg.isWhiteTurn && cfg.isBlackUnderCheck {
+		} else if !match.isWhiteTurn && match.isBlackUnderCheck {
 			kingsName = "black_king"
 		}
 		if kingsName != "" && isKing {
@@ -287,25 +304,25 @@ func (gcfg *gameConfig) moveHandler(w http.ResponseWriter, r *http.Request) {
 			fmt.Println(err)
 		}
 
-		gcfg.Matches[currentGame] = cfg
+		cfg.Matches[currentGame] = match
 
 		return
 	} else {
 		currentSquare.Selected = true
-		cfg.selectedPiece = currentPiece
-		cfg.board[currentSquareName] = currentSquare
+		match.selectedPiece = currentPiece
+		match.board[currentSquareName] = currentSquare
 		fmt.Fprintf(w, `
 			<span id="%v" hx-post="/move" hx-swap-oob="true" hx-swap="outerHTML" class="tile tile-md hover:cursor-grab absolute transition-all" style="bottom: %vpx; left: %vpx">
 				<img src="/assets/pieces/%v.svg" class="bg-sky-300 " />
 			</span>
 		`, currentPieceName, currentSquare.Coordinates[0], currentSquare.Coordinates[1], currentPiece.Image)
 
-		gcfg.Matches[currentGame] = cfg
+		cfg.Matches[currentGame] = match
 		return
 	}
 }
 
-func (gcfg *gameConfig) moveToHandler(w http.ResponseWriter, r *http.Request) {
+func (cfg *appConfig) moveToHandler(w http.ResponseWriter, r *http.Request) {
 	currentSquareName := r.Header.Get("Hx-Trigger")
 	c, err := r.Cookie("current_game")
 	if err != nil {
@@ -313,23 +330,23 @@ func (gcfg *gameConfig) moveToHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	currentGame := c.Value
-	cfg := gcfg.Matches[currentGame]
-	currentSquare := cfg.board[currentSquareName]
-	selectedSquare := cfg.selectedPiece.Tile
+	match := cfg.Matches[currentGame]
+	currentSquare := match.board[currentSquareName]
+	selectedSquare := match.selectedPiece.Tile
 
-	legalMoves := gcfg.checkLegalMoves(currentGame)
+	legalMoves := cfg.checkLegalMoves(currentGame)
 
 	var kingCheck bool
-	if cfg.selectedPiece.IsKing && slices.Contains(legalMoves, currentSquareName) {
-		kingCheck = gcfg.handleChecksWhenKingMoves(currentSquareName, currentGame)
+	if match.selectedPiece.IsKing && slices.Contains(legalMoves, currentSquareName) {
+		kingCheck = cfg.handleChecksWhenKingMoves(currentSquareName, currentGame)
 	} else if !slices.Contains(legalMoves, currentSquareName) {
 		w.WriteHeader(http.StatusNoContent)
 		return
 	}
 
 	var check bool
-	if !cfg.selectedPiece.IsKing {
-		check, _, _ = gcfg.handleCheckForCheck(currentSquareName, currentGame, cfg.selectedPiece)
+	if !match.selectedPiece.IsKing {
+		check, _, _ = cfg.handleCheckForCheck(currentSquareName, currentGame, match.selectedPiece)
 	}
 
 	if check || kingCheck {
@@ -347,22 +364,42 @@ func (gcfg *gameConfig) moveToHandler(w http.ResponseWriter, r *http.Request) {
 		`,
 			currentSquareName,
 			currentSquare.Color,
-			cfg.selectedPiece.Name,
+			match.selectedPiece.Name,
 			currentSquare.Coordinates[0],
 			currentSquare.Coordinates[1],
-			cfg.selectedPiece.Image,
+			match.selectedPiece.Image,
 		)
-		saveSelected := cfg.selectedPiece
-		bigCleanup(currentSquareName, &cfg)
+		saveSelected := match.selectedPiece
+		match.allMoves = append(match.allMoves, currentSquareName)
+		if len(match.allMoves)%2 == 0 {
+			fmt.Fprintf(w, `
+				<div id="moves" hx-swap-oob="beforeend" class="grid grid-cols-3 text-white h-moves mt-8">
+					<span>%v</span>
+				</div>
+			`,
+				currentSquareName,
+			)
+		} else {
+			fmt.Fprintf(w, `
+				<div id="moves" hx-swap-oob="beforeend" class="grid grid-cols-3 text-white h-moves mt-8">
+					<span>%v.</span>
+					<span>%v</span>
+				</div>
+		`,
+				len(match.allMoves)/2+1,
+				currentSquareName,
+			)
+		}
+		bigCleanup(currentSquareName, &match)
 
-		noCheck := handleIfCheck(w, gcfg, saveSelected, currentGame)
+		noCheck := handleIfCheck(w, cfg, saveSelected, currentGame)
 		if noCheck {
-			cfg.isWhiteUnderCheck = false
-			cfg.isBlackUnderCheck = false
+			match.isWhiteUnderCheck = false
+			match.isBlackUnderCheck = false
 		}
 
-		gcfg.Matches[currentGame] = cfg
-		gcfg.endTurn(w, r, currentGame)
+		cfg.Matches[currentGame] = match
+		cfg.endTurn(w, r, currentGame)
 
 		return
 	}
@@ -370,7 +407,7 @@ func (gcfg *gameConfig) moveToHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-func (gcfg *gameConfig) coverCheckHandler(w http.ResponseWriter, r *http.Request) {
+func (cfg *appConfig) coverCheckHandler(w http.ResponseWriter, r *http.Request) {
 	currentSquareName := r.Header.Get("Hx-Trigger")
 	c, err := r.Cookie("current_game")
 	if err != nil {
@@ -378,11 +415,11 @@ func (gcfg *gameConfig) coverCheckHandler(w http.ResponseWriter, r *http.Request
 		return
 	}
 	currentGame := c.Value
-	cfg := gcfg.Matches[currentGame]
-	currentSquare := cfg.board[currentSquareName]
-	selectedSquare := cfg.selectedPiece.Tile
+	match := cfg.Matches[currentGame]
+	currentSquare := match.board[currentSquareName]
+	selectedSquare := match.selectedPiece.Tile
 
-	legalMoves := gcfg.checkLegalMoves(currentGame)
+	legalMoves := cfg.checkLegalMoves(currentGame)
 
 	if !slices.Contains(legalMoves, currentSquareName) {
 		w.WriteHeader(http.StatusNoContent)
@@ -390,10 +427,10 @@ func (gcfg *gameConfig) coverCheckHandler(w http.ResponseWriter, r *http.Request
 	}
 	var check bool
 	var kingCheck bool
-	if cfg.selectedPiece.IsKing {
-		kingCheck = gcfg.handleChecksWhenKingMoves(currentSquareName, currentGame)
+	if match.selectedPiece.IsKing {
+		kingCheck = cfg.handleChecksWhenKingMoves(currentSquareName, currentGame)
 	} else {
-		check, _, _ = gcfg.handleCheckForCheck(currentSquareName, currentGame, cfg.selectedPiece)
+		check, _, _ = cfg.handleCheckForCheck(currentSquareName, currentGame, match.selectedPiece)
 	}
 	if check || kingCheck {
 		w.WriteHeader(http.StatusNoContent)
@@ -402,14 +439,14 @@ func (gcfg *gameConfig) coverCheckHandler(w http.ResponseWriter, r *http.Request
 
 	var kingName string
 
-	if cfg.isWhiteTurn {
+	if match.isWhiteTurn {
 		kingName = "white_king"
 	} else {
 		kingName = "black_king"
 	}
 
-	king := cfg.pieces[kingName]
-	kingSquare := cfg.board[king.Tile]
+	king := match.pieces[kingName]
+	kingSquare := match.board[king.Tile]
 
 	if selectedSquare != "" && selectedSquare != currentSquareName {
 		fmt.Fprintf(w, `
@@ -429,16 +466,16 @@ func (gcfg *gameConfig) coverCheckHandler(w http.ResponseWriter, r *http.Request
 			kingSquare.Coordinates[0],
 			kingSquare.Coordinates[1],
 			king.Image,
-			cfg.selectedPiece.Name,
+			match.selectedPiece.Name,
 			currentSquare.Coordinates[0],
 			currentSquare.Coordinates[1],
-			cfg.selectedPiece.Image,
+			match.selectedPiece.Image,
 		)
-		saveSelected := cfg.selectedPiece
-		bigCleanup(currentSquareName, &cfg)
+		saveSelected := match.selectedPiece
+		bigCleanup(currentSquareName, &match)
 
-		for _, tile := range cfg.tilesUnderAttack {
-			t := cfg.board[tile]
+		for _, tile := range match.tilesUnderAttack {
+			t := match.board[tile]
 			if t.Piece.Name != "" {
 				err := respondWithNewPiece(w, t)
 
@@ -459,14 +496,14 @@ func (gcfg *gameConfig) coverCheckHandler(w http.ResponseWriter, r *http.Request
 			}
 		}
 
-		noCheck := handleIfCheck(w, gcfg, saveSelected, currentGame)
+		noCheck := handleIfCheck(w, cfg, saveSelected, currentGame)
 		if noCheck {
-			cfg.isWhiteUnderCheck = false
-			cfg.isBlackUnderCheck = false
+			match.isWhiteUnderCheck = false
+			match.isBlackUnderCheck = false
 		}
 
-		gcfg.Matches[currentGame] = cfg
-		gcfg.endTurn(w, r, currentGame)
+		cfg.Matches[currentGame] = match
+		cfg.endTurn(w, r, currentGame)
 
 		return
 	}
@@ -474,7 +511,7 @@ func (gcfg *gameConfig) coverCheckHandler(w http.ResponseWriter, r *http.Request
 	w.WriteHeader(http.StatusNoContent)
 }
 
-func (gcfg *gameConfig) timerHandler(w http.ResponseWriter, r *http.Request) {
+func (cfg *appConfig) timerHandler(w http.ResponseWriter, r *http.Request) {
 
 	c, err := r.Cookie("current_game")
 	if err != nil {
@@ -482,24 +519,24 @@ func (gcfg *gameConfig) timerHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	currentGame := c.Value
-	cfg := gcfg.Matches[currentGame]
+	match := cfg.Matches[currentGame]
 
 	var toChangeColor string
 	var stayTheSameColor string
 	var toChange int
 	var stayTheSame int
 
-	if cfg.isWhiteTurn {
+	if match.isWhiteTurn {
 		toChangeColor = "white"
-		cfg.whiteTimer -= 1
-		toChange = cfg.whiteTimer
-		stayTheSame = cfg.blackTimer
+		match.whiteTimer -= 1
+		toChange = match.whiteTimer
+		stayTheSame = match.blackTimer
 		stayTheSameColor = "black"
 	} else {
-		cfg.blackTimer -= 1
+		match.blackTimer -= 1
 		toChangeColor = "black"
-		toChange = cfg.blackTimer
-		stayTheSame = cfg.whiteTimer
+		toChange = match.blackTimer
+		stayTheSame = match.whiteTimer
 		stayTheSameColor = "white"
 	}
 
@@ -510,14 +547,14 @@ func (gcfg *gameConfig) timerHandler(w http.ResponseWriter, r *http.Request) {
 
 			`, toChangeColor, formatTime(toChange), stayTheSameColor, formatTime(stayTheSame))
 
-	gcfg.Matches[currentGame] = cfg
+	cfg.Matches[currentGame] = match
 }
 
 type MultiplerBody struct {
 	Multiplier int `json:"multiplier"`
 }
 
-func (gcfg *gameConfig) updateMultiplerHandler(w http.ResponseWriter, r *http.Request) {
+func (cfg *appConfig) updateMultiplerHandler(w http.ResponseWriter, r *http.Request) {
 
 	err := r.ParseForm()
 
@@ -539,14 +576,14 @@ func (gcfg *gameConfig) updateMultiplerHandler(w http.ResponseWriter, r *http.Re
 		return
 	}
 	currentGame := c.Value
-	cfg := gcfg.Matches[currentGame]
+	match := cfg.Matches[currentGame]
 
-	cfg.coordinateMultiplier = multiplier
-	UpdateCoordinates(&cfg)
-	gcfg.Matches[currentGame] = cfg
+	match.coordinateMultiplier = multiplier
+	UpdateCoordinates(&match)
+	cfg.Matches[currentGame] = match
 
-	for k, piece := range cfg.pieces {
-		tile := cfg.board[piece.Tile]
+	for k, piece := range match.pieces {
+		tile := match.board[piece.Tile]
 
 		fmt.Fprintf(w, `
 			<span id="%v" hx-post="/move" hx-swap-oob="true" hx-swap="outerHTML" class="tile-md tile hover:cursor-grab absolute transition-all" style="bottom: %vpx; left: %vpx">
@@ -557,9 +594,9 @@ func (gcfg *gameConfig) updateMultiplerHandler(w http.ResponseWriter, r *http.Re
 	}
 }
 
-func (gcfg *gameConfig) startGameHandler(w http.ResponseWriter, r *http.Request) {
+func (cfg *appConfig) startGameHandler(w http.ResponseWriter, r *http.Request) {
 
-	user := gcfg.isUserLoggedIn(r)
+	user := cfg.isUserLoggedIn(r)
 
 	var newGameName string
 
@@ -589,7 +626,7 @@ func (gcfg *gameConfig) startGameHandler(w http.ResponseWriter, r *http.Request)
 	startingBoard := MakeBoard()
 	startingPieces := MakePieces()
 
-	gcfg.Matches[newGameName] = Match{
+	cfg.Matches[newGameName] = Match{
 		board:                startingBoard,
 		pieces:               startingPieces,
 		selectedPiece:        components.Piece{},
@@ -602,56 +639,87 @@ func (gcfg *gameConfig) startGameHandler(w http.ResponseWriter, r *http.Request)
 		addition:             0,
 	}
 
-	cur := gcfg.Matches[newGameName]
+	cur := cfg.Matches[newGameName]
 
-	gcfg.fillBoard(newGameName)
+	cfg.fillBoard(newGameName)
 	UpdateCoordinates(&cur)
 	http.SetCookie(w, &startGame)
 
-	fmt.Fprintf(w, `
-
-		<div id="right-side"></div>
-
-		<div id="overlay" hx-swap-oob="true" class="hidden w-board w-board-md h-board h-board-md absolute z-20 hover:cursor-default">
-    </div>
-
-		<div id="timer-update" hx-get="/timer" hx-trigger="every 1s" hx-swap-oob="true"></div>
-	`)
+	components.StartGameRight().Render(r.Context(), w)
 }
 
-func (gcfg *gameConfig) resumeGameHandler(w http.ResponseWriter, r *http.Request) {
+func (cfg *appConfig) resumeGameHandler(w http.ResponseWriter, r *http.Request) {
 	c, err := r.Cookie("current_game")
 
 	if err != nil {
+		fmt.Println("no cookie found")
 		w.WriteHeader(http.StatusNoContent)
 		return
-	} else if c.Value != "" {
+	} else if c.Value == "" {
+		fmt.Println("no cookie value")
 		w.WriteHeader(http.StatusNoContent)
 		return
 	}
 
-	cfg, ok := gcfg.Matches[c.Value]
+	match, ok := cfg.Matches[c.Value]
 
 	if !ok {
+		fmt.Println("game not found")
 		w.WriteHeader(http.StatusNoContent)
 		return
 	}
 
-	gcfg.fillBoard(c.Value)
-	UpdateCoordinates(&cfg)
+	cfg.fillBoard(c.Value)
+	UpdateCoordinates(&match)
 
-	fmt.Fprintf(w, `
-
-		<div id="right-side"></div>
-
-		<div id="overlay" hx-swap-oob="true" class="hidden w-board w-board-md h-board h-board-md absolute z-20 hover:cursor-default">
-    </div>
-
-		<div id="timer-update" hx-get="/timer" hx-trigger="every 1s" hx-swap-oob="true"></div>
-	`)
+	components.StartGameRight().Render(r.Context(), w)
 }
 
-func (cfg *apiConfig) timeOptionHandler(w http.ResponseWriter, r *http.Request) {
+func (cfg *appConfig) getAllMovesHandler(w http.ResponseWriter, r *http.Request) {
+	c, err := r.Cookie("current_game")
+
+	if err != nil {
+		fmt.Println("no cookie found")
+		w.WriteHeader(http.StatusNoContent)
+		return
+	} else if c.Value == "" {
+		fmt.Println("no cookie value")
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+
+	match, ok := cfg.Matches[c.Value]
+
+	if !ok {
+		fmt.Println("game not found")
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+
+	for i := 1; i <= len(match.allMoves); i++ {
+		if i%2 == 0 {
+			fmt.Fprintf(w, `
+				<div id="moves" hx-swap-oob="beforeend" class="grid grid-cols-3 text-white h-moves mt-8">
+					<span>%v</span>
+				</div>
+			`,
+				match.allMoves[i-1],
+			)
+		} else {
+			fmt.Fprintf(w, `
+				<div id="moves" hx-swap-oob="beforeend" class="grid grid-cols-3 text-white h-moves mt-8">
+					<span>%v.</span>
+					<span>%v</span>
+				</div>
+		`,
+				i/2+1,
+				match.allMoves[i-1],
+			)
+		}
+	}
+}
+
+func (cfg *appConfig) timeOptionHandler(w http.ResponseWriter, r *http.Request) {
 
 	fmt.Fprintf(w, `
 		<div class="absolute right-0 mt-2 w-48 bg-[#1e1c1a] border border-[#3a3733] text-white rounded-md shadow-lg z-50">
@@ -665,7 +733,7 @@ func (cfg *apiConfig) timeOptionHandler(w http.ResponseWriter, r *http.Request) 
 	`)
 }
 
-func (gcfg *gameConfig) setTimeOption(w http.ResponseWriter, r *http.Request) {
+func (cfg *appConfig) setTimeOption(w http.ResponseWriter, r *http.Request) {
 
 	err := r.ParseForm()
 
@@ -699,19 +767,19 @@ func (gcfg *gameConfig) setTimeOption(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	currentGame := c.Value
-	cfg := gcfg.Matches[currentGame]
+	match := cfg.Matches[currentGame]
 
 	var seconds string
 
 	if a != 0 {
 		seconds = fmt.Sprintf("+ %v sec", a)
-		cfg.addition = a
+		match.addition = a
 	}
 
-	cfg.whiteTimer = t * 60
-	cfg.blackTimer = t * 60
+	match.whiteTimer = t * 60
+	match.blackTimer = t * 60
 
-	gcfg.Matches[currentGame] = cfg
+	cfg.Matches[currentGame] = match
 
 	fmt.Fprintf(w, `
 		<div id="dropdown-menu" hx-swap-oob="true" class="relative mb-8"></div>
@@ -721,21 +789,21 @@ func (gcfg *gameConfig) setTimeOption(w http.ResponseWriter, r *http.Request) {
 		<div id="black" hx-swap-oob="true" class="px-7 py-3 bg-gray-500">%v</div>
 
 		%v Min %v
-	`, formatTime(cfg.whiteTimer), formatTime(cfg.blackTimer), time, seconds)
+	`, formatTime(match.whiteTimer), formatTime(match.blackTimer), time, seconds)
 }
 
-func (cfg *apiConfig) loginOpenHandler(w http.ResponseWriter, r *http.Request) {
+func (cfg *appConfig) loginOpenHandler(w http.ResponseWriter, r *http.Request) {
 	err := layout.LoginModal().Render(r.Context(), w)
 	if err != nil {
 		fmt.Println(err)
 	}
 }
 
-func (cfg *apiConfig) closeModalHandler(w http.ResponseWriter, r *http.Request) {
+func (cfg *appConfig) closeModalHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte{})
 }
 
-func (cfg *apiConfig) signupModalHandler(w http.ResponseWriter, r *http.Request) {
+func (cfg *appConfig) signupModalHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	err := components.Signup().Render(r.Context(), w)
 	if err != nil {
@@ -743,7 +811,7 @@ func (cfg *apiConfig) signupModalHandler(w http.ResponseWriter, r *http.Request)
 	}
 }
 
-func (cfg *apiConfig) loginModalHandler(w http.ResponseWriter, r *http.Request) {
+func (cfg *appConfig) loginModalHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	err := components.Login().Render(r.Context(), w)
 	if err != nil {
@@ -751,7 +819,7 @@ func (cfg *apiConfig) loginModalHandler(w http.ResponseWriter, r *http.Request) 
 	}
 }
 
-func (cfg *apiConfig) signupHandler(w http.ResponseWriter, r *http.Request) {
+func (cfg *appConfig) signupHandler(w http.ResponseWriter, r *http.Request) {
 	name := r.FormValue("name")
 	email := r.FormValue("email")
 	password := r.FormValue("password")
@@ -851,19 +919,9 @@ func (cfg *apiConfig) signupHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Add("Hx-Redirect", "/private")
-
-	fmt.Fprintf(w, `
-	<div id="modal-content" hx-swap-oob="innerHTML">
-		<div class="flex justify-between items-center mb-6">
-      <h2 class="text-xl font-semibold text-gray-100" id="modal-title">Welcome %v</h2>
-      <button hx-get="/close-modal" class="text-gray-400 hover:text-gray-200 text-2xl leading-none">&times;</button>
-    </div>
-		<div class="text-gray-100">You signed up successfully</div>
-	</div>
-	`, user.Name)
 }
 
-func (cfg *apiConfig) loginHandler(w http.ResponseWriter, r *http.Request) {
+func (cfg *appConfig) loginHandler(w http.ResponseWriter, r *http.Request) {
 	email := r.FormValue("email")
 	password := r.FormValue("password")
 
@@ -965,19 +1023,9 @@ func (cfg *apiConfig) loginHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Add("Hx-Redirect", "/private")
-
-	fmt.Fprintf(w, `
-	<div id="modal-content" hx-swap-oob="innerHTML">
-		<div class="flex justify-between items-center mb-6">
-      <h2 class="text-xl font-semibold text-gray-100" id="modal-title">Welcome %v</h2>
-      <button hx-get="/close-modal" class="text-gray-400 hover:text-gray-200 text-2xl leading-none">&times;</button>
-    </div>
-		<div class="text-gray-100">You signed up successfully</div>
-	</div>
-	`, user.Name)
 }
 
-func (cfg *apiConfig) logoutHandler(w http.ResponseWriter, r *http.Request) {
+func (cfg *appConfig) logoutHandler(w http.ResponseWriter, r *http.Request) {
 
 	c, err := r.Cookie("access_token")
 
