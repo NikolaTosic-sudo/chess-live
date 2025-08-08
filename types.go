@@ -9,17 +9,18 @@ import (
 type apiConfig struct {
 	database *database.Queries
 	secret   string
-	user     CurrentUser
+	users    map[uuid.UUID]CurrentUser
 }
 
 type CurrentUser struct {
 	Id    uuid.UUID
 	Name  string
-	email string
+	Email string
 }
 
 type gameConfig struct {
 	Matches map[string]Match
+	secret  string
 }
 
 type Match struct {

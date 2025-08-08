@@ -13,12 +13,12 @@ import (
 	layout "github.com/NikolaTosic-sudo/chess-live/containers/layouts"
 	"github.com/NikolaTosic-sudo/chess-live/internal/auth"
 	"github.com/NikolaTosic-sudo/chess-live/internal/database"
+	"github.com/google/uuid"
 )
 
 func (gcfg *gameConfig) boardHandler(w http.ResponseWriter, r *http.Request) {
 	cfg := gcfg.Matches["initial"]
 	gcfg.fillBoard("initial")
-	// gcfg.checkUser(r)
 
 	whitePlayer := components.PlayerStruct{
 		Image:  "/assets/images/user-icon.png",
@@ -40,6 +40,53 @@ func (gcfg *gameConfig) boardHandler(w http.ResponseWriter, r *http.Request) {
 		respondWithAnErrorPage(w, r, http.StatusInternalServerError, "Couldn't render template")
 		return
 	}
+}
+
+func (gcfg *gameConfig) privateBoardHandler(w http.ResponseWriter, r *http.Request) {
+	c, err := r.Cookie("current_game")
+
+	var game string
+
+	if err != nil {
+		fmt.Println(err)
+		game = "initial"
+	} else if c.Value != "" {
+		game = c.Value
+	} else {
+		game = "initial"
+	}
+
+	cfg := gcfg.Matches[game]
+	gcfg.fillBoard(game)
+
+	whitePlayer := components.PlayerStruct{
+		Image:  "/assets/images/user-icon.png",
+		Name:   "Guest",
+		Timer:  formatTime(cfg.whiteTimer),
+		Pieces: "white",
+	}
+	blackPlayer := components.PlayerStruct{
+		Image:  "/assets/images/user-icon.png",
+		Name:   "Opponent",
+		Timer:  formatTime(cfg.blackTimer),
+		Pieces: "black",
+	}
+
+	err = layout.MainPagePrivate(cfg.board, cfg.pieces, cfg.coordinateMultiplier, whitePlayer, blackPlayer).Render(r.Context(), w)
+
+	if err != nil {
+		fmt.Println(err)
+		respondWithAnErrorPage(w, r, http.StatusInternalServerError, "Couldn't render template")
+		return
+	}
+
+	fmt.Fprintf(w, `
+		<div id="playonline" hx-swap-oob="true" class="relative group inline-block cursor-pointer mt-8">
+      <button hx-post="/start" hx-target="#right-side" class="bg-emerald-500/60 hover:bg-emerald-600/60 text-white font-semibold py-3 px-6 rounded cursor-pointer w-[200px]">
+        Play Online
+      </button>
+    </div>
+	`)
 }
 
 func (gcfg *gameConfig) moveHandler(w http.ResponseWriter, r *http.Request) {
@@ -92,17 +139,18 @@ func (gcfg *gameConfig) moveHandler(w http.ResponseWriter, r *http.Request) {
 			<span id="%v" hx-post="/move" hx-swap-oob="true" hx-swap="outerHTML" class="tile tile-md hover:cursor-grab absolute transition-all" style="bottom: %vpx; left: %vpx">
 				<img src="/assets/pieces/%v.svg" />
 			</span>
+
+			<div id="lost-pieces-%v" hx-swap-oob="afterbegin">
+				<img src="/assets/pieces/%v.svg" class="w-[18px] h-[18px]" />
+			</div>
 		`,
 			cfg.selectedPiece.Name,
 			currentSquare.Coordinates[0],
 			currentSquare.Coordinates[1],
 			cfg.selectedPiece.Image,
+			userColor,
+			currentPiece.Image,
 		)
-		fmt.Fprintf(w, `
-				<div id="lost-pieces-%v" hx-swap-oob="afterbegin">
-					<img src="/assets/pieces/%v.svg" class="w-[18px] h-[18px]" />
-				</div>
-			`, userColor, currentPiece.Image)
 		delete(cfg.pieces, currentPieceName)
 		cfg.selectedPiece.Tile = currentSquareName
 		cfg.selectedPiece.Moved = true
@@ -511,16 +559,26 @@ func (gcfg *gameConfig) updateMultiplerHandler(w http.ResponseWriter, r *http.Re
 
 func (gcfg *gameConfig) startGameHandler(w http.ResponseWriter, r *http.Request) {
 
-	randomString, err := auth.MakeRefreshToken()
+	user := gcfg.isUserLoggedIn(r)
 
-	if err != nil {
-		fmt.Println(err)
-		return
+	var newGameName string
+
+	if user != uuid.Nil {
+		newGameName = user.String()
+	} else {
+		randomString, err := auth.MakeRefreshToken()
+
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+
+		newGameName = randomString
 	}
 
 	startGame := http.Cookie{
 		Name:     "current_game",
-		Value:    randomString,
+		Value:    newGameName,
 		Path:     "/",
 		MaxAge:   604800,
 		HttpOnly: true,
@@ -531,7 +589,7 @@ func (gcfg *gameConfig) startGameHandler(w http.ResponseWriter, r *http.Request)
 	startingBoard := MakeBoard()
 	startingPieces := MakePieces()
 
-	gcfg.Matches[randomString] = Match{
+	gcfg.Matches[newGameName] = Match{
 		board:                startingBoard,
 		pieces:               startingPieces,
 		selectedPiece:        components.Piece{},
@@ -544,11 +602,43 @@ func (gcfg *gameConfig) startGameHandler(w http.ResponseWriter, r *http.Request)
 		addition:             0,
 	}
 
-	cur := gcfg.Matches[randomString]
+	cur := gcfg.Matches[newGameName]
 
-	gcfg.fillBoard(randomString)
+	gcfg.fillBoard(newGameName)
 	UpdateCoordinates(&cur)
 	http.SetCookie(w, &startGame)
+
+	fmt.Fprintf(w, `
+
+		<div id="right-side"></div>
+
+		<div id="overlay" hx-swap-oob="true" class="hidden w-board w-board-md h-board h-board-md absolute z-20 hover:cursor-default">
+    </div>
+
+		<div id="timer-update" hx-get="/timer" hx-trigger="every 1s" hx-swap-oob="true"></div>
+	`)
+}
+
+func (gcfg *gameConfig) resumeGameHandler(w http.ResponseWriter, r *http.Request) {
+	c, err := r.Cookie("current_game")
+
+	if err != nil {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	} else if c.Value != "" {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+
+	cfg, ok := gcfg.Matches[c.Value]
+
+	if !ok {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+
+	gcfg.fillBoard(c.Value)
+	UpdateCoordinates(&cfg)
 
 	fmt.Fprintf(w, `
 
@@ -740,8 +830,27 @@ func (cfg *apiConfig) signupHandler(w http.ResponseWriter, r *http.Request) {
 		SameSite: http.SameSiteLaxMode,
 	}
 
+	cGC := http.Cookie{
+		Name:     "current_game",
+		Value:    "",
+		Path:     "/",
+		MaxAge:   -1,
+		HttpOnly: true,
+		Secure:   true,
+		SameSite: http.SameSiteLaxMode,
+	}
+
 	http.SetCookie(w, &c)
 	http.SetCookie(w, &refreshC)
+	http.SetCookie(w, &cGC)
+
+	cfg.users[user.ID] = CurrentUser{
+		Id:    user.ID,
+		Name:  user.Name,
+		Email: user.Email,
+	}
+
+	w.Header().Add("Hx-Redirect", "/private")
 
 	fmt.Fprintf(w, `
 	<div id="modal-content" hx-swap-oob="innerHTML">
@@ -835,8 +944,27 @@ func (cfg *apiConfig) loginHandler(w http.ResponseWriter, r *http.Request) {
 		SameSite: http.SameSiteLaxMode,
 	}
 
+	cGC := http.Cookie{
+		Name:     "current_game",
+		Value:    "",
+		Path:     "/",
+		MaxAge:   -1,
+		HttpOnly: true,
+		Secure:   true,
+		SameSite: http.SameSiteLaxMode,
+	}
+
 	http.SetCookie(w, &c)
 	http.SetCookie(w, &refreshC)
+	http.SetCookie(w, &cGC)
+
+	cfg.users[user.ID] = CurrentUser{
+		Id:    user.ID,
+		Name:  user.Name,
+		Email: user.Email,
+	}
+
+	w.Header().Add("Hx-Redirect", "/private")
 
 	fmt.Fprintf(w, `
 	<div id="modal-content" hx-swap-oob="innerHTML">
@@ -847,4 +975,61 @@ func (cfg *apiConfig) loginHandler(w http.ResponseWriter, r *http.Request) {
 		<div class="text-gray-100">You signed up successfully</div>
 	</div>
 	`, user.Name)
+}
+
+func (cfg *apiConfig) logoutHandler(w http.ResponseWriter, r *http.Request) {
+
+	c, err := r.Cookie("access_token")
+
+	if err != nil {
+		fmt.Println("no token", err)
+		w.Header().Add("Hx-Redirect", "/")
+		return
+	}
+
+	userId, err := auth.ValidateJWT(c.Value, cfg.secret)
+
+	if err != nil {
+		fmt.Println("invalid jwt")
+		w.Header().Add("Hx-Redirect", "/")
+		return
+	}
+
+	delete(cfg.users, userId)
+
+	accC := http.Cookie{
+		Name:     "access_token",
+		Value:    "",
+		Path:     "/",
+		MaxAge:   -1,
+		HttpOnly: true,
+		Secure:   true,
+		SameSite: http.SameSiteLaxMode,
+	}
+
+	refreshC := http.Cookie{
+		Name:     "refresh_token",
+		Value:    "",
+		Path:     "/api/refresh",
+		MaxAge:   -1,
+		HttpOnly: true,
+		Secure:   true,
+		SameSite: http.SameSiteLaxMode,
+	}
+
+	cGC := http.Cookie{
+		Name:     "current_game",
+		Value:    "",
+		Path:     "/",
+		MaxAge:   -1,
+		HttpOnly: true,
+		Secure:   true,
+		SameSite: http.SameSiteLaxMode,
+	}
+
+	http.SetCookie(w, &accC)
+	http.SetCookie(w, &refreshC)
+	http.SetCookie(w, &cGC)
+
+	w.Header().Add("Hx-Redirect", "/")
 }

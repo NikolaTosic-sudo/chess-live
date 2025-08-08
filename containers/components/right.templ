@@ -21,7 +21,13 @@ templ RightSide() {
       </button>
     </div>
 
-    <div class="relative group inline-block cursor-not-allowed mt-8">
+    <div>
+      <button hx-post="/resume" hx-target="#right-side" class="bg-emerald-500 hover:bg-emerald-600 text-white font-semibold py-3 px-3 rounded cursor-pointer mt-8 w-[200px]">
+        Resume Local Game
+      </button>
+    </div>
+
+    <div id="playonline" class="relative group inline-block cursor-not-allowed mt-8">
       <button hx-disable="true" disabled hx-post="/start" hx-target="#right-side" class="bg-emerald-500/60 hover:bg-emerald-600/60 text-white font-semibold py-3 px-6 rounded cursor-not-allowed w-[200px]">
         Play Online
       </button>

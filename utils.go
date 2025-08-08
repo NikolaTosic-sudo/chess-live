@@ -750,25 +750,21 @@ func (cfg *apiConfig) refreshToken(w http.ResponseWriter, r *http.Request) {
 
 	if err != nil {
 		fmt.Println(err)
-		fmt.Println("jeste")
 		return
 	}
 
 	if dbToken.ExpiresAt.Before(time.Now()) {
 		fmt.Println("token expired")
-		w.WriteHeader(http.StatusUnauthorized)
-		newUser := CurrentUser{
-			Name: "Guest",
-		}
-		cfg.user = newUser
+		delete(cfg.users, dbToken.UserID)
+		http.Redirect(w, r, "/", http.StatusUnauthorized)
 		return
 	}
 
 	user, err := cfg.database.GetUserById(r.Context(), dbToken.UserID)
 
 	if err != nil {
-		fmt.Println("couldn't find user")
-		w.WriteHeader(http.StatusInternalServerError)
+		fmt.Println("no user with that id")
+		http.Redirect(w, r, "/", http.StatusUnauthorized)
 		return
 	}
 
@@ -795,7 +791,7 @@ func (cfg *apiConfig) refreshToken(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-func (cfg *apiConfig) checkUser(r *http.Request) {
+func (cfg *apiConfig) checkUser(w http.ResponseWriter, r *http.Request) {
 	c, err := r.Cookie("access_token")
 
 	if err != nil {
@@ -809,22 +805,77 @@ func (cfg *apiConfig) checkUser(r *http.Request) {
 			}
 			fmt.Println(err)
 		} else if userId != uuid.Nil {
-			userDb, err := cfg.database.GetUserById(r.Context(), userId)
+			_, err := cfg.database.GetUserById(r.Context(), userId)
 
 			if err != nil {
 				fmt.Println(err)
 				return
 			}
 
-			cfg.user.Id = userDb.ID
-			cfg.user.Name = userDb.Name
-			cfg.user.email = userDb.Email
+			_, ok := cfg.users[userId]
+
+			if ok {
+				http.Redirect(w, r, "/private", http.StatusSeeOther)
+			}
+		}
+	}
+}
+
+func (cfg *apiConfig) checkUserPrivate(w http.ResponseWriter, r *http.Request) {
+	c, err := r.Cookie("access_token")
+	if err != nil {
+		fmt.Println(err)
+		http.Redirect(w, r, "/", http.StatusFound)
+	} else if c.Value != "" {
+		userId, err := auth.ValidateJWT(c.Value, cfg.secret)
+
+		if err != nil {
+			fmt.Println(err)
+			http.Redirect(w, r, "/", http.StatusFound)
+		} else if userId != uuid.Nil {
+			_, err := cfg.database.GetUserById(r.Context(), userId)
+			if err != nil {
+				fmt.Println(err)
+				http.Redirect(w, r, "/", http.StatusFound)
+				return
+			}
+			_, ok := cfg.users[userId]
+			if !ok {
+				fmt.Println("no user found")
+				http.Redirect(w, r, "/", http.StatusFound)
+			}
 		}
 	}
 }
 
 func (cfg *apiConfig) middleWareCheckForUser(next func(http.ResponseWriter, *http.Request)) func(http.ResponseWriter, *http.Request) {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		cfg.checkUser(w, r)
 		next(w, r)
 	})
+}
+
+func (cfg *apiConfig) middleWareCheckForUserPrivate(next func(http.ResponseWriter, *http.Request)) func(http.ResponseWriter, *http.Request) {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		cfg.checkUserPrivate(w, r)
+		next(w, r)
+	})
+}
+
+func (gcfg *gameConfig) isUserLoggedIn(r *http.Request) uuid.UUID {
+	c, err := r.Cookie("access_token")
+
+	if err != nil {
+		fmt.Println("couldn't find the token")
+		return uuid.Nil
+	}
+
+	userId, err := auth.ValidateJWT(c.Value, gcfg.secret)
+
+	if err != nil {
+		fmt.Println("invalid token")
+		return uuid.Nil
+	}
+
+	return userId
 }

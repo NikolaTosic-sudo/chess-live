@@ -9,6 +9,7 @@ import (
 
 	"github.com/NikolaTosic-sudo/chess-live/containers/components"
 	"github.com/NikolaTosic-sudo/chess-live/internal/database"
+	"github.com/google/uuid"
 	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
 )
@@ -26,14 +27,10 @@ func main() {
 	startingBoard := MakeBoard()
 	startingPieces := MakePieces()
 
-	user := CurrentUser{
-		Name: "Guest",
-	}
-
 	cfg := apiConfig{
 		database: dbQueries,
 		secret:   secret,
-		user:     user,
+		users:    make(map[uuid.UUID]CurrentUser, 0),
 	}
 
 	gcfg := gameConfig{
@@ -51,6 +48,7 @@ func main() {
 				addition:             0,
 			},
 		},
+		secret: secret,
 	}
 
 	cur := gcfg.Matches["initial"]
@@ -58,7 +56,9 @@ func main() {
 
 	http.Handle("/assets/", http.StripPrefix("/assets/", http.FileServer(http.Dir("assets"))))
 	http.HandleFunc("/", cfg.middleWareCheckForUser(gcfg.boardHandler))
+	http.HandleFunc("/private", cfg.middleWareCheckForUserPrivate(gcfg.privateBoardHandler))
 	http.HandleFunc("POST /start", gcfg.startGameHandler)
+	http.HandleFunc("POST /resume", gcfg.resumeGameHandler)
 	http.HandleFunc("POST /move", gcfg.moveHandler)
 	http.HandleFunc("POST /move-to", gcfg.moveToHandler)
 	http.HandleFunc("POST /cover-check", gcfg.coverCheckHandler)
@@ -67,6 +67,7 @@ func main() {
 	http.HandleFunc("POST /set-time", gcfg.setTimeOption)
 	http.HandleFunc("POST /update-multiplier", gcfg.updateMultiplerHandler)
 	http.HandleFunc("GET /login", cfg.loginOpenHandler)
+	http.HandleFunc("GET /logout", cfg.logoutHandler)
 	http.HandleFunc("GET /close-modal", cfg.closeModalHandler)
 	http.HandleFunc("GET /login-modal", cfg.loginModalHandler)
 	http.HandleFunc("GET /signup-modal", cfg.signupModalHandler)
