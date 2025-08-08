@@ -8,7 +8,7 @@ package components
 import "github.com/a-h/templ"
 import templruntime "github.com/a-h/templ/runtime"
 
-func RightSide() templ.Component {
+func RightSide(ofline bool) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -29,7 +29,49 @@ func RightSide() templ.Component {
 			templ_7745c5c3_Var1 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div id=\"right-side\" class=\"h-full w-260px mt-10 block\"><div><button id=\"timer\" class=\"bg-amber-600 w-[200px] hover:bg-amber-500 text-white font-semibold py-2 px-4 rounded-md shadow-md cursor-pointer\" hx-get=\"/time-options\" hx-target=\"#dropdown-menu\" hx-swap=\"innerHTML\" hx-trigger=\"click\">10 Min</button><div id=\"dropdown-menu\" class=\"relative mb-8\"></div></div><div><button hx-post=\"/start\" hx-target=\"#right-side\" class=\"bg-emerald-500 hover:bg-emerald-600 text-white font-semibold py-3 px-6 rounded cursor-pointer w-[200px]\">Play Locally</button></div><div><button hx-post=\"/resume\" hx-target=\"#right-side\" class=\"bg-emerald-500 hover:bg-emerald-600 text-white font-semibold py-3 px-3 rounded cursor-pointer mt-8 w-[200px]\">Resume Local Game</button></div><div id=\"playonline\" class=\"relative group inline-block cursor-not-allowed mt-8\"><button hx-disable=\"true\" disabled hx-post=\"/start\" hx-target=\"#right-side\" class=\"bg-emerald-500/60 hover:bg-emerald-600/60 text-white font-semibold py-3 px-6 rounded cursor-not-allowed w-[200px]\">Play Online</button><div class=\"absolute bottom-full mb-2 left-1/2 -translate-x-1/2 \n              hidden group-hover:block w-max px-2 py-1 text-sm text-white \n              bg-black rounded z-50 whitespace-nowrap\">Log In to play online</div></div></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div id=\"right-side\" class=\"h-full w-260px mt-10 block\"><div><button id=\"timer\" class=\"bg-amber-600 w-[200px] hover:bg-amber-500 text-white font-semibold py-2 px-4 rounded-md shadow-md cursor-pointer\" hx-get=\"/time-options\" hx-target=\"#dropdown-menu\" hx-swap=\"innerHTML\" hx-trigger=\"click\">10 Min</button><div id=\"dropdown-menu\" class=\"relative mb-8\"></div></div><div><button hx-post=\"/start\" hx-target=\"#right-side\" class=\"bg-emerald-500 hover:bg-emerald-600 text-white font-semibold py-3 px-6 rounded cursor-pointer w-[200px]\">Play Locally</button></div><div><button hx-post=\"/resume\" hx-target=\"#right-side\" class=\"bg-emerald-500 hover:bg-emerald-600 text-white font-semibold py-3 px-3 rounded cursor-pointer mt-8 w-[200px]\">Resume Local Game</button></div><div id=\"playonline\" class=\"relative group inline-block cursor-not-allowed mt-8\">")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var2 = []any{"bg-emerald-500 hover:bg-emerald-600 text-white font-semibold py-3 px-6 rounded w-[200px] cursor-pointer", templ.KV("cursor-not-allowed", ofline), templ.KV("bg-emerald-500/60 hover:bg-emerald-600/60", ofline)}
+		templ_7745c5c3_Err = templ.RenderCSSItems(ctx, templ_7745c5c3_Buffer, templ_7745c5c3_Var2...)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "<button")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		if ofline {
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, " hx-disable=\"true\" disabled")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, " hx-post=\"/start\" hx-target=\"#right-side\" class=\"")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var3 string
+		templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinStringErrs(templ.CSSClasses(templ_7745c5c3_Var2).String())
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `containers/components/right.templ`, Line: 1, Col: 0}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "\">Play Online</button> ")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		if ofline {
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "<div class=\"absolute bottom-full mb-2 left-1/2 -translate-x-1/2 \n              hidden group-hover:block w-max px-2 py-1 text-sm text-white \n              bg-black rounded z-50 whitespace-nowrap\">Log In to play online</div>")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "</div></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

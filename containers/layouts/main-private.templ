@@ -8,7 +8,7 @@ templ MainPagePrivate(chessBoard map[string]components.Square, pieces map[string
       <div hx-get="/api/refresh" hx-trigger="every 30m" hx-swap="none"></div>
       @components.LeftSidePrivate()
       @components.GridBoard(chessBoard, pieces, multiplier, whitePlayer, blackPlayer)
-      @components.RightSide()
+      @components.RightSide(false)
     </div>
   }
 }

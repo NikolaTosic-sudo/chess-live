@@ -7,7 +7,7 @@ templ MainPage(chessBoard map[string]components.Square, pieces map[string]compon
     <div class="flex">
       @components.LeftSide()
       @components.GridBoard(chessBoard, pieces, multiplier, whitePlayer, blackPlayer)
-      @components.RightSide()
+      @components.RightSide(true)
     </div>
   }
 }
