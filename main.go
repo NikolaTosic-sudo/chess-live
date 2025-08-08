@@ -27,13 +27,10 @@ func main() {
 	startingBoard := MakeBoard()
 	startingPieces := MakePieces()
 
-	cfg := apiConfig{
+	cfg := appConfig{
 		database: dbQueries,
 		secret:   secret,
 		users:    make(map[uuid.UUID]CurrentUser, 0),
-	}
-
-	gcfg := gameConfig{
 		Matches: map[string]Match{
 			"initial": {
 				board:                startingBoard,
@@ -46,26 +43,26 @@ func main() {
 				whiteTimer:           600,
 				blackTimer:           600,
 				addition:             0,
+				allMoves:             []string{},
 			},
 		},
-		secret: secret,
 	}
 
-	cur := gcfg.Matches["initial"]
+	cur := cfg.Matches["initial"]
 	UpdateCoordinates(&cur)
 
 	http.Handle("/assets/", http.StripPrefix("/assets/", http.FileServer(http.Dir("assets"))))
-	http.HandleFunc("/", cfg.middleWareCheckForUser(gcfg.boardHandler))
-	http.HandleFunc("/private", cfg.middleWareCheckForUserPrivate(gcfg.privateBoardHandler))
-	http.HandleFunc("POST /start", gcfg.startGameHandler)
-	http.HandleFunc("POST /resume", gcfg.resumeGameHandler)
-	http.HandleFunc("POST /move", gcfg.moveHandler)
-	http.HandleFunc("POST /move-to", gcfg.moveToHandler)
-	http.HandleFunc("POST /cover-check", gcfg.coverCheckHandler)
-	http.HandleFunc("GET /timer", gcfg.timerHandler)
+	http.HandleFunc("/", cfg.middleWareCheckForUser(cfg.boardHandler))
+	http.HandleFunc("/private", cfg.middleWareCheckForUserPrivate(cfg.privateBoardHandler))
+	http.HandleFunc("POST /start", cfg.startGameHandler)
+	http.HandleFunc("POST /resume", cfg.resumeGameHandler)
+	http.HandleFunc("POST /move", cfg.moveHandler)
+	http.HandleFunc("POST /move-to", cfg.moveToHandler)
+	http.HandleFunc("POST /cover-check", cfg.coverCheckHandler)
+	http.HandleFunc("GET /timer", cfg.timerHandler)
 	http.HandleFunc("GET /time-options", cfg.timeOptionHandler)
-	http.HandleFunc("POST /set-time", gcfg.setTimeOption)
-	http.HandleFunc("POST /update-multiplier", gcfg.updateMultiplerHandler)
+	http.HandleFunc("POST /set-time", cfg.setTimeOption)
+	http.HandleFunc("POST /update-multiplier", cfg.updateMultiplerHandler)
 	http.HandleFunc("GET /login", cfg.loginOpenHandler)
 	http.HandleFunc("GET /logout", cfg.logoutHandler)
 	http.HandleFunc("GET /close-modal", cfg.closeModalHandler)
@@ -74,6 +71,7 @@ func main() {
 	http.HandleFunc("POST /auth-signup", cfg.signupHandler)
 	http.HandleFunc("POST /auth-login", cfg.loginHandler)
 	http.HandleFunc("GET /api/refresh", cfg.refreshToken)
+	http.HandleFunc("GET /all-moves", cfg.getAllMovesHandler)
 
 	fmt.Printf("Listening on :%v\n", port)
 	http.ListenAndServe(fmt.Sprintf(":%v", port), nil)

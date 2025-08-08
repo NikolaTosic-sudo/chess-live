@@ -6,21 +6,17 @@ import (
 	"github.com/google/uuid"
 )
 
-type apiConfig struct {
+type appConfig struct {
 	database *database.Queries
 	secret   string
 	users    map[uuid.UUID]CurrentUser
+	Matches  map[string]Match
 }
 
 type CurrentUser struct {
 	Id    uuid.UUID
 	Name  string
 	Email string
-}
-
-type gameConfig struct {
-	Matches map[string]Match
-	secret  string
 }
 
 type Match struct {
@@ -35,4 +31,5 @@ type Match struct {
 	blackTimer           int
 	whiteTimer           int
 	addition             int
+	allMoves             []string
 }

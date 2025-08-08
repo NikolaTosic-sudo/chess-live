@@ -34,18 +34,18 @@ var rowIdxMap = map[string]int{
 	"1": 7,
 }
 
-func (gcfg *gameConfig) canPlay(piece components.Piece, currentGame string) bool {
-	cfg := gcfg.Matches[currentGame]
-	if cfg.isWhiteTurn {
+func (cfg *appConfig) canPlay(piece components.Piece, currentGame string) bool {
+	match := cfg.Matches[currentGame]
+	if match.isWhiteTurn {
 		if piece.IsWhite {
 			return true
-		} else if cfg.selectedPiece.IsWhite && piece.IsWhite {
+		} else if match.selectedPiece.IsWhite && piece.IsWhite {
 			return true
 		}
 	} else {
 		if !piece.IsWhite {
 			return true
-		} else if !cfg.selectedPiece.IsWhite && !piece.IsWhite {
+		} else if !match.selectedPiece.IsWhite && !piece.IsWhite {
 			return true
 		}
 	}
@@ -64,30 +64,30 @@ func canEat(selectedPiece, currentPiece components.Piece) bool {
 	return false
 }
 
-func (gcfg *gameConfig) fillBoard(currentGame string) {
-	cfg := gcfg.Matches[currentGame]
-	for _, v := range cfg.pieces {
-		getTile := cfg.board[v.Tile]
+func (cfg *appConfig) fillBoard(currentGame string) {
+	match := cfg.Matches[currentGame]
+	for _, v := range match.pieces {
+		getTile := match.board[v.Tile]
 		getTile.Piece = v
-		cfg.board[v.Tile] = getTile
+		match.board[v.Tile] = getTile
 	}
-	gcfg.Matches[currentGame] = cfg
+	cfg.Matches[currentGame] = match
 }
 
-func (gcfg *gameConfig) checkLegalMoves(currentGame string) []string {
-	cfg := gcfg.Matches[currentGame]
+func (cfg *appConfig) checkLegalMoves(currentGame string) []string {
+	match := cfg.Matches[currentGame]
 	var startingPosition [2]int
 
 	var possibleMoves []string
 
-	if cfg.selectedPiece.Tile == "" {
+	if match.selectedPiece.Tile == "" {
 		return possibleMoves
 	}
 
-	rowIdx := rowIdxMap[string(cfg.selectedPiece.Tile[0])]
+	rowIdx := rowIdxMap[string(match.selectedPiece.Tile[0])]
 
 	for i := 0; i < len(mockBoard[rowIdx]); i++ {
-		if mockBoard[rowIdx][i] == cfg.selectedPiece.Tile {
+		if mockBoard[rowIdx][i] == match.selectedPiece.Tile {
 			startingPosition = [2]int{rowIdx, i}
 			break
 		}
@@ -95,17 +95,17 @@ func (gcfg *gameConfig) checkLegalMoves(currentGame string) []string {
 
 	var pieceColor string
 
-	if cfg.selectedPiece.IsWhite {
+	if match.selectedPiece.IsWhite {
 		pieceColor = "white"
 	} else {
 		pieceColor = "black"
 	}
 
-	if cfg.selectedPiece.IsPawn {
-		gcfg.getPawnMoves(&possibleMoves, startingPosition, cfg.selectedPiece, currentGame)
+	if match.selectedPiece.IsPawn {
+		cfg.getPawnMoves(&possibleMoves, startingPosition, match.selectedPiece, currentGame)
 	} else {
-		for _, move := range cfg.selectedPiece.LegalMoves {
-			gcfg.getMoves(&possibleMoves, startingPosition, move, cfg.selectedPiece.MovesOnce, pieceColor, currentGame)
+		for _, move := range match.selectedPiece.LegalMoves {
+			cfg.getMoves(&possibleMoves, startingPosition, move, match.selectedPiece.MovesOnce, pieceColor, currentGame)
 		}
 	}
 
@@ -113,8 +113,8 @@ func (gcfg *gameConfig) checkLegalMoves(currentGame string) []string {
 }
 
 // TODO: IMPLEMENT EN PESSANT
-func (gcfg *gameConfig) getPawnMoves(possible *[]string, startingPosition [2]int, piece components.Piece, currentGame string) {
-	cfg := gcfg.Matches[currentGame]
+func (cfg *appConfig) getPawnMoves(possible *[]string, startingPosition [2]int, piece components.Piece, currentGame string) {
+	match := cfg.Matches[currentGame]
 	var moveIndex int
 	if piece.IsWhite {
 		moveIndex = -1
@@ -133,7 +133,7 @@ func (gcfg *gameConfig) getPawnMoves(possible *[]string, startingPosition [2]int
 
 	if startingPosition[1]+1 < len(mockBoard[startingPosition[0]]) {
 		currentTile := mockBoard[currentPosition[0]][startingPosition[1]+1]
-		pieceOnCurrentTile := cfg.board[currentTile].Piece
+		pieceOnCurrentTile := match.board[currentTile].Piece
 		if pieceOnCurrentTile.Name != "" {
 			*possible = append(*possible, currentTile)
 		}
@@ -141,14 +141,14 @@ func (gcfg *gameConfig) getPawnMoves(possible *[]string, startingPosition [2]int
 
 	if startingPosition[1]-1 >= 0 {
 		currentTile := mockBoard[currentPosition[0]][startingPosition[1]-1]
-		pieceOnCurrentTile := cfg.board[currentTile].Piece
+		pieceOnCurrentTile := match.board[currentTile].Piece
 		if pieceOnCurrentTile.Name != "" {
 			*possible = append(*possible, currentTile)
 		}
 	}
 
 	currentTile := mockBoard[currentPosition[0]][currentPosition[1]]
-	pieceOnCurrentTile := cfg.board[currentTile].Piece
+	pieceOnCurrentTile := match.board[currentTile].Piece
 
 	if pieceOnCurrentTile.Name != "" {
 		return
@@ -158,15 +158,15 @@ func (gcfg *gameConfig) getPawnMoves(possible *[]string, startingPosition [2]int
 
 	if !piece.Moved {
 		tile := mockBoard[currentPosition[0]+moveIndex][currentPosition[1]]
-		pT := cfg.board[tile].Piece
+		pT := match.board[tile].Piece
 		if pT.Name == "" {
 			*possible = append(*possible, tile)
 		}
 	}
 }
 
-func (gcfg *gameConfig) getMoves(possible *[]string, startingPosition [2]int, move []int, checkOnce bool, pieceColor, currentGame string) {
-	cfg := gcfg.Matches[currentGame]
+func (cfg *appConfig) getMoves(possible *[]string, startingPosition [2]int, move []int, checkOnce bool, pieceColor, currentGame string) {
+	match := cfg.Matches[currentGame]
 	currentPosition := [2]int{startingPosition[0] + move[0], startingPosition[1] + move[1]}
 
 	if currentPosition[0] < 0 || currentPosition[1] < 0 {
@@ -178,7 +178,7 @@ func (gcfg *gameConfig) getMoves(possible *[]string, startingPosition [2]int, mo
 	}
 
 	currentTile := mockBoard[currentPosition[0]][currentPosition[1]]
-	pieceOnCurrentTile := cfg.board[currentTile].Piece
+	pieceOnCurrentTile := match.board[currentTile].Piece
 
 	if pieceOnCurrentTile.Name != "" {
 		if strings.Contains(pieceOnCurrentTile.Name, pieceColor) {
@@ -195,7 +195,7 @@ func (gcfg *gameConfig) getMoves(possible *[]string, startingPosition [2]int, mo
 		return
 	}
 
-	gcfg.getMoves(possible, currentPosition, move, checkOnce, pieceColor, currentGame)
+	cfg.getMoves(possible, currentPosition, move, checkOnce, pieceColor, currentGame)
 }
 
 func samePiece(selectedPiece, currentPiece components.Piece) bool {
@@ -208,7 +208,7 @@ func samePiece(selectedPiece, currentPiece components.Piece) bool {
 	return false
 }
 
-func (gcfg *gameConfig) checkForCastle(b map[string]components.Square, selectedPiece, currentPiece components.Piece, currentGame string) (bool, bool) {
+func (cfg *appConfig) checkForCastle(b map[string]components.Square, selectedPiece, currentPiece components.Piece, currentGame string) (bool, bool) {
 	if (selectedPiece.IsKing &&
 		strings.Contains(currentPiece.Name, "rook") ||
 		(strings.Contains(selectedPiece.Name, "rook") &&
@@ -254,7 +254,7 @@ func (gcfg *gameConfig) checkForCastle(b map[string]components.Square, selectedP
 
 		var kingCheck bool
 		if slices.ContainsFunc(tilesForCastle, func(tile string) bool {
-			return gcfg.handleChecksWhenKingMoves(tile, currentGame)
+			return cfg.handleChecksWhenKingMoves(tile, currentGame)
 		}) {
 			kingCheck = true
 		}
@@ -269,34 +269,34 @@ func (gcfg *gameConfig) checkForCastle(b map[string]components.Square, selectedP
 	return false, false
 }
 
-func (gcfg *gameConfig) handleCastle(w http.ResponseWriter, currentPiece components.Piece, currentGame string) error {
-	cfg := gcfg.Matches[currentGame]
+func (cfg *appConfig) handleCastle(w http.ResponseWriter, currentPiece components.Piece, currentGame string) error {
+	match := cfg.Matches[currentGame]
 	var king components.Piece
 	var rook components.Piece
 
-	if cfg.selectedPiece.IsKing {
-		king = cfg.selectedPiece
+	if match.selectedPiece.IsKing {
+		king = match.selectedPiece
 		rook = currentPiece
 	} else {
 		king = currentPiece
-		rook = cfg.selectedPiece
+		rook = match.selectedPiece
 	}
 
 	kTile := king.Tile
 	rTile := rook.Tile
-	savedKingTile := cfg.board[king.Tile]
-	savedRookTile := cfg.board[rook.Tile]
-	kingSquare := cfg.board[king.Tile]
-	rookSquare := cfg.board[rook.Tile]
+	savedKingTile := match.board[king.Tile]
+	savedRookTile := match.board[rook.Tile]
+	kingSquare := match.board[king.Tile]
+	rookSquare := match.board[rook.Tile]
 
 	if kingSquare.Coordinates[1] < rookSquare.Coordinates[1] {
 		kC := kingSquare.Coordinates[1]
-		rookSquare.Coordinates[1] = kC + cfg.coordinateMultiplier
-		kingSquare.Coordinates[1] = kC + cfg.coordinateMultiplier*2
+		rookSquare.Coordinates[1] = kC + match.coordinateMultiplier
+		kingSquare.Coordinates[1] = kC + match.coordinateMultiplier*2
 	} else {
 		kC := kingSquare.Coordinates[1]
-		rookSquare.Coordinates[1] = kC - cfg.coordinateMultiplier
-		kingSquare.Coordinates[1] = kC - cfg.coordinateMultiplier*2
+		rookSquare.Coordinates[1] = kC - match.coordinateMultiplier
+		kingSquare.Coordinates[1] = kC - match.coordinateMultiplier*2
 	}
 
 	_, err := fmt.Fprintf(w, `
@@ -325,45 +325,45 @@ func (gcfg *gameConfig) handleCastle(w http.ResponseWriter, currentPiece compone
 	rowIdx := rowIdxMap[string(king.Tile[0])]
 	king.Tile = mockBoard[rowIdx][kingSquare.Coordinates[1]/100]
 	rook.Tile = mockBoard[rowIdx][rookSquare.Coordinates[1]/100]
-	newKingSquare := cfg.board[king.Tile]
-	newRookSquare := cfg.board[rook.Tile]
+	newKingSquare := match.board[king.Tile]
+	newRookSquare := match.board[rook.Tile]
 	newKingSquare.Piece = king
 	newRookSquare.Piece = rook
-	cfg.board[king.Tile] = newKingSquare
-	cfg.board[rook.Tile] = newRookSquare
-	cfg.pieces[king.Name] = king
-	cfg.pieces[rook.Name] = rook
+	match.board[king.Tile] = newKingSquare
+	match.board[rook.Tile] = newRookSquare
+	match.pieces[king.Name] = king
+	match.pieces[rook.Name] = rook
 	savedKingTile.Piece = components.Piece{}
 	savedRookTile.Piece = components.Piece{}
-	cfg.board[kTile] = savedKingTile
-	cfg.board[rTile] = savedRookTile
-	cfg.selectedPiece = components.Piece{}
-	cfg.isWhiteTurn = !cfg.isWhiteTurn
-	gcfg.Matches[currentGame] = cfg
-	go gcfg.gameDone(currentGame)
+	match.board[kTile] = savedKingTile
+	match.board[rTile] = savedRookTile
+	match.selectedPiece = components.Piece{}
+	match.isWhiteTurn = !match.isWhiteTurn
+	cfg.Matches[currentGame] = match
+	go cfg.gameDone(currentGame)
 
 	return nil
 }
 
-func (gcfg *gameConfig) handleCheckForCheck(currentSquareName, currentGame string, selectedPiece components.Piece) (bool, components.Piece, []string) {
-	cfg := gcfg.Matches[currentGame]
+func (cfg *appConfig) handleCheckForCheck(currentSquareName, currentGame string, selectedPiece components.Piece) (bool, components.Piece, []string) {
+	match := cfg.Matches[currentGame]
 	var startingPosition [2]int
 
 	var king components.Piece
 	var pieceColor string
 
 	savedStartingTile := selectedPiece.Tile
-	savedStartSqua := cfg.board[savedStartingTile]
-	saved := cfg.board[currentSquareName]
+	savedStartSqua := match.board[savedStartingTile]
+	saved := match.board[currentSquareName]
 
 	if currentSquareName != "" {
-		startingSquare := cfg.board[selectedPiece.Tile]
+		startingSquare := match.board[selectedPiece.Tile]
 		startingSquare.Piece = components.Piece{}
-		cfg.board[selectedPiece.Tile] = startingSquare
+		match.board[selectedPiece.Tile] = startingSquare
 		selectedPiece.Tile = currentSquareName
-		curSq := cfg.board[currentSquareName]
+		curSq := match.board[currentSquareName]
 		curSq.Piece = selectedPiece
-		cfg.board[currentSquareName] = curSq
+		match.board[currentSquareName] = curSq
 
 		var kingName string
 		if selectedPiece.IsWhite {
@@ -374,7 +374,7 @@ func (gcfg *gameConfig) handleCheckForCheck(currentSquareName, currentGame strin
 			pieceColor = "black"
 		}
 
-		king = cfg.pieces[kingName]
+		king = match.pieces[kingName]
 	} else {
 		var kingName string
 		if selectedPiece.IsWhite {
@@ -384,7 +384,7 @@ func (gcfg *gameConfig) handleCheckForCheck(currentSquareName, currentGame strin
 			kingName = "white_king"
 			pieceColor = "white"
 		}
-		king = cfg.pieces[kingName]
+		king = match.pieces[kingName]
 	}
 
 	rowIdx := rowIdxMap[string(king.Tile[0])]
@@ -400,7 +400,7 @@ func (gcfg *gameConfig) handleCheckForCheck(currentSquareName, currentGame strin
 
 	// isPawn := strings.Contains(selectedPiece.Name, "pawn")
 	// if isPawn {
-	// cfg.getPawnMoves(&possibleMoves, startingPosition, selectedPiece)
+	// match.getPawnMoves(&possibleMoves, startingPosition, selectedPiece)
 	// } else {
 
 	var tilesComb []string
@@ -409,7 +409,7 @@ func (gcfg *gameConfig) handleCheckForCheck(currentSquareName, currentGame strin
 
 	for _, move := range kingLegalMoves {
 		var tilesUnderCheck []string
-		checkInFor := gcfg.checkCheck(&tilesUnderCheck, startingPosition, startingPosition, move, pieceColor, currentGame)
+		checkInFor := cfg.checkCheck(&tilesUnderCheck, startingPosition, startingPosition, move, pieceColor, currentGame)
 		if checkInFor {
 			check = true
 			if len(tilesComb) == 0 {
@@ -427,10 +427,10 @@ func (gcfg *gameConfig) handleCheckForCheck(currentSquareName, currentGame strin
 	}
 
 	if check {
-		cfg.board[savedStartingTile] = savedStartSqua
-		cfg.board[currentSquareName] = saved
+		match.board[savedStartingTile] = savedStartSqua
+		match.board[currentSquareName] = saved
 		selectedPiece.Tile = savedStartingTile
-		gcfg.Matches[currentGame] = cfg
+		cfg.Matches[currentGame] = match
 
 		return check, king, tilesComb
 	}
@@ -438,8 +438,8 @@ func (gcfg *gameConfig) handleCheckForCheck(currentSquareName, currentGame strin
 	return false, king, []string{}
 }
 
-func (gcfg *gameConfig) checkCheck(tilesUnderCheck *[]string, startingPosition, startPosCompare [2]int, move []int, pieceColor, currentGame string) bool {
-	cfg := gcfg.Matches[currentGame]
+func (cfg *appConfig) checkCheck(tilesUnderCheck *[]string, startingPosition, startPosCompare [2]int, move []int, pieceColor, currentGame string) bool {
+	match := cfg.Matches[currentGame]
 	currentPosition := [2]int{startingPosition[0] + move[0], startingPosition[1] + move[1]}
 
 	if currentPosition[0] < 0 || currentPosition[1] < 0 {
@@ -451,7 +451,7 @@ func (gcfg *gameConfig) checkCheck(tilesUnderCheck *[]string, startingPosition, 
 	}
 
 	currentTile := mockBoard[currentPosition[0]][currentPosition[1]]
-	pieceOnCurrentTile := cfg.board[currentTile].Piece
+	pieceOnCurrentTile := match.board[currentTile].Piece
 
 	if pieceOnCurrentTile.Name != "" {
 		if strings.Contains(pieceOnCurrentTile.Name, pieceColor) {
@@ -492,7 +492,7 @@ func (gcfg *gameConfig) checkCheck(tilesUnderCheck *[]string, startingPosition, 
 		}
 	}
 
-	check := gcfg.checkCheck(tilesUnderCheck, currentPosition, startPosCompare, move, pieceColor, currentGame)
+	check := cfg.checkCheck(tilesUnderCheck, currentPosition, startPosCompare, move, pieceColor, currentGame)
 	if check {
 		*tilesUnderCheck = append(*tilesUnderCheck, currentTile)
 	}
@@ -500,31 +500,31 @@ func (gcfg *gameConfig) checkCheck(tilesUnderCheck *[]string, startingPosition, 
 	return check
 }
 
-func (gcfg *gameConfig) handleChecksWhenKingMoves(currentSquareName, currentGame string) bool {
-	cfg := gcfg.Matches[currentGame]
+func (cfg *appConfig) handleChecksWhenKingMoves(currentSquareName, currentGame string) bool {
+	match := cfg.Matches[currentGame]
 	var kingPosition [2]int
 	var king components.Piece
 	var pieceColor string
 
-	if cfg.isWhiteTurn {
-		king = cfg.pieces["white_king"]
+	if match.isWhiteTurn {
+		king = match.pieces["white_king"]
 		pieceColor = "white"
 	} else {
-		king = cfg.pieces["black_king"]
+		king = match.pieces["black_king"]
 		pieceColor = "black"
 	}
 
 	savedStartingTile := king.Tile
-	savedStartSqua := cfg.board[savedStartingTile]
-	saved := cfg.board[currentSquareName]
+	savedStartSqua := match.board[savedStartingTile]
+	saved := match.board[currentSquareName]
 
-	startingSquare := cfg.board[king.Tile]
+	startingSquare := match.board[king.Tile]
 	startingSquare.Piece = components.Piece{}
-	cfg.board[king.Tile] = startingSquare
+	match.board[king.Tile] = startingSquare
 	king.Tile = currentSquareName
-	curSq := cfg.board[currentSquareName]
+	curSq := match.board[currentSquareName]
 	curSq.Piece = king
-	cfg.board[currentSquareName] = curSq
+	match.board[currentSquareName] = curSq
 
 	rowIdx := rowIdxMap[string(king.Tile[0])]
 
@@ -539,93 +539,93 @@ func (gcfg *gameConfig) handleChecksWhenKingMoves(currentSquareName, currentGame
 
 	for _, move := range kingLegalMoves {
 		var tilesUnderCheck []string
-		if gcfg.checkCheck(&tilesUnderCheck, kingPosition, kingPosition, move, pieceColor, currentGame) {
-			cfg.board[savedStartingTile] = savedStartSqua
-			cfg.board[currentSquareName] = saved
+		if cfg.checkCheck(&tilesUnderCheck, kingPosition, kingPosition, move, pieceColor, currentGame) {
+			match.board[savedStartingTile] = savedStartSqua
+			match.board[currentSquareName] = saved
 			king.Tile = savedStartingTile
 			return true
 		}
 	}
 
-	cfg.board[savedStartingTile] = savedStartSqua
-	cfg.board[currentSquareName] = saved
+	match.board[savedStartingTile] = savedStartSqua
+	match.board[currentSquareName] = saved
 	king.Tile = savedStartingTile
 
 	return false
 }
 
-func (gcfg *gameConfig) gameDone(currentGame string) {
-	cfg := gcfg.Matches[currentGame]
+func (cfg *appConfig) gameDone(currentGame string) {
+	match := cfg.Matches[currentGame]
 	var king components.Piece
-	if cfg.isWhiteTurn {
-		king = cfg.pieces["white_king"]
+	if match.isWhiteTurn {
+		king = match.pieces["white_king"]
 	} else {
-		king = cfg.pieces["black_king"]
+		king = match.pieces["black_king"]
 	}
 
-	savePiece := cfg.selectedPiece
-	cfg.selectedPiece = king
+	savePiece := match.selectedPiece
+	match.selectedPiece = king
 
-	gcfg.Matches[currentGame] = cfg
+	cfg.Matches[currentGame] = match
 
-	legalMoves := gcfg.checkLegalMoves(currentGame)
+	legalMoves := cfg.checkLegalMoves(currentGame)
 
-	cfg.selectedPiece = savePiece
-	gcfg.Matches[currentGame] = cfg
+	match.selectedPiece = savePiece
+	cfg.Matches[currentGame] = match
 	var checkCount []bool
 
 	for _, move := range legalMoves {
-		if gcfg.handleChecksWhenKingMoves(move, currentGame) {
+		if cfg.handleChecksWhenKingMoves(move, currentGame) {
 			checkCount = append(checkCount, true)
 		}
 	}
 
 	if len(legalMoves) == len(checkCount) {
-		if cfg.isWhiteTurn && cfg.isWhiteUnderCheck {
-			for _, piece := range cfg.pieces {
+		if match.isWhiteTurn && match.isWhiteUnderCheck {
+			for _, piece := range match.pieces {
 				if piece.IsWhite && !piece.IsKing {
-					savePiece := cfg.selectedPiece
-					cfg.selectedPiece = piece
-					gcfg.Matches[currentGame] = cfg
-					legalMoves := gcfg.checkLegalMoves(currentGame)
-					cfg.selectedPiece = savePiece
-					gcfg.Matches[currentGame] = cfg
+					savePiece := match.selectedPiece
+					match.selectedPiece = piece
+					cfg.Matches[currentGame] = match
+					legalMoves := cfg.checkLegalMoves(currentGame)
+					match.selectedPiece = savePiece
+					cfg.Matches[currentGame] = match
 
 					for _, move := range legalMoves {
-						if slices.Contains(cfg.tilesUnderAttack, move) {
+						if slices.Contains(match.tilesUnderAttack, move) {
 							return
 						}
 					}
 				}
 			}
 			fmt.Println("checkmate")
-		} else if !cfg.isWhiteTurn && cfg.isBlackUnderCheck {
-			for _, piece := range cfg.pieces {
+		} else if !match.isWhiteTurn && match.isBlackUnderCheck {
+			for _, piece := range match.pieces {
 				if !piece.IsWhite && !piece.IsKing {
-					savePiece := cfg.selectedPiece
-					cfg.selectedPiece = piece
-					gcfg.Matches[currentGame] = cfg
-					legalMoves := gcfg.checkLegalMoves(currentGame)
-					cfg.selectedPiece = savePiece
-					gcfg.Matches[currentGame] = cfg
+					savePiece := match.selectedPiece
+					match.selectedPiece = piece
+					cfg.Matches[currentGame] = match
+					legalMoves := cfg.checkLegalMoves(currentGame)
+					match.selectedPiece = savePiece
+					cfg.Matches[currentGame] = match
 
 					for _, move := range legalMoves {
-						if slices.Contains(cfg.tilesUnderAttack, move) {
+						if slices.Contains(match.tilesUnderAttack, move) {
 							return
 						}
 					}
 				}
 			}
 			fmt.Println("checkmate")
-		} else if cfg.isWhiteTurn {
-			for _, piece := range cfg.pieces {
+		} else if match.isWhiteTurn {
+			for _, piece := range match.pieces {
 				if piece.IsWhite && !piece.IsKing {
-					savePiece := cfg.selectedPiece
-					cfg.selectedPiece = piece
-					gcfg.Matches[currentGame] = cfg
-					legalMoves := gcfg.checkLegalMoves(currentGame)
-					cfg.selectedPiece = savePiece
-					gcfg.Matches[currentGame] = cfg
+					savePiece := match.selectedPiece
+					match.selectedPiece = piece
+					cfg.Matches[currentGame] = match
+					legalMoves := cfg.checkLegalMoves(currentGame)
+					match.selectedPiece = savePiece
+					cfg.Matches[currentGame] = match
 
 					if len(legalMoves) > 0 {
 						return
@@ -633,15 +633,15 @@ func (gcfg *gameConfig) gameDone(currentGame string) {
 				}
 			}
 			fmt.Println("stalemate")
-		} else if !cfg.isWhiteTurn {
-			for _, piece := range cfg.pieces {
+		} else if !match.isWhiteTurn {
+			for _, piece := range match.pieces {
 				if !piece.IsWhite && !piece.IsKing {
-					savePiece := cfg.selectedPiece
-					cfg.selectedPiece = piece
-					gcfg.Matches[currentGame] = cfg
-					legalMoves := gcfg.checkLegalMoves(currentGame)
-					cfg.selectedPiece = savePiece
-					gcfg.Matches[currentGame] = cfg
+					savePiece := match.selectedPiece
+					match.selectedPiece = piece
+					cfg.Matches[currentGame] = match
+					legalMoves := cfg.checkLegalMoves(currentGame)
+					match.selectedPiece = savePiece
+					cfg.Matches[currentGame] = match
 
 					if len(legalMoves) > 0 {
 						return
@@ -664,24 +664,24 @@ func setUserCheck(king components.Piece, currentMatch *Match) {
 	}
 }
 
-func handleIfCheck(w http.ResponseWriter, gcfg *gameConfig, selected components.Piece, currentGame string) bool {
-	cfg := gcfg.Matches[currentGame]
-	check, king, tilesUnderAttack := gcfg.handleCheckForCheck("", currentGame, selected)
-	kingSquare := cfg.board[king.Tile]
+func handleIfCheck(w http.ResponseWriter, cfg *appConfig, selected components.Piece, currentGame string) bool {
+	match := cfg.Matches[currentGame]
+	check, king, tilesUnderAttack := cfg.handleCheckForCheck("", currentGame, selected)
+	kingSquare := match.board[king.Tile]
 
 	if check {
-		setUserCheck(king, &cfg)
+		setUserCheck(king, &match)
 		err := respondWithCheck(w, kingSquare, king)
 
 		if err != nil {
 			fmt.Println(err)
 		}
 
-		cfg.tilesUnderAttack = tilesUnderAttack
-		gcfg.Matches[currentGame] = cfg
+		match.tilesUnderAttack = tilesUnderAttack
+		cfg.Matches[currentGame] = match
 
 		for _, tile := range tilesUnderAttack {
-			t := cfg.board[tile]
+			t := match.board[tile]
 
 			if t.Piece.Name != "" {
 				err := respondWithNewPiece(w, t)
@@ -703,20 +703,20 @@ func handleIfCheck(w http.ResponseWriter, gcfg *gameConfig, selected components.
 	return true
 }
 
-func bigCleanup(currentSquareName string, cfg *Match) {
-	currentSquare := cfg.board[currentSquareName]
-	selectedSquare := cfg.selectedPiece.Tile
-	selSeq := cfg.board[selectedSquare]
+func bigCleanup(currentSquareName string, match *Match) {
+	currentSquare := match.board[currentSquareName]
+	selectedSquare := match.selectedPiece.Tile
+	selSeq := match.board[selectedSquare]
 	currentSquare.Selected = false
-	currentPiece := cfg.pieces[cfg.selectedPiece.Name]
+	currentPiece := match.pieces[match.selectedPiece.Name]
 	currentPiece.Tile = currentSquareName
 	currentPiece.Moved = true
-	cfg.pieces[cfg.selectedPiece.Name] = currentPiece
+	match.pieces[match.selectedPiece.Name] = currentPiece
 	currentSquare.Piece = currentPiece
-	cfg.selectedPiece = components.Piece{}
-	selSeq.Piece = cfg.selectedPiece
-	cfg.board[selectedSquare] = selSeq
-	cfg.board[currentSquareName] = currentSquare
+	match.selectedPiece = components.Piece{}
+	selSeq.Piece = match.selectedPiece
+	match.board[selectedSquare] = selSeq
+	match.board[currentSquareName] = currentSquare
 }
 
 func formatTime(seconds int) string {
@@ -725,20 +725,20 @@ func formatTime(seconds int) string {
 	return fmt.Sprintf("%02d:%02d", minutes, secs)
 }
 
-func (gcfg *gameConfig) endTurn(w http.ResponseWriter, r *http.Request, currentGame string) {
-	cfg := gcfg.Matches[currentGame]
-	if cfg.isWhiteTurn {
-		cfg.whiteTimer += cfg.addition
+func (cfg *appConfig) endTurn(w http.ResponseWriter, r *http.Request, currentGame string) {
+	match := cfg.Matches[currentGame]
+	if match.isWhiteTurn {
+		match.whiteTimer += match.addition
 	} else {
-		cfg.blackTimer += cfg.addition
+		match.blackTimer += match.addition
 	}
-	cfg.isWhiteTurn = !cfg.isWhiteTurn
-	gcfg.Matches[currentGame] = cfg
-	gcfg.gameDone(currentGame)
-	gcfg.timerHandler(w, r)
+	match.isWhiteTurn = !match.isWhiteTurn
+	cfg.Matches[currentGame] = match
+	cfg.gameDone(currentGame)
+	cfg.timerHandler(w, r)
 }
 
-func (cfg *apiConfig) refreshToken(w http.ResponseWriter, r *http.Request) {
+func (cfg *appConfig) refreshToken(w http.ResponseWriter, r *http.Request) {
 	c, err := r.Cookie("refresh_token")
 
 	if err != nil {
@@ -791,7 +791,7 @@ func (cfg *apiConfig) refreshToken(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-func (cfg *apiConfig) checkUser(w http.ResponseWriter, r *http.Request) {
+func (cfg *appConfig) checkUser(w http.ResponseWriter, r *http.Request) {
 	c, err := r.Cookie("access_token")
 
 	if err != nil {
@@ -821,7 +821,7 @@ func (cfg *apiConfig) checkUser(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (cfg *apiConfig) checkUserPrivate(w http.ResponseWriter, r *http.Request) {
+func (cfg *appConfig) checkUserPrivate(w http.ResponseWriter, r *http.Request) {
 	c, err := r.Cookie("access_token")
 	if err != nil {
 		fmt.Println(err)
@@ -848,21 +848,21 @@ func (cfg *apiConfig) checkUserPrivate(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (cfg *apiConfig) middleWareCheckForUser(next func(http.ResponseWriter, *http.Request)) func(http.ResponseWriter, *http.Request) {
+func (cfg *appConfig) middleWareCheckForUser(next func(http.ResponseWriter, *http.Request)) func(http.ResponseWriter, *http.Request) {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		cfg.checkUser(w, r)
 		next(w, r)
 	})
 }
 
-func (cfg *apiConfig) middleWareCheckForUserPrivate(next func(http.ResponseWriter, *http.Request)) func(http.ResponseWriter, *http.Request) {
+func (cfg *appConfig) middleWareCheckForUserPrivate(next func(http.ResponseWriter, *http.Request)) func(http.ResponseWriter, *http.Request) {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		cfg.checkUserPrivate(w, r)
 		next(w, r)
 	})
 }
 
-func (gcfg *gameConfig) isUserLoggedIn(r *http.Request) uuid.UUID {
+func (cfg *appConfig) isUserLoggedIn(r *http.Request) uuid.UUID {
 	c, err := r.Cookie("access_token")
 
 	if err != nil {
@@ -870,7 +870,7 @@ func (gcfg *gameConfig) isUserLoggedIn(r *http.Request) uuid.UUID {
 		return uuid.Nil
 	}
 
-	userId, err := auth.ValidateJWT(c.Value, gcfg.secret)
+	userId, err := auth.ValidateJWT(c.Value, cfg.secret)
 
 	if err != nil {
 		fmt.Println("invalid token")
