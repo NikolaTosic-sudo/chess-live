@@ -29,7 +29,7 @@ func LeftSide() templ.Component {
 			templ_7745c5c3_Var1 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div class=\"h-full w-260px mt-10\"><button hx-get=\"/login\" hx-target=\"#body\" hx-swap=\"afterbegin\" class=\"bg-emerald-600 hover:bg-emerald-500 text-white font-medium py-2 px-5 rounded-md shadow-sm transition duration-200 cursor-pointer\">Log In / Sign Up</button></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div class=\"h-full w-[240px] mt-10\"><button hx-get=\"/login\" hx-target=\"#body\" hx-swap=\"afterbegin\" class=\"bg-emerald-600 hover:bg-emerald-500 text-white font-medium py-2 px-5 rounded-md shadow-sm transition duration-200 cursor-pointer\">Log In / Sign Up</button></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
