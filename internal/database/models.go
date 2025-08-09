@@ -6,10 +6,30 @@ package database
 
 import (
 	"database/sql"
+	"encoding/json"
 	"time"
 
 	"github.com/google/uuid"
 )
+
+type Board struct {
+	ID        int32
+	Board     json.RawMessage
+	Move      string
+	Whitetime int32
+	Blacktime int32
+	Matchid   int32
+	CreatedAt time.Time
+}
+
+type Match struct {
+	ID         int32
+	White      string
+	Black      string
+	Timeoption int32
+	Userid     uuid.UUID
+	CreatedAt  time.Time
+}
 
 type RefreshToken struct {
 	Token     string

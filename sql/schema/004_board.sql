@@ -1,14 +1,16 @@
 -- +goose Up
 CREATE TABLE board(
-  id INT SERIAL PRIMARY KEY,
-
+  id SERIAL PRIMARY KEY,
+  board JSON NOT NULL,
+  move TEXT NOT NULL,
   whiteTime INT NOT NULL,
   blackTime INT NOT NULL,
-  matchId INT NOT NULL,
-  FOREIGN KEY (matchId)
-  REFERENCE matches(id)
-  ON CASCADE DELETE,
+  match_id INT NOT NULL,
+  FOREIGN KEY (match_id)
+  REFERENCES matches(ID)
+  ON DELETE CASCADE,
   created_at TIMESTAMP NOT NULL
 );
 
 -- +goose Down
+DROP TABLE board;
