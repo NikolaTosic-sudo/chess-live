@@ -1,0 +1,44 @@
+package components
+
+import "strconv"
+
+templ MatchHistory(matches []MatchStruct) {
+<div class="space-y-4 mx-auto mt-10">
+  for i := 0; i < len(matches); i++ {
+    <div 
+      id={matches[i].MatchId} 
+      class="bg-[#3e3b38] text-white rounded-lg p-4 shadow-md hover:bg-[#4a4744] transition-colors duration-200 cursor-pointer grid grid-cols-7 gap-4 items-center"
+      hx-get={"/matches/" + strconv.Itoa(matches[i].MatchId)}
+    >
+      <span class="font-semibold">{matches[i].White}</span>
+      <span class="text-sm text-gray-300">{matches[i].Date}</span>
+      <span>{matches[i].NoMoves} moves</span>
+      <span class="font-bold">{matches[i].Result}</span>
+
+      <span class={"text-center text-sm px-2 py-1 rounded bg-green-600", templ.KV("bg-red-600", matches[i].Ended)}>
+        if matches[i].Ended{
+          Ended
+        } else {
+          Ongoing
+        }
+      </span>
+
+      <span class={"px-2 py-1 rounded text-sm bg-blue-500 text-center", templ.KV("bg-purple-500", matches[i].Local)}>
+        if matches[i].Local{
+          Local
+        } else {
+          Online
+        }
+      </span>
+
+      <span class="font-semibold text-right">{matches[i].Black}</span>
+    </div>
+  }
+</div>
+
+  <button id="history" hx-get="/play-game" hx-swap-oob="true" class="bg-emerald-600 w-[200px] hover:bg-emerald-500 text-white font-semibold py-2 px-4 rounded-md shadow-md cursor-pointer">
+    Play
+  </button>
+
+  <div id="right-side" hx-swap-oob="true" class="h-full w-[240px] mt-10 block"></div>
+}

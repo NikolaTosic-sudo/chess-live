@@ -34,6 +34,17 @@ type PlayerStruct struct {
 	Pieces string
 }
 
+type MatchStruct struct {
+	White   string
+	Black   string
+	Ended   bool
+	Date    string
+	NoMoves int
+	Result  string
+	Local   bool
+	MatchId int
+}
+
 func genCol(color string) string {
 	return "background-color: " + color
 }
