@@ -585,9 +585,27 @@ func (cfg *appConfig) startGameHandler(w http.ResponseWriter, r *http.Request) {
 	user := cfg.isUserLoggedIn(r)
 
 	var newGameName string
-
+	var matchId int32
 	if user != uuid.Nil {
 		newGameName = user.String()
+
+		fullUser, err := cfg.database.GetUserById(r.Context(), user)
+
+		if err != nil {
+			fmt.Println(err)
+		} else {
+			matchId, err = cfg.database.CreateMatch(r.Context(), database.CreateMatchParams{
+				White:    fullUser.Name,
+				Black:    "Opponent",
+				FullTime: 600,
+				UserID:   user,
+			})
+
+			if err != nil {
+				fmt.Println(err)
+				return
+			}
+		}
 	} else {
 		randomString, err := auth.MakeRefreshToken()
 
@@ -623,6 +641,7 @@ func (cfg *appConfig) startGameHandler(w http.ResponseWriter, r *http.Request) {
 		whiteTimer:           600,
 		blackTimer:           600,
 		addition:             0,
+		matchId:              matchId,
 	}
 
 	cur := cfg.Matches[newGameName]

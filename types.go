@@ -32,4 +32,5 @@ type Match struct {
 	whiteTimer           int
 	addition             int
 	allMoves             []string
+	matchId              int32
 }

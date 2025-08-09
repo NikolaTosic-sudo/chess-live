@@ -12,38 +12,31 @@ import (
 )
 
 const createMatch = `-- name: CreateMatch :one
-INSERT INTO matches(white, black, timeOption, userId, created_at)
+INSERT INTO matches(white, black, full_time, user_id, created_at)
 VALUES(
   $1,
   $2,
   $3,
   $4,
   NOW()
-) RETURNING id, white, black, timeoption, userid, created_at
+) RETURNING id
 `
 
 type CreateMatchParams struct {
-	White      string
-	Black      string
-	Timeoption int32
-	Userid     uuid.UUID
+	White    string
+	Black    string
+	FullTime int32
+	UserID   uuid.UUID
 }
 
-func (q *Queries) CreateMatch(ctx context.Context, arg CreateMatchParams) (Match, error) {
+func (q *Queries) CreateMatch(ctx context.Context, arg CreateMatchParams) (int32, error) {
 	row := q.db.QueryRowContext(ctx, createMatch,
 		arg.White,
 		arg.Black,
-		arg.Timeoption,
-		arg.Userid,
+		arg.FullTime,
+		arg.UserID,
 	)
-	var i Match
-	err := row.Scan(
-		&i.ID,
-		&i.White,
-		&i.Black,
-		&i.Timeoption,
-		&i.Userid,
-		&i.CreatedAt,
-	)
-	return i, err
+	var id int32
+	err := row.Scan(&id)
+	return id, err
 }

@@ -18,17 +18,17 @@ type Board struct {
 	Move      string
 	Whitetime int32
 	Blacktime int32
-	Matchid   int32
+	MatchID   int32
 	CreatedAt time.Time
 }
 
 type Match struct {
-	ID         int32
-	White      string
-	Black      string
-	Timeoption int32
-	Userid     uuid.UUID
-	CreatedAt  time.Time
+	ID        int32
+	White     string
+	Black     string
+	FullTime  int32
+	UserID    uuid.UUID
+	CreatedAt time.Time
 }
 
 type RefreshToken struct {
