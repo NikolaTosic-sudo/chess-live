@@ -169,7 +169,7 @@ func (cfg *appConfig) moveHandler(w http.ResponseWriter, r *http.Request) {
 			currentPiece.Image,
 		)
 		match.allMoves = append(match.allMoves, currentSquareName)
-		showMoves(match, currentSquareName, w)
+		cfg.showMoves(match, currentSquareName, w, r)
 		delete(match.pieces, currentPieceName)
 		match.selectedPiece.Tile = currentSquareName
 		match.selectedPiece.Moved = true
@@ -227,7 +227,7 @@ func (cfg *appConfig) moveHandler(w http.ResponseWriter, r *http.Request) {
 
 		if isCastle && !match.isBlackUnderCheck && !match.isWhiteUnderCheck && !kingCheck {
 
-			err := cfg.handleCastle(w, currentPiece, currentGame)
+			err := cfg.handleCastle(w, currentPiece, currentGame, r)
 			if err != nil {
 				respondWithAnError(w, http.StatusInternalServerError, "error with handling castle", err)
 			}
@@ -373,7 +373,7 @@ func (cfg *appConfig) moveToHandler(w http.ResponseWriter, r *http.Request) {
 		)
 		saveSelected := match.selectedPiece
 		match.allMoves = append(match.allMoves, currentSquareName)
-		showMoves(match, currentSquareName, w)
+		cfg.showMoves(match, currentSquareName, w, r)
 		bigCleanup(currentSquareName, &match)
 
 		noCheck := handleIfCheck(w, cfg, saveSelected, currentGame)
@@ -457,7 +457,7 @@ func (cfg *appConfig) coverCheckHandler(w http.ResponseWriter, r *http.Request) 
 		)
 		saveSelected := match.selectedPiece
 		match.allMoves = append(match.allMoves, currentSquareName)
-		showMoves(match, currentSquareName, w)
+		cfg.showMoves(match, currentSquareName, w, r)
 		bigCleanup(currentSquareName, &match)
 
 		for _, tile := range match.tilesUnderAttack {
@@ -1085,4 +1085,121 @@ func (cfg *appConfig) logoutHandler(w http.ResponseWriter, r *http.Request) {
 	http.SetCookie(w, &cGC)
 
 	w.Header().Add("Hx-Redirect", "/")
+}
+
+func (cfg *appConfig) matchHistoryHandler(w http.ResponseWriter, r *http.Request) {
+	c, err := r.Cookie("access_token")
+
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	userId, err := auth.ValidateJWT(c.Value, cfg.secret)
+
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	dbMatches, err := cfg.database.GetAllMatchesForUser(r.Context(), userId)
+
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	var matches []components.MatchStruct
+
+	for i := 0; i < len(dbMatches); i++ {
+		numberOfMoves, err := cfg.database.GetNumberOfMovesPerMatch(r.Context(), dbMatches[i].ID)
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+		var ended bool
+		var local bool
+		if i%2 == 0 {
+			ended = true
+			local = true
+		}
+		newMatch := components.MatchStruct{
+			White:   dbMatches[i].White,
+			Black:   dbMatches[i].Black,
+			Ended:   ended,
+			Date:    dbMatches[i].CreatedAt.Format("Jan 1, 2006"),
+			NoMoves: int(numberOfMoves),
+			Result:  "0-0",
+			Local:   local,
+			MatchId: int(dbMatches[i].ID),
+		}
+
+		matches = append(matches, newMatch)
+	}
+
+	components.MatchHistory(matches).Render(r.Context(), w)
+}
+
+func (cfg *appConfig) playHandler(w http.ResponseWriter, r *http.Request) {
+	var userName string
+	userC, err := r.Cookie("access_token")
+
+	if err != nil {
+		fmt.Println(err)
+		userName = "Guest"
+	} else if userC.Value != "" {
+		userId, err := auth.ValidateJWT(userC.Value, cfg.secret)
+
+		if err != nil {
+			fmt.Println(err)
+			userName = "Guest"
+		}
+
+		user, err := cfg.database.GetUserById(r.Context(), userId)
+
+		if err != nil {
+			fmt.Println(err)
+			userName = "Guest"
+		} else if user.Name != "" {
+			userName = user.Name
+		}
+	} else {
+		userName = "Guest"
+	}
+
+	var game string
+	c, err := r.Cookie("current_game")
+
+	if err != nil {
+		fmt.Println(err)
+		game = "initial"
+	} else if c.Value != "" {
+		game = c.Value
+	} else {
+		game = "initial"
+	}
+
+	match := cfg.Matches[game]
+	cfg.fillBoard(game)
+
+	whitePlayer := components.PlayerStruct{
+		Image:  "/assets/images/user-icon.png",
+		Name:   userName,
+		Timer:  formatTime(match.whiteTimer),
+		Pieces: "white",
+	}
+	blackPlayer := components.PlayerStruct{
+		Image:  "/assets/images/user-icon.png",
+		Name:   "Opponent",
+		Timer:  formatTime(match.blackTimer),
+		Pieces: "black",
+	}
+
+	err = layout.MainPagePrivate(match.board, match.pieces, match.coordinateMultiplier, whitePlayer, blackPlayer).Render(r.Context(), w)
+
+	if err != nil {
+		fmt.Println(err)
+		respondWithAnErrorPage(w, r, http.StatusInternalServerError, "Couldn't render template")
+		return
+	}
 }

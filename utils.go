@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"slices"
@@ -9,6 +10,7 @@ import (
 
 	"github.com/NikolaTosic-sudo/chess-live/containers/components"
 	"github.com/NikolaTosic-sudo/chess-live/internal/auth"
+	"github.com/NikolaTosic-sudo/chess-live/internal/database"
 	"github.com/google/uuid"
 )
 
@@ -269,7 +271,7 @@ func (cfg *appConfig) checkForCastle(b map[string]components.Square, selectedPie
 	return false, false
 }
 
-func (cfg *appConfig) handleCastle(w http.ResponseWriter, currentPiece components.Piece, currentGame string) error {
+func (cfg *appConfig) handleCastle(w http.ResponseWriter, currentPiece components.Piece, currentGame string, r *http.Request) error {
 	match := cfg.Matches[currentGame]
 	var king components.Piece
 	var rook components.Piece
@@ -319,10 +321,10 @@ func (cfg *appConfig) handleCastle(w http.ResponseWriter, currentPiece component
 	)
 	if kingSquare.CoordinatePosition[1]-rookSquare.CoordinatePosition[1] == -3 {
 		match.allMoves = append(match.allMoves, "O-O")
-		showMoves(match, "O-O", w)
+		cfg.showMoves(match, "O-O", w, r)
 	} else {
 		match.allMoves = append(match.allMoves, "O-O-O")
-		showMoves(match, "O-O-O", w)
+		cfg.showMoves(match, "O-O-O", w, r)
 	}
 
 	if err != nil {
@@ -882,7 +884,33 @@ func (cfg *appConfig) isUserLoggedIn(r *http.Request) uuid.UUID {
 	return userId
 }
 
-func showMoves(match Match, currentSquareName string, w http.ResponseWriter) {
+func (cfg *appConfig) showMoves(match Match, currentSquareName string, w http.ResponseWriter, r *http.Request) {
+
+	boardState := make(map[string]string, 0)
+	for k, v := range match.pieces {
+		boardState[k] = v.Tile
+	}
+
+	jsonBoard, err := json.Marshal(boardState)
+
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	err = cfg.database.CreateMove(r.Context(), database.CreateMoveParams{
+		Board:     jsonBoard,
+		Move:      currentSquareName,
+		Whitetime: int32(match.whiteTimer),
+		Blacktime: int32(match.blackTimer),
+		MatchID:   match.matchId,
+	})
+
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
 	if len(match.allMoves)%2 == 0 {
 		fmt.Fprintf(w, `
 				<div id="moves" hx-swap-oob="beforeend" class="grid grid-cols-3 text-white h-moves mt-8">

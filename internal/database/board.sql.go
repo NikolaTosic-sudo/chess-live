@@ -14,15 +14,40 @@ const createMove = `-- name: CreateMove :exec
 INSERT INTO board(board, move, whiteTime, blackTime, match_id, created_at)
 VALUES(
   $1,
-  $1,
-  $1,
-  $1,
-  $1,
+  $2,
+  $3,
+  $4,
+  $5,
   NOW()
 )
 `
 
-func (q *Queries) CreateMove(ctx context.Context, board json.RawMessage) error {
-	_, err := q.db.ExecContext(ctx, createMove, board)
+type CreateMoveParams struct {
+	Board     json.RawMessage
+	Move      string
+	Whitetime int32
+	Blacktime int32
+	MatchID   int32
+}
+
+func (q *Queries) CreateMove(ctx context.Context, arg CreateMoveParams) error {
+	_, err := q.db.ExecContext(ctx, createMove,
+		arg.Board,
+		arg.Move,
+		arg.Whitetime,
+		arg.Blacktime,
+		arg.MatchID,
+	)
 	return err
+}
+
+const getNumberOfMovesPerMatch = `-- name: GetNumberOfMovesPerMatch :one
+SELECT COUNT(*) FROM board WHERE match_id = $1
+`
+
+func (q *Queries) GetNumberOfMovesPerMatch(ctx context.Context, matchID int32) (int64, error) {
+	row := q.db.QueryRowContext(ctx, getNumberOfMovesPerMatch, matchID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
 }

@@ -72,6 +72,8 @@ func main() {
 	http.HandleFunc("POST /auth-login", cfg.loginHandler)
 	http.HandleFunc("GET /api/refresh", cfg.refreshToken)
 	http.HandleFunc("GET /all-moves", cfg.getAllMovesHandler)
+	http.HandleFunc("GET /match-history", cfg.middleWareCheckForUserPrivate(cfg.matchHistoryHandler))
+	http.HandleFunc("GET /play", cfg.playHandler)
 
 	fmt.Printf("Listening on :%v\n", port)
 	http.ListenAndServe(fmt.Sprintf(":%v", port), nil)

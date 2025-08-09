@@ -7,3 +7,6 @@ VALUES(
   $4,
   NOW()
 ) RETURNING id;
+
+-- name: GetAllMatchesForUser :many
+SELECT * FROM matches WHERE user_id = $1;
