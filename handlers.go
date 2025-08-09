@@ -168,6 +168,8 @@ func (cfg *appConfig) moveHandler(w http.ResponseWriter, r *http.Request) {
 			userColor,
 			currentPiece.Image,
 		)
+		match.allMoves = append(match.allMoves, currentSquareName)
+		showMoves(match, currentSquareName, w)
 		delete(match.pieces, currentPieceName)
 		match.selectedPiece.Tile = currentSquareName
 		match.selectedPiece.Moved = true
@@ -371,25 +373,7 @@ func (cfg *appConfig) moveToHandler(w http.ResponseWriter, r *http.Request) {
 		)
 		saveSelected := match.selectedPiece
 		match.allMoves = append(match.allMoves, currentSquareName)
-		if len(match.allMoves)%2 == 0 {
-			fmt.Fprintf(w, `
-				<div id="moves" hx-swap-oob="beforeend" class="grid grid-cols-3 text-white h-moves mt-8">
-					<span>%v</span>
-				</div>
-			`,
-				currentSquareName,
-			)
-		} else {
-			fmt.Fprintf(w, `
-				<div id="moves" hx-swap-oob="beforeend" class="grid grid-cols-3 text-white h-moves mt-8">
-					<span>%v.</span>
-					<span>%v</span>
-				</div>
-		`,
-				len(match.allMoves)/2+1,
-				currentSquareName,
-			)
-		}
+		showMoves(match, currentSquareName, w)
 		bigCleanup(currentSquareName, &match)
 
 		noCheck := handleIfCheck(w, cfg, saveSelected, currentGame)
@@ -472,6 +456,8 @@ func (cfg *appConfig) coverCheckHandler(w http.ResponseWriter, r *http.Request) 
 			match.selectedPiece.Image,
 		)
 		saveSelected := match.selectedPiece
+		match.allMoves = append(match.allMoves, currentSquareName)
+		showMoves(match, currentSquareName, w)
 		bigCleanup(currentSquareName, &match)
 
 		for _, tile := range match.tilesUnderAttack {

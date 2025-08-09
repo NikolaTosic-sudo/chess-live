@@ -317,6 +317,13 @@ func (cfg *appConfig) handleCastle(w http.ResponseWriter, currentPiece component
 		rookSquare.Coordinates[1],
 		rook.Image,
 	)
+	if kingSquare.CoordinatePosition[1]-rookSquare.CoordinatePosition[1] == -3 {
+		match.allMoves = append(match.allMoves, "O-O")
+		showMoves(match, "O-O", w)
+	} else {
+		match.allMoves = append(match.allMoves, "O-O-O")
+		showMoves(match, "O-O-O", w)
+	}
 
 	if err != nil {
 		return err
@@ -397,11 +404,6 @@ func (cfg *appConfig) handleCheckForCheck(currentSquareName, currentGame string,
 	}
 
 	kingLegalMoves := [][]int{{1, 1}, {1, -1}, {-1, 1}, {-1, -1}, {1, 0}, {0, 1}, {-1, 0}, {0, -1}, {2, 1}, {2, -1}, {1, 2}, {1, -2}, {-1, 2}, {-1, -2}, {-2, 1}, {-2, -1}}
-
-	// isPawn := strings.Contains(selectedPiece.Name, "pawn")
-	// if isPawn {
-	// match.getPawnMoves(&possibleMoves, startingPosition, selectedPiece)
-	// } else {
 
 	var tilesComb []string
 
@@ -878,4 +880,26 @@ func (cfg *appConfig) isUserLoggedIn(r *http.Request) uuid.UUID {
 	}
 
 	return userId
+}
+
+func showMoves(match Match, currentSquareName string, w http.ResponseWriter) {
+	if len(match.allMoves)%2 == 0 {
+		fmt.Fprintf(w, `
+				<div id="moves" hx-swap-oob="beforeend" class="grid grid-cols-3 text-white h-moves mt-8">
+					<span>%v</span>
+				</div>
+			`,
+			currentSquareName,
+		)
+	} else {
+		fmt.Fprintf(w, `
+				<div id="moves" hx-swap-oob="beforeend" class="grid grid-cols-3 text-white h-moves mt-8">
+					<span>%v.</span>
+					<span>%v</span>
+				</div>
+		`,
+			len(match.allMoves)/2+1,
+			currentSquareName,
+		)
+	}
 }
