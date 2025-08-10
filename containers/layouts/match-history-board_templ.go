@@ -10,7 +10,7 @@ import templruntime "github.com/a-h/templ/runtime"
 
 import "github.com/NikolaTosic-sudo/chess-live/containers/components"
 
-func MatchHistoryBoard(chessBoard map[string]components.Square, pieces map[string]components.Piece, multiplier int, whitePlayer, blackPlayer components.PlayerStruct, moves []string) templ.Component {
+func MatchHistoryBoard(chessBoard map[string]components.Square, pieces map[string]components.Piece, multiplier int, whitePlayer, blackPlayer components.PlayerStruct, whiteLostPieces, blackLostPieces, moves []string) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -55,7 +55,7 @@ func MatchHistoryBoard(chessBoard map[string]components.Square, pieces map[strin
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = components.Player(blackPlayer).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = components.Player(blackPlayer, blackLostPieces).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -63,7 +63,7 @@ func MatchHistoryBoard(chessBoard map[string]components.Square, pieces map[strin
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = components.Player(whitePlayer).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = components.Player(whitePlayer, whiteLostPieces).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

@@ -2,7 +2,7 @@ package layout
 
 import "github.com/NikolaTosic-sudo/chess-live/containers/components"
 
-templ MatchHistoryBoard(chessBoard map[string]components.Square, pieces map[string]components.Piece, multiplier int, whitePlayer, blackPlayer components.PlayerStruct, moves []string) {
+templ MatchHistoryBoard(chessBoard map[string]components.Square, pieces map[string]components.Piece, multiplier int, whitePlayer, blackPlayer components.PlayerStruct, whiteLostPieces, blackLostPieces, moves []string) {
   @Layout() {
     <div id="main-private" class="flex" hx-target="#main-private" hx-swap="outerHTML">
       <div hx-get="/api/refresh" hx-trigger="every 30m" hx-swap="none"></div>
@@ -10,9 +10,9 @@ templ MatchHistoryBoard(chessBoard map[string]components.Square, pieces map[stri
         @components.LeftSidePrivate()
         <div hx-post="/update-multiplier" hx-vals="js:{multiplier: getMultiplier()}" hx-trigger="load"  hx-swap="none"></div>
           <div id="chess-board" class="w-board w-board-md mx-auto mt-2 relative">
-            @components.Player(blackPlayer)
+            @components.Player(blackPlayer, blackLostPieces)
             @components.GridBoardHistory(chessBoard, pieces, multiplier)
-            @components.Player(whitePlayer)
+            @components.Player(whitePlayer, whiteLostPieces)
           </div>
         @components.BoardHistoryRight(moves)
     </div>
