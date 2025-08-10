@@ -9,4 +9,8 @@ VALUES(
 ) RETURNING id;
 
 -- name: GetAllMatchesForUser :many
-SELECT * FROM matches WHERE user_id = $1;
+SELECT * FROM matches WHERE user_id = $1
+ORDER BY created_at DESC;
+
+-- name: GetMatchById :one
+SELECT * FROM matches WHERE id = $1;

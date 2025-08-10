@@ -3,8 +3,8 @@ CREATE TABLE board(
   id SERIAL PRIMARY KEY,
   board JSON NOT NULL,
   move TEXT NOT NULL,
-  whiteTime INT NOT NULL,
-  blackTime INT NOT NULL,
+  white_time INT NOT NULL,
+  black_time INT NOT NULL,
   match_id INT NOT NULL,
   FOREIGN KEY (match_id)
   REFERENCES matches(ID)

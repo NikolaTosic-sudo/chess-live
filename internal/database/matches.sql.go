@@ -43,6 +43,7 @@ func (q *Queries) CreateMatch(ctx context.Context, arg CreateMatchParams) (int32
 
 const getAllMatchesForUser = `-- name: GetAllMatchesForUser :many
 SELECT id, white, black, full_time, user_id, created_at FROM matches WHERE user_id = $1
+ORDER BY created_at DESC
 `
 
 func (q *Queries) GetAllMatchesForUser(ctx context.Context, userID uuid.UUID) ([]Match, error) {
@@ -73,4 +74,22 @@ func (q *Queries) GetAllMatchesForUser(ctx context.Context, userID uuid.UUID) ([
 		return nil, err
 	}
 	return items, nil
+}
+
+const getMatchById = `-- name: GetMatchById :one
+SELECT id, white, black, full_time, user_id, created_at FROM matches WHERE id = $1
+`
+
+func (q *Queries) GetMatchById(ctx context.Context, id int32) (Match, error) {
+	row := q.db.QueryRowContext(ctx, getMatchById, id)
+	var i Match
+	err := row.Scan(
+		&i.ID,
+		&i.White,
+		&i.Black,
+		&i.FullTime,
+		&i.UserID,
+		&i.CreatedAt,
+	)
+	return i, err
 }

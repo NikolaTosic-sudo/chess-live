@@ -16,8 +16,8 @@ type Board struct {
 	ID        int32
 	Board     json.RawMessage
 	Move      string
-	Whitetime int32
-	Blacktime int32
+	WhiteTime int32
+	BlackTime int32
 	MatchID   int32
 	CreatedAt time.Time
 }

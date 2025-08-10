@@ -11,7 +11,7 @@ import (
 )
 
 const createMove = `-- name: CreateMove :exec
-INSERT INTO board(board, move, whiteTime, blackTime, match_id, created_at)
+INSERT INTO board(board, move, white_time, black_time, match_id, created_at)
 VALUES(
   $1,
   $2,
@@ -25,8 +25,8 @@ VALUES(
 type CreateMoveParams struct {
 	Board     json.RawMessage
 	Move      string
-	Whitetime int32
-	Blacktime int32
+	WhiteTime int32
+	BlackTime int32
 	MatchID   int32
 }
 
@@ -34,11 +34,60 @@ func (q *Queries) CreateMove(ctx context.Context, arg CreateMoveParams) error {
 	_, err := q.db.ExecContext(ctx, createMove,
 		arg.Board,
 		arg.Move,
-		arg.Whitetime,
-		arg.Blacktime,
+		arg.WhiteTime,
+		arg.BlackTime,
 		arg.MatchID,
 	)
 	return err
+}
+
+const getAllMovesForMatch = `-- name: GetAllMovesForMatch :many
+SELECT move FROM board WHERE match_id = $1
+`
+
+func (q *Queries) GetAllMovesForMatch(ctx context.Context, matchID int32) ([]string, error) {
+	rows, err := q.db.QueryContext(ctx, getAllMovesForMatch, matchID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var move string
+		if err := rows.Scan(&move); err != nil {
+			return nil, err
+		}
+		items = append(items, move)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getBoardForMove = `-- name: GetBoardForMove :one
+SELECT board, white_time, black_time FROM board WHERE match_id = $1 AND move = $2
+`
+
+type GetBoardForMoveParams struct {
+	MatchID int32
+	Move    string
+}
+
+type GetBoardForMoveRow struct {
+	Board     json.RawMessage
+	WhiteTime int32
+	BlackTime int32
+}
+
+func (q *Queries) GetBoardForMove(ctx context.Context, arg GetBoardForMoveParams) (GetBoardForMoveRow, error) {
+	row := q.db.QueryRowContext(ctx, getBoardForMove, arg.MatchID, arg.Move)
+	var i GetBoardForMoveRow
+	err := row.Scan(&i.Board, &i.WhiteTime, &i.BlackTime)
+	return i, err
 }
 
 const getNumberOfMovesPerMatch = `-- name: GetNumberOfMovesPerMatch :one
