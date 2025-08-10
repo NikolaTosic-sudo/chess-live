@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
@@ -169,7 +170,6 @@ func (cfg *appConfig) moveHandler(w http.ResponseWriter, r *http.Request) {
 			currentPiece.Image,
 		)
 		match.allMoves = append(match.allMoves, currentSquareName)
-		cfg.showMoves(match, currentSquareName, w, r)
 		delete(match.pieces, currentPieceName)
 		match.selectedPiece.Tile = currentSquareName
 		match.selectedPiece.Moved = true
@@ -182,6 +182,7 @@ func (cfg *appConfig) moveHandler(w http.ResponseWriter, r *http.Request) {
 		match.selectedPiece = components.Piece{}
 
 		cfg.Matches[currentGame] = match
+		cfg.showMoves(match, currentSquareName, saveSelected.Name, w, r)
 
 		noCheck := handleIfCheck(w, cfg, saveSelected, currentGame)
 		if noCheck {
@@ -373,8 +374,8 @@ func (cfg *appConfig) moveToHandler(w http.ResponseWriter, r *http.Request) {
 		)
 		saveSelected := match.selectedPiece
 		match.allMoves = append(match.allMoves, currentSquareName)
-		cfg.showMoves(match, currentSquareName, w, r)
 		bigCleanup(currentSquareName, &match)
+		cfg.showMoves(match, currentSquareName, saveSelected.Name, w, r)
 
 		noCheck := handleIfCheck(w, cfg, saveSelected, currentGame)
 		if noCheck {
@@ -457,8 +458,8 @@ func (cfg *appConfig) coverCheckHandler(w http.ResponseWriter, r *http.Request) 
 		)
 		saveSelected := match.selectedPiece
 		match.allMoves = append(match.allMoves, currentSquareName)
-		cfg.showMoves(match, currentSquareName, w, r)
 		bigCleanup(currentSquareName, &match)
+		cfg.showMoves(match, currentSquareName, saveSelected.Name, w, r)
 
 		for _, tile := range match.tilesUnderAttack {
 			t := match.board[tile]
@@ -650,7 +651,12 @@ func (cfg *appConfig) startGameHandler(w http.ResponseWriter, r *http.Request) {
 	UpdateCoordinates(&cur)
 	http.SetCookie(w, &startGame)
 
-	components.StartGameRight().Render(r.Context(), w)
+	err := components.StartGameRight().Render(r.Context(), w)
+
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
 }
 
 func (cfg *appConfig) resumeGameHandler(w http.ResponseWriter, r *http.Request) {
@@ -1202,4 +1208,126 @@ func (cfg *appConfig) playHandler(w http.ResponseWriter, r *http.Request) {
 		respondWithAnErrorPage(w, r, http.StatusInternalServerError, "Couldn't render template")
 		return
 	}
+}
+
+func (cfg *appConfig) matchesHandler(w http.ResponseWriter, r *http.Request) {
+	strId := r.PathValue("id")
+	id, err := strconv.Atoi(strId)
+
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	match, err := cfg.database.GetMatchById(r.Context(), int32(id))
+
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	newGame := fmt.Sprintf("database:matchId-%v", match.ID)
+
+	startGame := http.Cookie{
+		Name:     "current_game",
+		Value:    newGame,
+		Path:     "/",
+		MaxAge:   604800,
+		HttpOnly: true,
+		Secure:   true,
+		SameSite: http.SameSiteLaxMode,
+	}
+
+	startingBoard := MakeBoard()
+	startingPieces := MakePieces()
+
+	cfg.Matches[newGame] = Match{
+		board:                startingBoard,
+		pieces:               startingPieces,
+		selectedPiece:        components.Piece{},
+		coordinateMultiplier: 80,
+		isWhiteTurn:          true,
+		isWhiteUnderCheck:    false,
+		isBlackUnderCheck:    false,
+		whiteTimer:           int(match.FullTime),
+		blackTimer:           int(match.FullTime),
+		matchId:              match.ID,
+	}
+
+	cur := cfg.Matches[newGame]
+
+	cfg.fillBoard(newGame)
+	UpdateCoordinates(&cur)
+	http.SetCookie(w, &startGame)
+
+	whitePlayer := components.PlayerStruct{
+		Image:  "/assets/images/user-icon.png",
+		Name:   match.White,
+		Timer:  formatTime(int(match.FullTime)),
+		Pieces: "white",
+	}
+	blackPlayer := components.PlayerStruct{
+		Image:  "/assets/images/user-icon.png",
+		Name:   match.Black,
+		Timer:  formatTime(int(match.FullTime)),
+		Pieces: "black",
+	}
+
+	moves, err := cfg.database.GetAllMovesForMatch(r.Context(), match.ID)
+
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	layout.MatchHistoryBoard(cur.board, cur.pieces, cur.coordinateMultiplier, whitePlayer, blackPlayer, moves).Render(r.Context(), w)
+}
+
+func (cfg *appConfig) moveHistoryHandler(w http.ResponseWriter, r *http.Request) {
+	tile := r.PathValue("tile")
+	c, err := r.Cookie("current_game")
+
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	cookie := strings.Split(c.Value, "-")
+
+	matchId, err := strconv.Atoi(cookie[1])
+
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	board, err := cfg.database.GetBoardForMove(r.Context(), database.GetBoardForMoveParams{
+		MatchID: int32(matchId),
+		Move:    tile,
+	})
+
+	var boardState map[string]string
+
+	err = json.Unmarshal(board.Board, &boardState)
+
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+
+	startingPieces := MakePieces()
+
+	pieces := make(map[string]components.Piece, 0)
+
+	for k, v := range boardState {
+		curr := startingPieces[k]
+		curr.Tile = v
+		pieces[k] = curr
+	}
+
+	cfg.cleanFillBoard(c.Value, pieces)
+
+	curr := cfg.Matches[c.Value]
+
+	components.GridBoardHistory(curr.board, pieces, curr.coordinateMultiplier).Render(r.Context(), w)
 }

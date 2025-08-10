@@ -321,10 +321,10 @@ func (cfg *appConfig) handleCastle(w http.ResponseWriter, currentPiece component
 	)
 	if kingSquare.CoordinatePosition[1]-rookSquare.CoordinatePosition[1] == -3 {
 		match.allMoves = append(match.allMoves, "O-O")
-		cfg.showMoves(match, "O-O", w, r)
+		cfg.showMoves(match, "O-O", "king", w, r)
 	} else {
 		match.allMoves = append(match.allMoves, "O-O-O")
-		cfg.showMoves(match, "O-O-O", w, r)
+		cfg.showMoves(match, "O-O-O", "king", w, r)
 	}
 
 	if err != nil {
@@ -884,7 +884,7 @@ func (cfg *appConfig) isUserLoggedIn(r *http.Request) uuid.UUID {
 	return userId
 }
 
-func (cfg *appConfig) showMoves(match Match, currentSquareName string, w http.ResponseWriter, r *http.Request) {
+func (cfg *appConfig) showMoves(match Match, squareName, pieceName string, w http.ResponseWriter, r *http.Request) {
 
 	boardState := make(map[string]string, 0)
 	for k, v := range match.pieces {
@@ -900,9 +900,9 @@ func (cfg *appConfig) showMoves(match Match, currentSquareName string, w http.Re
 
 	err = cfg.database.CreateMove(r.Context(), database.CreateMoveParams{
 		Board:     jsonBoard,
-		Move:      currentSquareName,
-		Whitetime: int32(match.whiteTimer),
-		Blacktime: int32(match.blackTimer),
+		Move:      fmt.Sprintf("%v:%v", pieceName, squareName),
+		WhiteTime: int32(match.whiteTimer),
+		BlackTime: int32(match.blackTimer),
 		MatchID:   match.matchId,
 	})
 
@@ -917,7 +917,7 @@ func (cfg *appConfig) showMoves(match Match, currentSquareName string, w http.Re
 					<span>%v</span>
 				</div>
 			`,
-			currentSquareName,
+			squareName,
 		)
 	} else {
 		fmt.Fprintf(w, `
@@ -927,7 +927,22 @@ func (cfg *appConfig) showMoves(match Match, currentSquareName string, w http.Re
 				</div>
 		`,
 			len(match.allMoves)/2+1,
-			currentSquareName,
+			squareName,
 		)
 	}
+}
+
+func (cfg *appConfig) cleanFillBoard(gameName string, pieces map[string]components.Piece) {
+	match := cfg.Matches[gameName]
+	match.pieces = pieces
+	for i, tile := range match.board {
+		tile.Piece = components.Piece{}
+		match.board[i] = tile
+	}
+	for _, v := range pieces {
+		getTile := match.board[v.Tile]
+		getTile.Piece = v
+		match.board[v.Tile] = getTile
+	}
+	cfg.Matches[gameName] = match
 }

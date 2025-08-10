@@ -73,7 +73,9 @@ func main() {
 	http.HandleFunc("GET /api/refresh", cfg.refreshToken)
 	http.HandleFunc("GET /all-moves", cfg.getAllMovesHandler)
 	http.HandleFunc("GET /match-history", cfg.middleWareCheckForUserPrivate(cfg.matchHistoryHandler))
-	http.HandleFunc("GET /play", cfg.playHandler)
+	http.HandleFunc("GET /play-game", cfg.playHandler)
+	http.HandleFunc("GET /matches/{id}", cfg.matchesHandler)
+	http.HandleFunc("GET /move-history/{tile}", cfg.moveHistoryHandler)
 
 	fmt.Printf("Listening on :%v\n", port)
 	http.ListenAndServe(fmt.Sprintf(":%v", port), nil)
