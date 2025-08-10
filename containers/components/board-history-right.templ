@@ -1,0 +1,21 @@
+package components
+
+import "strings"
+
+templ BoardHistoryRight(moves []string) {
+  <div id="right-side" class="h-full w-[240px] mt-10 block">
+    <h3 class="text-white text-center">Moves History</h3>
+    <div id="moves" class="grid grid-cols-3 text-white h-moves mt-8">
+      for i := range moves {
+        {{ m := moves[i] }}
+        {{ toShow := strings.Split(m, ":")[1] }}
+        if (i+1)%2 == 0 {
+          <span hx-get={"/move-history/"+moves[i]} hx-target="#board" hx-swap="outerHTML" class="cursor-pointer">{ toShow }</span>
+        } else {
+          <span>{ i/2+1 }.</span>
+          <span hx-get={"/move-history/"+moves[i]} hx-target="#board" hx-swap="outerHTML" class="cursor-pointer">{ toShow }</span>
+        }
+      }
+    </div>
+  </div>
+}

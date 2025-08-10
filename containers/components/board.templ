@@ -5,11 +5,9 @@ import "fmt"
 templ GridBoard(board map[string]Square, pieces map[string]Piece, multiplier int, whitePlayer, blackPlayer PlayerStruct) {
   // TODO: Seems laggy a bit, figure out faster way
   <div id="chess-board" hx-post="/update-multiplier" hx-vals="js:{multiplier: getMultiplier()}" hx-trigger="load"  hx-swap="none" class="w-board w-board-md mx-auto mt-2 relative">
-    <div id="timer-update" hx-get="/timer" hx-swap-oob="none"></div>
+    <div id="timer-update" hx-get="/timer"></div>
     @Player(blackPlayer)
-    <div id="overlay" class="w-board w-board-md h-board h-board-md absolute z-20 hover:cursor-default">
-    </div>
-
+    <div id="overlay" class="w-board w-board-md h-board h-board-md absolute z-20 hover:cursor-default"></div>
       <div class="grid grid-cols-8 w-full h-board h-board-md relative">
         {{ i := 0}}
         for j := 0; j < len(cols) && i < len(rows); j++ {
