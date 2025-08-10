@@ -9,7 +9,7 @@ templ StartGameRight() {
     </div>
 
     <div hx-get="/all-moves" hx-trigger="load"></div>
-    <div id="moves" class="grid grid-cols-3 text-white h-moves mt-8"></div>
+    <div id="moves" class="grid grid-cols-3 text-white h-moves mt-8 max-h-[320px] overflow-auto"></div>
   </div>
 
   <div id="overlay" hx-swap-oob="true" class="hidden w-board w-board-md h-board h-board-md absolute z-20 hover:cursor-default">

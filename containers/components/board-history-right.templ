@@ -5,7 +5,7 @@ import "strings"
 templ BoardHistoryRight(moves []string) {
   <div id="right-side" class="h-full w-[240px] mt-10 block">
     <h3 class="text-white text-center">Moves History</h3>
-    <div id="moves" class="grid grid-cols-3 text-white h-moves mt-8">
+    <div id="moves" class="grid grid-cols-3 text-white h-moves mt-8 max-h-[320px] overflow-auto">
       for i := range moves {
         {{ m := moves[i] }}
         {{ toShow := strings.Split(m, ":")[1] }}

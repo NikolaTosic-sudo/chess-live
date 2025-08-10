@@ -31,7 +31,7 @@ func BoardHistoryRight(moves []string) templ.Component {
 			templ_7745c5c3_Var1 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div id=\"right-side\" class=\"h-full w-[240px] mt-10 block\"><h3 class=\"text-white text-center\">Moves History</h3><div id=\"moves\" class=\"grid grid-cols-3 text-white h-moves mt-8\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div id=\"right-side\" class=\"h-full w-[240px] mt-10 block\"><h3 class=\"text-white text-center\">Moves History</h3><div id=\"moves\" class=\"grid grid-cols-3 text-white h-moves mt-8 max-h-[320px] overflow-auto\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
