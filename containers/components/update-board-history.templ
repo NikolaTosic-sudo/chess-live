@@ -1,0 +1,7 @@
+package components
+
+templ UpdateBoardHistory(board map[string]Square, pieces map[string]Piece, multiplier int, whiteTime, blackTime string) {
+  <div id="white" class="px-7 py-3 bg-gray-500" hx-swap-oob="true">{whiteTime}</div>
+  @GridBoardHistory(board, pieces, multiplier)
+  <div id="black" class="px-7 py-3 bg-gray-500" hx-swap-oob="true">{blackTime}</div>
+}

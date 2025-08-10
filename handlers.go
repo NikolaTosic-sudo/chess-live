@@ -50,7 +50,7 @@ func (cfg *appConfig) boardHandler(w http.ResponseWriter, r *http.Request) {
 		Pieces: "black",
 	}
 
-	err = layout.MainPage(match.board, match.pieces, match.coordinateMultiplier, whitePlayer, blackPlayer).Render(r.Context(), w)
+	err = layout.MainPage(match.board, match.pieces, match.coordinateMultiplier, whitePlayer, blackPlayer, match.takenPiecesWhite, match.takenPiecesBlack).Render(r.Context(), w)
 
 	if err != nil {
 		fmt.Println(err)
@@ -114,7 +114,7 @@ func (cfg *appConfig) privateBoardHandler(w http.ResponseWriter, r *http.Request
 		Pieces: "black",
 	}
 
-	err = layout.MainPagePrivate(match.board, match.pieces, match.coordinateMultiplier, whitePlayer, blackPlayer).Render(r.Context(), w)
+	err = layout.MainPagePrivate(match.board, match.pieces, match.coordinateMultiplier, whitePlayer, blackPlayer, match.takenPiecesWhite, match.takenPiecesBlack).Render(r.Context(), w)
 
 	if err != nil {
 		fmt.Println(err)
@@ -521,6 +521,8 @@ func (cfg *appConfig) timerHandler(w http.ResponseWriter, r *http.Request) {
 	c, err := r.Cookie("current_game")
 	if err != nil {
 		fmt.Println("no game found")
+		return
+	} else if strings.Split(c.Value, ":")[0] == "database" {
 		return
 	}
 	currentGame := c.Value
@@ -1223,7 +1225,7 @@ func (cfg *appConfig) playHandler(w http.ResponseWriter, r *http.Request) {
 		Pieces: "black",
 	}
 
-	err = layout.MainPagePrivate(match.board, match.pieces, match.coordinateMultiplier, whitePlayer, blackPlayer).Render(r.Context(), w)
+	err = layout.MainPagePrivate(match.board, match.pieces, match.coordinateMultiplier, whitePlayer, blackPlayer, match.takenPiecesWhite, match.takenPiecesBlack).Render(r.Context(), w)
 
 	if err != nil {
 		fmt.Println(err)
@@ -1302,7 +1304,7 @@ func (cfg *appConfig) matchesHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	layout.MatchHistoryBoard(cur.board, cur.pieces, cur.coordinateMultiplier, whitePlayer, blackPlayer, moves).Render(r.Context(), w)
+	layout.MatchHistoryBoard(cur.board, cur.pieces, cur.coordinateMultiplier, whitePlayer, blackPlayer, cur.takenPiecesWhite, cur.takenPiecesBlack, moves).Render(r.Context(), w)
 }
 
 func (cfg *appConfig) moveHistoryHandler(w http.ResponseWriter, r *http.Request) {
@@ -1351,5 +1353,5 @@ func (cfg *appConfig) moveHistoryHandler(w http.ResponseWriter, r *http.Request)
 
 	curr := cfg.Matches[c.Value]
 
-	components.GridBoardHistory(curr.board, pieces, curr.coordinateMultiplier).Render(r.Context(), w)
+	components.UpdateBoardHistory(curr.board, pieces, curr.coordinateMultiplier, formatTime(int(board.WhiteTime)), formatTime(int(board.BlackTime))).Render(r.Context(), w)
 }

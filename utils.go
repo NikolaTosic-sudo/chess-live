@@ -319,13 +319,6 @@ func (cfg *appConfig) handleCastle(w http.ResponseWriter, currentPiece component
 		rookSquare.Coordinates[1],
 		rook.Image,
 	)
-	if kingSquare.CoordinatePosition[1]-rookSquare.CoordinatePosition[1] == -3 {
-		match.allMoves = append(match.allMoves, "O-O")
-		cfg.showMoves(match, "O-O", "king", w, r)
-	} else {
-		match.allMoves = append(match.allMoves, "O-O-O")
-		cfg.showMoves(match, "O-O-O", "king", w, r)
-	}
 
 	if err != nil {
 		return err
@@ -351,6 +344,15 @@ func (cfg *appConfig) handleCastle(w http.ResponseWriter, currentPiece component
 	match.selectedPiece = components.Piece{}
 	match.isWhiteTurn = !match.isWhiteTurn
 	cfg.Matches[currentGame] = match
+
+	if kingSquare.CoordinatePosition[1]-rookSquare.CoordinatePosition[1] == -3 {
+		match.allMoves = append(match.allMoves, "O-O")
+		cfg.showMoves(match, "O-O", "king", w, r)
+	} else {
+		match.allMoves = append(match.allMoves, "O-O-O")
+		cfg.showMoves(match, "O-O-O", "king", w, r)
+	}
+
 	go cfg.gameDone(currentGame)
 
 	return nil
@@ -898,7 +900,16 @@ func (cfg *appConfig) isUserLoggedIn(r *http.Request) uuid.UUID {
 }
 
 func (cfg *appConfig) showMoves(match Match, squareName, pieceName string, w http.ResponseWriter, r *http.Request) {
-
+	c, err := r.Cookie("current_game")
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	if c.Value != "" {
+		if strings.Split(c.Value, ":")[0] == "database" {
+			return
+		}
+	}
 	boardState := make(map[string]string, 0)
 	for k, v := range match.pieces {
 		boardState[k] = v.Tile
