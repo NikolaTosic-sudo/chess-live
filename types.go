@@ -33,4 +33,6 @@ type Match struct {
 	addition             int
 	allMoves             []string
 	matchId              int32
+	takenPiecesWhite     []string
+	takenPiecesBlack     []string
 }

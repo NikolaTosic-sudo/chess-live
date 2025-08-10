@@ -18,8 +18,24 @@ import (
 )
 
 func (cfg *appConfig) boardHandler(w http.ResponseWriter, r *http.Request) {
-	match := cfg.Matches["initial"]
-	cfg.fillBoard("initial")
+	var game string
+	c, err := r.Cookie("current_game")
+
+	if err != nil {
+		fmt.Println(err)
+		game = "initial"
+	} else if c.Value != "" {
+		game = c.Value
+	} else {
+		game = "initial"
+	}
+
+	match, ok := cfg.Matches[game]
+	if !ok {
+		game = "initial"
+		match = cfg.Matches["initial"]
+	}
+	cfg.fillBoard(game)
 
 	whitePlayer := components.PlayerStruct{
 		Image:  "/assets/images/user-icon.png",
@@ -34,7 +50,7 @@ func (cfg *appConfig) boardHandler(w http.ResponseWriter, r *http.Request) {
 		Pieces: "black",
 	}
 
-	err := layout.MainPage(match.board, match.pieces, match.coordinateMultiplier, whitePlayer, blackPlayer).Render(r.Context(), w)
+	err = layout.MainPage(match.board, match.pieces, match.coordinateMultiplier, whitePlayer, blackPlayer).Render(r.Context(), w)
 
 	if err != nil {
 		fmt.Println(err)
@@ -148,8 +164,10 @@ func (cfg *appConfig) moveHandler(w http.ResponseWriter, r *http.Request) {
 		}
 		var userColor string
 		if match.isWhiteTurn {
+			match.takenPiecesWhite = append(match.takenPiecesWhite, currentPiece.Image)
 			userColor = "white"
 		} else {
+			match.takenPiecesBlack = append(match.takenPiecesBlack, currentPiece.Image)
 			userColor = "black"
 		}
 
@@ -584,7 +602,11 @@ func (cfg *appConfig) updateMultiplerHandler(w http.ResponseWriter, r *http.Requ
 func (cfg *appConfig) startGameHandler(w http.ResponseWriter, r *http.Request) {
 
 	user := cfg.isUserLoggedIn(r)
-
+	err := r.ParseForm()
+	if err != nil {
+		fmt.Println(err)
+	}
+	duration := r.FormValue("duration")
 	var newGameName string
 	var matchId int32
 	if user != uuid.Nil {
@@ -631,6 +653,17 @@ func (cfg *appConfig) startGameHandler(w http.ResponseWriter, r *http.Request) {
 	startingBoard := MakeBoard()
 	startingPieces := MakePieces()
 
+	durationSplit := strings.Split(duration, "+")
+	timer, err := strconv.Atoi(durationSplit[0])
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	addition, err := strconv.Atoi(durationSplit[1])
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
 	cfg.Matches[newGameName] = Match{
 		board:                startingBoard,
 		pieces:               startingPieces,
@@ -639,9 +672,9 @@ func (cfg *appConfig) startGameHandler(w http.ResponseWriter, r *http.Request) {
 		isWhiteTurn:          true,
 		isWhiteUnderCheck:    false,
 		isBlackUnderCheck:    false,
-		whiteTimer:           600,
-		blackTimer:           600,
-		addition:             0,
+		whiteTimer:           timer,
+		blackTimer:           timer,
+		addition:             addition,
 		matchId:              matchId,
 	}
 
@@ -651,7 +684,7 @@ func (cfg *appConfig) startGameHandler(w http.ResponseWriter, r *http.Request) {
 	UpdateCoordinates(&cur)
 	http.SetCookie(w, &startGame)
 
-	err := components.StartGameRight().Render(r.Context(), w)
+	err = components.StartGameRight().Render(r.Context(), w)
 
 	if err != nil {
 		fmt.Println(err)
@@ -734,12 +767,12 @@ func (cfg *appConfig) timeOptionHandler(w http.ResponseWriter, r *http.Request) 
 
 	fmt.Fprintf(w, `
 		<div class="absolute right-0 mt-2 w-48 bg-[#1e1c1a] border border-[#3a3733] text-white rounded-md shadow-lg z-50">
-			<div hx-post="/set-time" hx-vals='{"time": "15"}' hx-target="#timer" class="block px-4 py-2 hover:bg-emerald-600 hover:text-white transition">15 Minutes</div>
-			<div hx-post="/set-time" hx-vals='{"time": "15", "addition": "3"}' hx-target="#timer" class="block px-4 py-2 hover:bg-emerald-600 hover:text-white transition">15 + 3</div>
-			<div hx-post="/set-time" hx-vals='{"time": "10"}' hx-target="#timer" class="block px-4 py-2 hover:bg-emerald-600 hover:text-white transition">10 Minutes</div>
-			<div hx-post="/set-time" hx-vals='{"time": "10", "addition": "3"}' hx-target="#timer" class="block px-4 py-2 hover:bg-emerald-600 hover:text-white transition">10 + 3</div>
-			<div hx-post="/set-time" hx-vals='{"time": "3"}' hx-target="#timer" class="block px-4 py-2 hover:bg-emerald-600 hover:text-white transition">3 Minutes</div>
-			<div hx-post="/set-time" hx-vals='{"time": "3", "addition": "1"}' hx-target="#timer" class="block px-4 py-2 hover:bg-emerald-600 hover:text-white transition">3 + 1</div>
+			<div hx-post="/set-time" hx-vals='{"time": "15"}' hx-target="#timer" class="block px-4 py-2 hover:bg-emerald-600 hover:text-white transition cursor-pointer">15 Minutes</div>
+			<div hx-post="/set-time" hx-vals='{"time": "15", "addition": "3"}' hx-target="#timer" class="block px-4 py-2 hover:bg-emerald-600 hover:text-white transition cursor-pointer">15 + 3</div>
+			<div hx-post="/set-time" hx-vals='{"time": "10"}' hx-target="#timer" class="block px-4 py-2 hover:bg-emerald-600 hover:text-white transition cursor-pointer">10 Minutes</div>
+			<div hx-post="/set-time" hx-vals='{"time": "10", "addition": "3"}' hx-target="#timer" class="block px-4 py-2 hover:bg-emerald-600 hover:text-white transition cursor-pointer">10 + 3</div>
+			<div hx-post="/set-time" hx-vals='{"time": "3"}' hx-target="#timer" class="block px-4 py-2 hover:bg-emerald-600 hover:text-white transition cursor-pointer">3 Minutes</div>
+			<div hx-post="/set-time" hx-vals='{"time": "3", "addition": "1"}' hx-target="#timer" class="block px-4 py-2 hover:bg-emerald-600 hover:text-white transition cursor-pointer">3 + 1</div>
 		</div>
 	`)
 }
@@ -755,7 +788,6 @@ func (cfg *appConfig) setTimeOption(w http.ResponseWriter, r *http.Request) {
 
 	time := r.FormValue("time")
 	addition := r.FormValue("addition")
-
 	var a int
 	if addition != "" {
 		a, err = strconv.Atoi(addition)
@@ -772,25 +804,13 @@ func (cfg *appConfig) setTimeOption(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	c, err := r.Cookie("current_game")
-	if err != nil {
-		fmt.Println("no game found")
-		return
-	}
-	currentGame := c.Value
-	match := cfg.Matches[currentGame]
-
 	var seconds string
 
 	if a != 0 {
 		seconds = fmt.Sprintf("+ %v sec", a)
-		match.addition = a
 	}
 
-	match.whiteTimer = t * 60
-	match.blackTimer = t * 60
-
-	cfg.Matches[currentGame] = match
+	duration := fmt.Sprintf("%v+%v", t*60, a)
 
 	fmt.Fprintf(w, `
 		<div id="dropdown-menu" hx-swap-oob="true" class="relative mb-8"></div>
@@ -799,8 +819,10 @@ func (cfg *appConfig) setTimeOption(w http.ResponseWriter, r *http.Request) {
 
 		<div id="black" hx-swap-oob="true" class="px-7 py-3 bg-gray-500">%v</div>
 
+		<input type="hidden" id="timer-value" name="duration" hx-swap-oob="true" value="%v" />
+
 		%v Min %v
-	`, formatTime(match.whiteTimer), formatTime(match.blackTimer), time, seconds)
+	`, formatTime(t*60), formatTime(t*60), duration, time, seconds)
 }
 
 func (cfg *appConfig) loginOpenHandler(w http.ResponseWriter, r *http.Request) {
@@ -851,7 +873,7 @@ func (cfg *appConfig) signupHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		if strings.Contains(err.Error(), "violates unique constraint") {
 			fmt.Fprintf(w, `
-				<div id="password" hx-swap-oob="afterend">
+				<div id="incorrect-password" hx-swap-oob="innerHTML">
 					<p class="text-red-400 text-center">User with that email already exists</p>
 				</div>
 			`)
@@ -941,7 +963,7 @@ func (cfg *appConfig) loginHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		if strings.Contains(err.Error(), "no rows in result") {
 			fmt.Fprintf(w, `
-				<div id="password" hx-swap-oob="afterend">
+				<div id="incorrect-password" hx-swap-oob="innerHTML">
 					<p class="text-red-400 text-center">User with the email doesn't exist</p>
 				</div>
 			`)
@@ -955,7 +977,7 @@ func (cfg *appConfig) loginHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		if strings.Contains(err.Error(), "hashedPassword is not the hash of the given password") {
 			fmt.Fprintf(w, `
-				<div id="password" hx-swap-oob="afterend">
+				<div id="incorrect-password" hx-swap-oob="innerHTML">
 					<p class="text-red-400 text-center">Incorrect password</p>
 				</div>
 			`)

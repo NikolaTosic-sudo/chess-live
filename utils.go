@@ -332,8 +332,10 @@ func (cfg *appConfig) handleCastle(w http.ResponseWriter, currentPiece component
 	}
 
 	rowIdx := rowIdxMap[string(king.Tile[0])]
-	king.Tile = mockBoard[rowIdx][kingSquare.Coordinates[1]/100]
-	rook.Tile = mockBoard[rowIdx][rookSquare.Coordinates[1]/100]
+	king.Tile = mockBoard[rowIdx][kingSquare.Coordinates[1]/match.coordinateMultiplier]
+	rook.Tile = mockBoard[rowIdx][rookSquare.Coordinates[1]/match.coordinateMultiplier]
+	king.Moved = true
+	rook.Moved = true
 	newKingSquare := match.board[king.Tile]
 	newRookSquare := match.board[rook.Tile]
 	newKingSquare.Piece = king
@@ -881,6 +883,17 @@ func (cfg *appConfig) isUserLoggedIn(r *http.Request) uuid.UUID {
 		return uuid.Nil
 	}
 
+	_, err = cfg.database.GetUserById(r.Context(), userId)
+	if err != nil {
+		fmt.Println(err)
+		return uuid.Nil
+	}
+	_, ok := cfg.users[userId]
+	if !ok {
+		fmt.Println("no user found")
+		return uuid.Nil
+	}
+
 	return userId
 }
 
@@ -898,17 +911,21 @@ func (cfg *appConfig) showMoves(match Match, squareName, pieceName string, w htt
 		return
 	}
 
-	err = cfg.database.CreateMove(r.Context(), database.CreateMoveParams{
-		Board:     jsonBoard,
-		Move:      fmt.Sprintf("%v:%v", pieceName, squareName),
-		WhiteTime: int32(match.whiteTimer),
-		BlackTime: int32(match.blackTimer),
-		MatchID:   match.matchId,
-	})
+	userId := cfg.isUserLoggedIn(r)
 
-	if err != nil {
-		fmt.Println(err)
-		return
+	if userId != uuid.Nil {
+		err = cfg.database.CreateMove(r.Context(), database.CreateMoveParams{
+			Board:     jsonBoard,
+			Move:      fmt.Sprintf("%v:%v", pieceName, squareName),
+			WhiteTime: int32(match.whiteTimer),
+			BlackTime: int32(match.blackTimer),
+			MatchID:   match.matchId,
+		})
+
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
 	}
 
 	if len(match.allMoves)%2 == 0 {

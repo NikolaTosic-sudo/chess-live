@@ -3,6 +3,7 @@ package components
 templ RightSide(ofline bool) {
   <div id="right-side" class="h-full w-[240px] mt-10 block">
     <div>
+      <input type="hidden" id="timer-value" name="duration" value="600+0" />
       <button
         id="timer"
         class="bg-amber-600 w-[200px] hover:bg-amber-500 text-white font-semibold py-2 px-4 rounded-md shadow-md cursor-pointer"
@@ -16,7 +17,7 @@ templ RightSide(ofline bool) {
       <div id="dropdown-menu" class="relative mb-8"></div>
     </div>
     <div>
-      <button hx-post="/start" hx-target="#right-side" class="bg-emerald-500 hover:bg-emerald-600 text-white font-semibold py-3 px-6 rounded cursor-pointer w-[200px]">
+      <button hx-post="/start" hx-target="#right-side" hx-include="#timer-value" class="bg-emerald-500 hover:bg-emerald-600 text-white font-semibold py-3 px-6 rounded cursor-pointer w-[200px]">
         Play Locally
       </button>
     </div>
