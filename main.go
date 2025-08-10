@@ -76,6 +76,7 @@ func main() {
 	http.HandleFunc("GET /play-game", cfg.playHandler)
 	http.HandleFunc("GET /matches/{id}", cfg.matchesHandler)
 	http.HandleFunc("GET /move-history/{tile}", cfg.moveHistoryHandler)
+	http.HandleFunc("POST /promotion", cfg.handlePromotion)
 
 	fmt.Printf("Listening on :%v\n", port)
 	http.ListenAndServe(fmt.Sprintf(":%v", port), nil)

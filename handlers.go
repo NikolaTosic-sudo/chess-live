@@ -202,6 +202,10 @@ func (cfg *appConfig) moveHandler(w http.ResponseWriter, r *http.Request) {
 		cfg.Matches[currentGame] = match
 		cfg.showMoves(match, currentSquareName, saveSelected.Name, w, r)
 
+		if saveSelected.IsPawn && cfg.checkForPawnPromotion(saveSelected.Name, currentGame, w) {
+			return
+		}
+
 		noCheck := handleIfCheck(w, cfg, saveSelected, currentGame)
 		if noCheck {
 			var kingName string
@@ -213,7 +217,6 @@ func (cfg *appConfig) moveHandler(w http.ResponseWriter, r *http.Request) {
 				cfg.endTurn(w, r, currentGame)
 				return
 			}
-
 			match.isWhiteUnderCheck = false
 			match.isBlackUnderCheck = false
 			match.tilesUnderAttack = []string{}
@@ -402,8 +405,11 @@ func (cfg *appConfig) moveToHandler(w http.ResponseWriter, r *http.Request) {
 		}
 
 		cfg.Matches[currentGame] = match
-		cfg.endTurn(w, r, currentGame)
+		if saveSelected.IsPawn && cfg.checkForPawnPromotion(saveSelected.Name, currentGame, w) {
+			return
+		}
 
+		cfg.endTurn(w, r, currentGame)
 		return
 	}
 
@@ -499,6 +505,10 @@ func (cfg *appConfig) coverCheckHandler(w http.ResponseWriter, r *http.Request) 
 					fmt.Println(err)
 				}
 			}
+		}
+
+		if saveSelected.IsPawn && cfg.checkForPawnPromotion(saveSelected.Name, currentGame, w) {
+			return
 		}
 
 		noCheck := handleIfCheck(w, cfg, saveSelected, currentGame)
@@ -1354,4 +1364,115 @@ func (cfg *appConfig) moveHistoryHandler(w http.ResponseWriter, r *http.Request)
 	curr := cfg.Matches[c.Value]
 
 	components.UpdateBoardHistory(curr.board, pieces, curr.coordinateMultiplier, formatTime(int(board.WhiteTime)), formatTime(int(board.BlackTime))).Render(r.Context(), w)
+}
+
+func (cfg *appConfig) handlePromotion(w http.ResponseWriter, r *http.Request) {
+	c, err := r.Cookie("current_game")
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	currentGame := cfg.Matches[c.Value]
+	pawnName := r.FormValue("pawn")
+	pieceName := r.FormValue("piece")
+
+	allPieces := MakePieces()
+
+	pawnPiece := currentGame.pieces[pawnName]
+
+	newPiece := components.Piece{
+		Name:       pawnName,
+		Image:      allPieces[pieceName].Image,
+		Tile:       pawnPiece.Tile,
+		IsWhite:    pawnPiece.IsWhite,
+		LegalMoves: allPieces[pieceName].LegalMoves,
+		MovesOnce:  allPieces[pieceName].MovesOnce,
+		Moved:      true,
+		IsKing:     false,
+		IsPawn:     false,
+	}
+
+	delete(currentGame.pieces, pawnName)
+	currentGame.pieces[pawnName] = newPiece
+	currentSquare := currentGame.board[pawnPiece.Tile]
+	currentSquare.Piece = newPiece
+	currentGame.board[pawnPiece.Tile] = currentSquare
+
+	cfg.Matches[c.Value] = currentGame
+
+	fmt.Fprintf(w, `
+					<span id="%v" hx-post="/move" hx-swap-oob="true" hx-swap="outerHTML" class="tile tile-md hover:cursor-grab absolute transition-all" style="bottom: %vpx; left: %vpx">
+						<img src="/assets/pieces/%v.svg" />
+					</span>
+
+					<div id="overlay" hx-swap-oob="true" class="hidden w-board w-board-md h-board h-board-md absolute z-20 hover:cursor-default"></div>
+
+					<div id="promotion" hx-swap-oob="true" class="absolute"></div>
+				`,
+		pawnName,
+		currentSquare.Coordinates[0],
+		currentSquare.Coordinates[1],
+		currentSquare.Piece.Image,
+	)
+
+	userId := cfg.isUserLoggedIn(r)
+
+	if userId != uuid.Nil {
+		boardState := make(map[string]string, 0)
+		for k, v := range currentGame.pieces {
+			boardState[k] = v.Tile
+		}
+
+		jsonBoard, err := json.Marshal(boardState)
+
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+
+		moveDB, err := cfg.database.GetLatestMoveForMatch(r.Context(), currentGame.matchId)
+
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+
+		err = cfg.database.UpdateBoardForMove(r.Context(), database.UpdateBoardForMoveParams{
+			Board:   jsonBoard,
+			MatchID: moveDB.MatchID,
+			Move:    moveDB.Move,
+		})
+	}
+
+	noCheck := handleIfCheck(w, cfg, newPiece, c.Value)
+	if noCheck && (currentGame.isBlackUnderCheck || currentGame.isWhiteUnderCheck) {
+		var kingName string
+		if currentGame.isWhiteUnderCheck {
+			kingName = "white_king"
+		} else if currentGame.isBlackUnderCheck {
+			kingName = "black_king"
+		} else {
+			cfg.endTurn(w, r, c.Value)
+			return
+		}
+
+		currentGame.isWhiteUnderCheck = false
+		currentGame.isBlackUnderCheck = false
+		currentGame.tilesUnderAttack = []string{}
+		getKing := currentGame.pieces[kingName]
+		getKingSquare := currentGame.board[getKing.Tile]
+
+		fmt.Fprintf(w, `
+			<span id="%v" hx-post="/move" hx-swap-oob="true" hx-swap="outerHTML" class="tile tile-md hover:cursor-grab absolute transition-all" style="bottom: %vpx; left: %vpx">
+				<img src="/assets/pieces/%v.svg" />
+			</span>
+		`,
+			getKing.Name,
+			getKingSquare.Coordinates[0],
+			getKingSquare.Coordinates[1],
+			getKing.Image,
+		)
+	}
+
+	cfg.endTurn(w, r, c.Value)
 }

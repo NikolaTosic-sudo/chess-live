@@ -9,6 +9,7 @@ templ GridBoard(board map[string]Square, pieces map[string]Piece, multiplier int
     @Player(blackPlayer, blackLostPieces)
     <div id="overlay" class="w-board w-board-md h-board h-board-md absolute z-20 hover:cursor-default"></div>
       <div class="grid grid-cols-8 w-full h-board h-board-md relative">
+        <div id="promotion" class="absolute bottom-20"></div>
         {{ i := 0}}
         for j := 0; j < len(cols) && i < len(rows); j++ {
           {{ tileSig := fmt.Sprintf("%v%v", rows[i], cols[j]) }}

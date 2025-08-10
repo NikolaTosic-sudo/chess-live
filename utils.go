@@ -465,7 +465,7 @@ func (cfg *appConfig) checkCheck(tilesUnderCheck *[]string, startingPosition, st
 		if strings.Contains(pieceOnCurrentTile.Name, pieceColor) {
 			return false
 		} else if !strings.Contains(pieceOnCurrentTile.Name, pieceColor) &&
-			strings.Contains(pieceOnCurrentTile.Name, "knight") {
+			strings.Contains(pieceOnCurrentTile.Image, "knight") {
 			for _, mv := range pieceOnCurrentTile.LegalMoves {
 				if (mv[0] == move[0] && mv[1] == move[1]) && startPosCompare[0] == startingPosition[0] && startPosCompare[1] == startingPosition[1] {
 					*tilesUnderCheck = append(*tilesUnderCheck, currentTile)
@@ -973,4 +973,65 @@ func (cfg *appConfig) cleanFillBoard(gameName string, pieces map[string]componen
 		match.board[v.Tile] = getTile
 	}
 	cfg.Matches[gameName] = match
+}
+
+func (cfg *appConfig) checkForPawnPromotion(pawnName, currentGame string, w http.ResponseWriter) bool {
+	var isOnLastTile bool
+	match := cfg.Matches[currentGame]
+	pawn := match.pieces[pawnName]
+	square := match.board[pawn.Tile]
+	var pieceColor string
+	var firstPosition string
+	if pawn.IsWhite {
+		pieceColor = "white"
+		firstPosition = "top: 0px"
+	} else {
+		pieceColor = "black"
+		firstPosition = "bottom: 0px"
+	}
+	endBoardCoordinates := 7 * match.coordinateMultiplier
+	dropdownPosition := square.Coordinates[1] + match.coordinateMultiplier
+	if square.Coordinates[1] == endBoardCoordinates {
+		dropdownPosition = square.Coordinates[1] - match.coordinateMultiplier
+	}
+
+	rowIdx := rowIdxMap[string(pawn.Tile[0])]
+	if pawn.IsWhite && rowIdx == 0 || !pawn.IsWhite && rowIdx == 7 {
+		isOnLastTile = true
+		fmt.Fprintf(w,
+			`
+				<div 
+					id="promotion"
+					hx-swap-oob="true"
+					style="%v; left: %vpx"
+					class="absolute mt-2 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-50 opacity-0 fade-in-opacity"
+				>
+					<div class="grid gap-2 py-2">
+						<img src="/assets/pieces/%v_queen.svg" hx-post="/promotion?pawn=%v&piece=%v_queen" alt="Queen" class="tile tile-md cursor-pointer hover:scale-105 transition opacity-0 fade-in-opacity" />
+						<img src="/assets/pieces/%v_rook.svg" hx-post="/promotion?pawn=%v&piece=right_%v_rook" alt="Rook" class="tile tile-md cursor-pointer hover:scale-105 transition opacity-0 fade-in-opacity" />
+						<img src="/assets/pieces/%v_knight.svg" hx-post="/promotion?pawn=%v&piece=right_%v_knight" alt="Knight" class="tile tile-md cursor-pointer hover:scale-105 transition opacity-0 fade-in-opacity" />
+						<img src="/assets/pieces/%v_bishop.svg" hx-post="/promotion?pawn=%v&piece=right_%v_bishop" alt="Bishop" class="tile tile-md cursor-pointer hover:scale-105 transition opacity-0 fade-in-opacity" />
+					</div>
+				</div>
+
+				<div id="overlay" hx-swap-oob="true" class="w-board w-board-md h-board h-board-md absolute z-20 hover:cursor-default"></div>
+
+			`,
+			firstPosition,
+			dropdownPosition,
+			pieceColor,
+			pawnName,
+			pieceColor,
+			pieceColor,
+			pawnName,
+			pieceColor,
+			pieceColor,
+			pawnName,
+			pieceColor,
+			pieceColor,
+			pawnName,
+			pieceColor,
+		)
+	}
+	return isOnLastTile
 }
