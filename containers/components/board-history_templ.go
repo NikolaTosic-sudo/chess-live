@@ -31,7 +31,7 @@ func GridBoardHistory(board map[string]Square, pieces map[string]Piece, multipli
 			templ_7745c5c3_Var1 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div id=\"board\" hx-target=\"this\" hx-swap=\"innerHTML\" class=\"grid grid-cols-8 w-full h-board h-board-md relative\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div id=\"board\" hx-target=\"this\" hx-swap=\"innerHTML\" hx-disinherit=\"*\" class=\"grid grid-cols-8 w-full h-board h-board-md relative\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
