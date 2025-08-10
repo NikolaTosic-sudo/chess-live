@@ -12,22 +12,22 @@ import (
 	"github.com/google/uuid"
 )
 
-type Board struct {
-	ID        int32
-	Board     json.RawMessage
-	Move      string
-	WhiteTime int32
-	BlackTime int32
-	MatchID   int32
-	CreatedAt time.Time
-}
-
 type Match struct {
 	ID        int32
 	White     string
 	Black     string
 	FullTime  int32
 	UserID    uuid.UUID
+	CreatedAt time.Time
+}
+
+type Move struct {
+	ID        int32
+	Board     json.RawMessage
+	Move      string
+	WhiteTime int32
+	BlackTime int32
+	MatchID   int32
 	CreatedAt time.Time
 }
 

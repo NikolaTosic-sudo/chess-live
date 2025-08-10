@@ -1,5 +1,5 @@
 -- +goose Up
-CREATE TABLE board(
+CREATE TABLE moves(
   id SERIAL PRIMARY KEY,
   board JSON NOT NULL,
   move TEXT NOT NULL,
@@ -13,4 +13,4 @@ CREATE TABLE board(
 );
 
 -- +goose Down
-DROP TABLE board;
+DROP TABLE moves;
