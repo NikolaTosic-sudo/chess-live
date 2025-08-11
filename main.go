@@ -6,10 +6,12 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/NikolaTosic-sudo/chess-live/containers/components"
 	"github.com/NikolaTosic-sudo/chess-live/internal/database"
 	"github.com/google/uuid"
+	"github.com/gorilla/websocket"
 	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
 )
@@ -77,7 +79,33 @@ func main() {
 	http.HandleFunc("GET /matches/{id}", cfg.matchesHandler)
 	http.HandleFunc("GET /move-history/{tile}", cfg.moveHistoryHandler)
 	http.HandleFunc("POST /promotion", cfg.handlePromotion)
+	http.HandleFunc("/ws", wsHandler)
 
 	fmt.Printf("Listening on :%v\n", port)
 	http.ListenAndServe(fmt.Sprintf(":%v", port), nil)
+}
+
+var upgrader = websocket.Upgrader{
+	CheckOrigin: func(r *http.Request) bool { return true },
+}
+
+func wsHandler(w http.ResponseWriter, r *http.Request) {
+	conn, err := upgrader.Upgrade(w, r, nil)
+	if err != nil {
+		log.Println("WebSocket upgrade failed:", err)
+		return
+	}
+	defer conn.Close()
+
+	counter := 0
+	for {
+		counter++
+		message := fmt.Sprintf(`<div id="counter" class="text-white">Counter: %d</div>`, counter)
+		err := conn.WriteMessage(websocket.TextMessage, []byte(message))
+		if err != nil {
+			log.Println("WebSocket write error:", err)
+			break
+		}
+		time.Sleep(1 * time.Second)
+	}
 }

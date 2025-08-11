@@ -8,6 +8,7 @@ templ MainPage(chessBoard map[string]components.Square, pieces map[string]compon
       @components.LeftSide()
       @components.GridBoard(chessBoard, pieces, multiplier, whitePlayer, blackPlayer, whiteLostPieces, blackLostPieces)
       @components.RightSide(true)
+      @components.WebSockets()
     </div>
   }
 }

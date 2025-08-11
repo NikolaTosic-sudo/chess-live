@@ -13,8 +13,9 @@ templ Layout() {
       />
       <link rel="stylesheet" href="/assets/css/output.css" />
       <script src="/assets/htmx.min.js"></script>
+      <script src="/assets/htxm-ext-ws.min.js"></script>
     </head>
-    <body class="m-0 p-2 px-12 h-dvh bg-[#312e2b]" id="body">
+    <body hx-ext="ws" class="m-0 p-2 px-12 h-dvh bg-[#312e2b]" id="body">
       { children... }
     </body>
   </html>
