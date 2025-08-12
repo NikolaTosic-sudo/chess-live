@@ -4,13 +4,15 @@ import (
 	"github.com/NikolaTosic-sudo/chess-live/containers/components"
 	"github.com/NikolaTosic-sudo/chess-live/internal/database"
 	"github.com/google/uuid"
+	"github.com/gorilla/websocket"
 )
 
 type appConfig struct {
-	database *database.Queries
-	secret   string
-	users    map[uuid.UUID]CurrentUser
-	Matches  map[string]Match
+	database    *database.Queries
+	secret      string
+	users       map[uuid.UUID]CurrentUser
+	Matches     map[string]Match
+	connections map[string]*websocket.Conn
 }
 
 type CurrentUser struct {

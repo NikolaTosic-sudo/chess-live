@@ -1,0 +1,15 @@
+package layout
+
+import "github.com/NikolaTosic-sudo/chess-live/containers/components"
+
+templ MainPageOnline(chessBoard map[string]components.Square, pieces map[string]components.Piece, multiplier int, whitePlayer, blackPlayer components.PlayerStruct, whiteLostPieces, blackLostPieces []string) {
+  @Layout() {
+    <div id="main-private" class="flex">
+      <div hx-get="/api/refresh" hx-trigger="every 30m" hx-swap="none"></div>
+      @components.LeftSidePrivate()
+      @components.GridBoard(chessBoard, pieces, multiplier, whitePlayer, blackPlayer, whiteLostPieces, blackLostPieces)
+      @components.RightSide(false)
+      @components.WebSockets()
+    </div>
+  }
+}

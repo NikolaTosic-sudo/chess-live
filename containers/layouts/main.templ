@@ -8,6 +8,7 @@ templ MainPage(chessBoard map[string]components.Square, pieces map[string]compon
       @components.LeftSide()
       @components.GridBoard(chessBoard, pieces, multiplier, whitePlayer, blackPlayer, whiteLostPieces, blackLostPieces)
       @components.RightSide(true)
+      <div hx-post="/test" class="text-white">Testiramo</div>
       @components.WebSockets()
     </div>
   }

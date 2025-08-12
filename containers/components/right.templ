@@ -29,7 +29,7 @@ templ RightSide(ofline bool) {
     </div>
 
     <div id="playonline" class="relative group inline-block cursor-not-allowed mt-8">
-      <button if ofline { hx-disable="true" disabled } hx-post="/start" hx-target="#right-side" class={"bg-emerald-500 hover:bg-emerald-600 text-white font-semibold py-3 px-6 rounded w-[200px] cursor-pointer", templ.KV("cursor-not-allowed", ofline), templ.KV("bg-emerald-500/60 hover:bg-emerald-600/60", ofline)}>
+      <button if ofline { hx-disable="true" disabled } hx-target="#right-side" hx-get="/play-online" class={"bg-emerald-500 hover:bg-emerald-600 text-white font-semibold py-3 px-6 rounded w-[200px] cursor-pointer", templ.KV("cursor-not-allowed", ofline), templ.KV("bg-emerald-500/60 hover:bg-emerald-600/60", ofline)}>
         Play Online
       </button>
       if ofline {

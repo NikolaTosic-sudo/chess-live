@@ -15,6 +15,7 @@ import (
 	"github.com/NikolaTosic-sudo/chess-live/internal/auth"
 	"github.com/NikolaTosic-sudo/chess-live/internal/database"
 	"github.com/google/uuid"
+	"github.com/gorilla/websocket"
 )
 
 func (cfg *appConfig) boardHandler(w http.ResponseWriter, r *http.Request) {
@@ -1475,4 +1476,14 @@ func (cfg *appConfig) handlePromotion(w http.ResponseWriter, r *http.Request) {
 	}
 
 	cfg.endTurn(w, r, c.Value)
+}
+
+func (cfg *appConfig) testWebsockets(w http.ResponseWriter, r *http.Request) {
+	message := fmt.Sprintf(`<div id="counter" class="text-white">Counter: %d</div>`, 100)
+	conn := cfg.connections["initial"]
+	err := conn.WriteMessage(websocket.TextMessage, []byte(message))
+	if err != nil {
+		log.Println("WebSocket write error:", err)
+		return
+	}
 }

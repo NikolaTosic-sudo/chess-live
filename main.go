@@ -28,11 +28,13 @@ func main() {
 	dbQueries := database.New(db)
 	startingBoard := MakeBoard()
 	startingPieces := MakePieces()
+	gameRooms := make(map[string]*websocket.Conn, 0)
 
 	cfg := appConfig{
-		database: dbQueries,
-		secret:   secret,
-		users:    make(map[uuid.UUID]CurrentUser, 0),
+		database:    dbQueries,
+		secret:      secret,
+		users:       make(map[uuid.UUID]CurrentUser, 0),
+		connections: gameRooms,
 		Matches: map[string]Match{
 			"initial": {
 				board:                startingBoard,
@@ -79,7 +81,8 @@ func main() {
 	http.HandleFunc("GET /matches/{id}", cfg.matchesHandler)
 	http.HandleFunc("GET /move-history/{tile}", cfg.moveHistoryHandler)
 	http.HandleFunc("POST /promotion", cfg.handlePromotion)
-	http.HandleFunc("/ws", wsHandler)
+	http.HandleFunc("POST /test", cfg.testWebsockets)
+	http.HandleFunc("/ws", cfg.wsHandler)
 
 	fmt.Printf("Listening on :%v\n", port)
 	http.ListenAndServe(fmt.Sprintf(":%v", port), nil)
@@ -89,23 +92,25 @@ var upgrader = websocket.Upgrader{
 	CheckOrigin: func(r *http.Request) bool { return true },
 }
 
-func wsHandler(w http.ResponseWriter, r *http.Request) {
+func (cfg *appConfig) wsHandler(w http.ResponseWriter, r *http.Request) {
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Println("WebSocket upgrade failed:", err)
 		return
 	}
-	defer conn.Close()
 
-	counter := 0
+	fmt.Println(conn, "what is a connection")
+	cfg.connections["initial"] = conn
+	// counter := 0
 	for {
-		counter++
-		message := fmt.Sprintf(`<div id="counter" class="text-white">Counter: %d</div>`, counter)
-		err := conn.WriteMessage(websocket.TextMessage, []byte(message))
-		if err != nil {
-			log.Println("WebSocket write error:", err)
-			break
-		}
+		conn.ReadMessage()
+		// counter++
+		// message := fmt.Sprintf(`<div id="counter" class="text-white">Counter: %d</div>`, counter)
+		// err := conn.WriteMessage(websocket.TextMessage, []byte(message))
+		// if err != nil {
+		// 	log.Println("WebSocket write error:", err)
+		// 	break
+		// }
 		time.Sleep(1 * time.Second)
 	}
 }
