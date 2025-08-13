@@ -6,7 +6,6 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"time"
 
 	"github.com/NikolaTosic-sudo/chess-live/containers/components"
 	"github.com/NikolaTosic-sudo/chess-live/internal/database"
@@ -98,7 +97,6 @@ func (cfg *appConfig) wsHandler(w http.ResponseWriter, r *http.Request) {
 		log.Println("WebSocket upgrade failed:", err)
 		return
 	}
-
 	fmt.Println(conn, "what is a connection")
 	cfg.connections["initial"] = conn
 	// counter := 0
@@ -111,6 +109,6 @@ func (cfg *appConfig) wsHandler(w http.ResponseWriter, r *http.Request) {
 		// 	log.Println("WebSocket write error:", err)
 		// 	break
 		// }
-		time.Sleep(1 * time.Second)
+		// time.Sleep(1 * time.Second)
 	}
 }
