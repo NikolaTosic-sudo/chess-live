@@ -155,7 +155,7 @@ func MatchHistory(matches []MatchStruct) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			var templ_7745c5c3_Var10 = []any{"px-2 py-1 rounded text-sm bg-blue-500 text-center", templ.KV("bg-purple-500", matches[i].Local)}
+			var templ_7745c5c3_Var10 = []any{"px-2 py-1 rounded text-sm bg-purple-500 text-center", templ.KV("bg-blue-500", matches[i].Online)}
 			templ_7745c5c3_Err = templ.RenderCSSItems(ctx, templ_7745c5c3_Buffer, templ_7745c5c3_Var10...)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
@@ -177,13 +177,13 @@ func MatchHistory(matches []MatchStruct) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			if matches[i].Local {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 16, "Local")
+			if matches[i].Online {
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 16, "Online")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			} else {
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 17, "Online")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 17, "Local")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}

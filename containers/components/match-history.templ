@@ -25,11 +25,11 @@ templ MatchHistory(matches []MatchStruct) {
         }
       </span>
 
-      <span class={"px-2 py-1 rounded text-sm bg-blue-500 text-center", templ.KV("bg-purple-500", matches[i].Local)}>
-        if matches[i].Local{
-          Local
-        } else {
+      <span class={"px-2 py-1 rounded text-sm bg-purple-500 text-center", templ.KV("bg-blue-500", matches[i].Online)}>
+        if matches[i].Online{
           Online
+        } else {
+          Local
         }
       </span>
 
