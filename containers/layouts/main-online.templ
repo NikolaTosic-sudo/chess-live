@@ -2,14 +2,18 @@ package layout
 
 import "github.com/NikolaTosic-sudo/chess-live/containers/components"
 
-templ MainPageOnline(chessBoard map[string]components.Square, pieces map[string]components.Piece, multiplier int, whitePlayer, blackPlayer components.PlayerStruct, whiteLostPieces, blackLostPieces []string) {
-  @Layout() {
-    <div id="main-private" class="flex">
+templ MainPageOnline(chessBoard map[string]components.Square, pieces map[string]components.Piece, multiplier int, whitePlayer, blackPlayer components.OnlinePlayerStruct, whiteLostPieces, blackLostPieces []string, enabled bool) {
+  @Layout() {    
+    <div id="main-online" class="flex">
+      <div ws-connect="/online"></div>
       <div hx-get="/api/refresh" hx-trigger="every 30m" hx-swap="none"></div>
-      @components.LeftSidePrivate()
-      @components.GridBoard(chessBoard, pieces, multiplier, whitePlayer, blackPlayer, whiteLostPieces, blackLostPieces)
-      @components.RightSide(false)
-      @components.WebSockets()
+      <div class="w-[240px]"></div>
+      <div id="timer-update" hx-get="/timer" if enabled { hx-trigger="every 1s" }></div>
+      @components.OnlineGridBoard(chessBoard, pieces, multiplier, whitePlayer, blackPlayer, whiteLostPieces, blackLostPieces)
+      @components.StartGameRight()
     </div>
   }
+  <div id="waiting-modal" hx-swap-oob="outerHTML"></div>
+
+  <div id="main-private" hx-swap-oob="outerHTML"></div>
 }

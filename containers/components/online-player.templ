@@ -1,0 +1,20 @@
+package components
+
+import "fmt"
+
+templ OnlinePlayer(user OnlinePlayerStruct, lostPieces []string) {
+  <div class="flex justify-between w-full my-2">
+    <div class="flex items-center">
+      <img src={user.Image} class="w-[48px] h-[48px]" />
+      <div>
+        <p class="text-white">{user.Name}</p>
+        <div class="flex" id={"lost-pieces-"+user.Pieces}>
+          for i := range lostPieces {
+            <img src={fmt.Sprintf("/assets/pieces/%v.svg", lostPieces[i])} class="w-[18px] h-[18px]" />
+          }
+        </div>
+      </div>
+    </div>
+    <div id={user.Pieces} class="px-7 py-3 bg-gray-500">{user.Timer}</div>
+  </div>
+}

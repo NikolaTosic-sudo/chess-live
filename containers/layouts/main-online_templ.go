@@ -10,7 +10,7 @@ import templruntime "github.com/a-h/templ/runtime"
 
 import "github.com/NikolaTosic-sudo/chess-live/containers/components"
 
-func MainPageOnline(chessBoard map[string]components.Square, pieces map[string]components.Piece, multiplier int, whitePlayer, blackPlayer components.PlayerStruct, whiteLostPieces, blackLostPieces []string) templ.Component {
+func MainPageOnline(chessBoard map[string]components.Square, pieces map[string]components.Piece, multiplier int, whitePlayer, blackPlayer components.OnlinePlayerStruct, whiteLostPieces, blackLostPieces []string, enabled bool) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -43,33 +43,39 @@ func MainPageOnline(chessBoard map[string]components.Square, pieces map[string]c
 				}()
 			}
 			ctx = templ.InitializeContext(ctx)
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div id=\"main-private\" class=\"flex\"><div hx-get=\"/api/refresh\" hx-trigger=\"every 30m\" hx-swap=\"none\"></div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div id=\"main-online\" class=\"flex\"><div ws-connect=\"/online\"></div><div hx-get=\"/api/refresh\" hx-trigger=\"every 30m\" hx-swap=\"none\"></div><div class=\"w-[240px]\"></div><div id=\"timer-update\" hx-get=\"/timer\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = components.LeftSidePrivate().Render(ctx, templ_7745c5c3_Buffer)
+			if enabled {
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, " hx-trigger=\"every 1s\"")
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "></div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = components.GridBoard(chessBoard, pieces, multiplier, whitePlayer, blackPlayer, whiteLostPieces, blackLostPieces).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = components.OnlineGridBoard(chessBoard, pieces, multiplier, whitePlayer, blackPlayer, whiteLostPieces, blackLostPieces).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = components.RightSide(false).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = components.StartGameRight().Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = components.WebSockets().Render(ctx, templ_7745c5c3_Buffer)
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "</div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "</div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			return nil
 		})
 		templ_7745c5c3_Err = Layout().Render(templ.WithChildren(ctx, templ_7745c5c3_Var2), templ_7745c5c3_Buffer)
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "<div id=\"waiting-modal\" hx-swap-oob=\"outerHTML\"></div><div id=\"main-private\" hx-swap-oob=\"outerHTML\"></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
