@@ -12,12 +12,13 @@ import (
 )
 
 const createMatch = `-- name: CreateMatch :one
-INSERT INTO matches(white, black, full_time, user_id, created_at)
+INSERT INTO matches(white, black, full_time, user_id, is_online, created_at)
 VALUES(
   $1,
   $2,
   $3,
   $4,
+  $5,
   NOW()
 ) RETURNING id
 `
@@ -27,6 +28,7 @@ type CreateMatchParams struct {
 	Black    string
 	FullTime int32
 	UserID   uuid.UUID
+	IsOnline bool
 }
 
 func (q *Queries) CreateMatch(ctx context.Context, arg CreateMatchParams) (int32, error) {
@@ -35,6 +37,7 @@ func (q *Queries) CreateMatch(ctx context.Context, arg CreateMatchParams) (int32
 		arg.Black,
 		arg.FullTime,
 		arg.UserID,
+		arg.IsOnline,
 	)
 	var id int32
 	err := row.Scan(&id)
@@ -42,7 +45,7 @@ func (q *Queries) CreateMatch(ctx context.Context, arg CreateMatchParams) (int32
 }
 
 const getAllMatchesForUser = `-- name: GetAllMatchesForUser :many
-SELECT id, white, black, full_time, user_id, created_at FROM matches WHERE user_id = $1
+SELECT id, white, black, full_time, is_online, user_id, created_at FROM matches WHERE user_id = $1
 ORDER BY created_at DESC
 `
 
@@ -60,6 +63,7 @@ func (q *Queries) GetAllMatchesForUser(ctx context.Context, userID uuid.UUID) ([
 			&i.White,
 			&i.Black,
 			&i.FullTime,
+			&i.IsOnline,
 			&i.UserID,
 			&i.CreatedAt,
 		); err != nil {
@@ -77,7 +81,7 @@ func (q *Queries) GetAllMatchesForUser(ctx context.Context, userID uuid.UUID) ([
 }
 
 const getMatchById = `-- name: GetMatchById :one
-SELECT id, white, black, full_time, user_id, created_at FROM matches WHERE id = $1
+SELECT id, white, black, full_time, is_online, user_id, created_at FROM matches WHERE id = $1
 `
 
 func (q *Queries) GetMatchById(ctx context.Context, id int32) (Match, error) {
@@ -88,6 +92,7 @@ func (q *Queries) GetMatchById(ctx context.Context, id int32) (Match, error) {
 		&i.White,
 		&i.Black,
 		&i.FullTime,
+		&i.IsOnline,
 		&i.UserID,
 		&i.CreatedAt,
 	)

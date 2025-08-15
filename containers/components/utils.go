@@ -2,6 +2,9 @@ package components
 
 import (
 	"fmt"
+
+	"github.com/google/uuid"
+	"github.com/gorilla/websocket"
 )
 
 var cols = [8]string{"a", "b", "c", "d", "e", "f", "g", "h"}
@@ -34,6 +37,15 @@ type PlayerStruct struct {
 	Pieces string
 }
 
+type OnlinePlayerStruct struct {
+	ID     uuid.UUID
+	Name   string
+	Image  string
+	Timer  string
+	Pieces string
+	Conn   *websocket.Conn
+}
+
 type MatchStruct struct {
 	White   string
 	Black   string
@@ -41,7 +53,7 @@ type MatchStruct struct {
 	Date    string
 	NoMoves int
 	Result  string
-	Local   bool
+	Online  bool
 	MatchId int
 }
 

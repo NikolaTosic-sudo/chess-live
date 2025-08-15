@@ -17,6 +17,7 @@ type Match struct {
 	White     string
 	Black     string
 	FullTime  int32
+	IsOnline  bool
 	UserID    uuid.UUID
 	CreatedAt time.Time
 }
