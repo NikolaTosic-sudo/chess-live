@@ -12,6 +12,7 @@ import (
 	"github.com/NikolaTosic-sudo/chess-live/internal/auth"
 	"github.com/NikolaTosic-sudo/chess-live/internal/database"
 	"github.com/google/uuid"
+	"github.com/gorilla/websocket"
 )
 
 var mockBoard = [][]string{
@@ -36,8 +37,31 @@ var rowIdxMap = map[string]int{
 	"1": 7,
 }
 
-func (cfg *appConfig) canPlay(piece components.Piece, currentGame string) bool {
+func (cfg *appConfig) canPlay(piece components.Piece, currentGame string, onlineGame map[string]components.OnlinePlayerStruct, r *http.Request) bool {
 	match := cfg.Matches[currentGame]
+	if onlineGame != nil {
+		userC, err := r.Cookie("access_token")
+
+		if err != nil {
+			fmt.Println("user not found", err)
+			return false
+		}
+
+		userId, err := auth.ValidateJWT(userC.Value, cfg.secret)
+
+		if err != nil {
+			fmt.Println("user not found", err)
+			return false
+		}
+
+		if match.isWhiteTurn && onlineGame["white"].ID == userId {
+			return true
+		} else if !match.isWhiteTurn && onlineGame["black"].ID == userId {
+			return true
+		}
+
+		return false
+	}
 	if match.isWhiteTurn {
 		if piece.IsWhite {
 			return true
@@ -273,6 +297,7 @@ func (cfg *appConfig) checkForCastle(b map[string]components.Square, selectedPie
 
 func (cfg *appConfig) handleCastle(w http.ResponseWriter, currentPiece components.Piece, currentGame string, r *http.Request) error {
 	match := cfg.Matches[currentGame]
+	onlineGame, found := cfg.connections[currentGame]
 	var king components.Piece
 	var rook components.Piece
 
@@ -301,7 +326,7 @@ func (cfg *appConfig) handleCastle(w http.ResponseWriter, currentPiece component
 		kingSquare.Coordinates[1] = kC - match.coordinateMultiplier*2
 	}
 
-	_, err := fmt.Fprintf(w, `
+	message := fmt.Sprintf(`
 			<span id="%v" hx-post="/move" hx-swap-oob="true" hx-swap="outerHTML" class="tile tile-md hover:cursor-grab absolute transition-all" style="bottom: %vpx; left: %vpx">
 				<img src="/assets/pieces/%v.svg" />
 			</span>
@@ -320,9 +345,20 @@ func (cfg *appConfig) handleCastle(w http.ResponseWriter, currentPiece component
 		rook.Image,
 	)
 
-	if err != nil {
-		return err
+	if found {
+		for playerColor, onlinePlayer := range onlineGame {
+			err := onlinePlayer.Conn.WriteMessage(websocket.TextMessage, []byte(message))
+			if err != nil {
+				fmt.Println("WebSocket write error to", playerColor, ":", err)
+			}
+		}
+	} else {
+		fmt.Fprint(w, message)
 	}
+
+	// if err != nil {
+	// 	return err
+	// }
 
 	rowIdx := rowIdxMap[string(king.Tile[0])]
 	king.Tile = mockBoard[rowIdx][kingSquare.Coordinates[1]/match.coordinateMultiplier]
@@ -679,7 +715,7 @@ func handleIfCheck(w http.ResponseWriter, cfg *appConfig, selected components.Pi
 
 	if check {
 		setUserCheck(king, &match)
-		err := respondWithCheck(w, kingSquare, king)
+		err := cfg.respondWithCheck(w, kingSquare, king, currentGame)
 
 		if err != nil {
 			fmt.Println(err)
@@ -698,7 +734,7 @@ func handleIfCheck(w http.ResponseWriter, cfg *appConfig, selected components.Pi
 					fmt.Println(err)
 				}
 			} else {
-				err := respondWithCoverCheck(w, tile, t)
+				err := cfg.respondWithCoverCheck(w, tile, t, currentGame)
 
 				if err != nil {
 					fmt.Println(err)
@@ -910,6 +946,7 @@ func (cfg *appConfig) showMoves(match Match, squareName, pieceName string, w htt
 			return
 		}
 	}
+	onlineGame, found := cfg.connections[c.Value]
 	boardState := make(map[string]string, 0)
 	for k, v := range match.pieces {
 		boardState[k] = v.Tile
@@ -939,8 +976,9 @@ func (cfg *appConfig) showMoves(match Match, squareName, pieceName string, w htt
 		}
 	}
 
+	var message string
 	if len(match.allMoves)%2 == 0 {
-		fmt.Fprintf(w, `
+		message = fmt.Sprintf(`
 				<div id="moves" hx-swap-oob="beforeend" class="grid grid-cols-3 text-white h-moves mt-8">
 					<span>%v</span>
 				</div>
@@ -948,7 +986,7 @@ func (cfg *appConfig) showMoves(match Match, squareName, pieceName string, w htt
 			squareName,
 		)
 	} else {
-		fmt.Fprintf(w, `
+		message = fmt.Sprintf(`
 				<div id="moves" hx-swap-oob="beforeend" class="grid grid-cols-3 text-white h-moves mt-8">
 					<span>%v.</span>
 					<span>%v</span>
@@ -957,6 +995,16 @@ func (cfg *appConfig) showMoves(match Match, squareName, pieceName string, w htt
 			len(match.allMoves)/2+1,
 			squareName,
 		)
+	}
+	if found {
+		for playerColor, onlinePlayer := range onlineGame {
+			err := onlinePlayer.Conn.WriteMessage(websocket.TextMessage, []byte(message))
+			if err != nil {
+				fmt.Println("WebSocket write error to", playerColor, ":", err)
+			}
+		}
+	} else {
+		fmt.Fprint(w, message)
 	}
 }
 
@@ -978,6 +1026,7 @@ func (cfg *appConfig) cleanFillBoard(gameName string, pieces map[string]componen
 func (cfg *appConfig) checkForPawnPromotion(pawnName, currentGame string, w http.ResponseWriter) bool {
 	var isOnLastTile bool
 	match := cfg.Matches[currentGame]
+	onlineGame, found := cfg.connections[currentGame]
 	pawn := match.pieces[pawnName]
 	square := match.board[pawn.Tile]
 	var pieceColor string
@@ -998,7 +1047,7 @@ func (cfg *appConfig) checkForPawnPromotion(pawnName, currentGame string, w http
 	rowIdx := rowIdxMap[string(pawn.Tile[0])]
 	if pawn.IsWhite && rowIdx == 0 || !pawn.IsWhite && rowIdx == 7 {
 		isOnLastTile = true
-		fmt.Fprintf(w,
+		message := fmt.Sprintf(
 			`
 				<div 
 					id="promotion"
@@ -1032,6 +1081,16 @@ func (cfg *appConfig) checkForPawnPromotion(pawnName, currentGame string, w http
 			pawnName,
 			pieceColor,
 		)
+		if found {
+			for playerColor, onlinePlayer := range onlineGame {
+				err := onlinePlayer.Conn.WriteMessage(websocket.TextMessage, []byte(message))
+				if err != nil {
+					fmt.Println("WebSocket write error to", playerColor, ":", err)
+				}
+			}
+		} else {
+			fmt.Fprint(w, message)
+		}
 	}
 	return isOnLastTile
 }

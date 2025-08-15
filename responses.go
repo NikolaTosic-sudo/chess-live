@@ -6,6 +6,7 @@ import (
 
 	"github.com/NikolaTosic-sudo/chess-live/containers/components"
 	"github.com/NikolaTosic-sudo/chess-live/containers/errorPage"
+	"github.com/gorilla/websocket"
 )
 
 func respondWithAnError(w http.ResponseWriter, code int, message string, err error) {
@@ -41,8 +42,9 @@ func respondWithNewPiece(w http.ResponseWriter, square components.Square) error 
 	return nil
 }
 
-func respondWithCheck(w http.ResponseWriter, square components.Square, king components.Piece) error {
-	_, err := fmt.Fprintf(w, `
+func (cfg *appConfig) respondWithCheck(w http.ResponseWriter, square components.Square, king components.Piece, currentGame string) error {
+	onlineGame, found := cfg.connections[currentGame]
+	message := fmt.Sprintf(`
 			<span id="%v" hx-post="/move" hx-swap-oob="true" hx-swap="outerHTML" class="tile tile-md hover:cursor-grab absolute transition-all" style="bottom: %vpx; left: %vpx">
 				<img src="/assets/pieces/%v.svg" class="bg-red-400 " />
 			</span>
@@ -53,24 +55,47 @@ func respondWithCheck(w http.ResponseWriter, square components.Square, king comp
 		king.Image,
 	)
 
-	if err != nil {
-		return err
+	if found {
+		for playerColor, onlinePlayer := range onlineGame {
+			err := onlinePlayer.Conn.WriteMessage(websocket.TextMessage, []byte(message))
+			if err != nil {
+				fmt.Println("WebSocket write error to", playerColor, ":", err)
+			}
+		}
+	} else {
+		fmt.Fprint(w, message)
 	}
+
+	// if err != nil {
+	// 	return err
+	// }
 
 	return nil
 }
 
-func respondWithCoverCheck(w http.ResponseWriter, tile string, t components.Square) error {
-	_, err := fmt.Fprintf(w, `
+func (cfg *appConfig) respondWithCoverCheck(w http.ResponseWriter, tile string, t components.Square, currentGame string) error {
+	onlineGame, found := cfg.connections[currentGame]
+	message := fmt.Sprintf(`
 			<div id="%v" hx-post="/cover-check" hx-swap-oob="true" class="tile tile-md" style="background-color: %v"></div>
 		`,
 		tile,
 		t.Color,
 	)
 
-	if err != nil {
-		return err
+	if found {
+		for playerColor, onlinePlayer := range onlineGame {
+			err := onlinePlayer.Conn.WriteMessage(websocket.TextMessage, []byte(message))
+			if err != nil {
+				fmt.Println("WebSocket write error to", playerColor, ":", err)
+			}
+		}
+	} else {
+		fmt.Fprint(w, message)
 	}
+
+	// if err != nil {
+	// 	return err
+	// }
 
 	return nil
 }
