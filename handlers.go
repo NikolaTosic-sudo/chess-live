@@ -99,6 +99,35 @@ func (cfg *appConfig) privateBoardHandler(w http.ResponseWriter, r *http.Request
 		game = "initial"
 	}
 
+	sC, err := r.Cookie("saved_game")
+
+	if err == nil {
+		game = sC.Value
+
+		startGame := http.Cookie{
+			Name:     "current_game",
+			Value:    game,
+			Path:     "/",
+			MaxAge:   604800,
+			HttpOnly: true,
+			Secure:   true,
+			SameSite: http.SameSiteLaxMode,
+		}
+
+		sGC := http.Cookie{
+			Name:     "saved_game",
+			Value:    "",
+			Path:     "/",
+			MaxAge:   -1,
+			HttpOnly: true,
+			Secure:   true,
+			SameSite: http.SameSiteLaxMode,
+		}
+
+		http.SetCookie(w, &startGame)
+		http.SetCookie(w, &sGC)
+	}
+
 	match := cfg.Matches[game]
 	cfg.fillBoard(game)
 
@@ -124,6 +153,127 @@ func (cfg *appConfig) privateBoardHandler(w http.ResponseWriter, r *http.Request
 	}
 }
 
+func (cfg *appConfig) onlineBoardHandler(w http.ResponseWriter, r *http.Request) {
+	var userName string
+	var userId uuid.UUID
+	userCookie, err := r.Cookie("access_token")
+	if err != nil {
+		log.Println("No user found")
+		return
+	} else if userCookie.Value != "" {
+		userId, err = auth.ValidateJWT(userCookie.Value, cfg.secret)
+
+		if err != nil {
+			log.Println("No user found")
+			return
+		}
+
+		user, err := cfg.database.GetUserById(r.Context(), userId)
+
+		if err != nil {
+			log.Println("No user found")
+			return
+		} else if user.Name != "" {
+			userName = user.Name
+		} else {
+			log.Println("No user found")
+			return
+		}
+	}
+
+	var emptyPlayer components.OnlinePlayerStruct
+	if len(cfg.connections) > 0 {
+		for gameName, players := range cfg.connections {
+			for color, player := range players {
+				if player == emptyPlayer {
+					connection := cfg.connections[gameName]
+					player = components.OnlinePlayerStruct{
+						ID:     userId,
+						Name:   userName,
+						Image:  "/assets/images/user-icon.png",
+						Timer:  formatTime(600),
+						Pieces: "black",
+					}
+					connection[color] = player
+					cfg.connections[gameName] = connection
+					whitePlayer := connection["white"]
+
+					matchId, _ := cfg.database.CreateMatch(r.Context(), database.CreateMatchParams{
+						White:    whitePlayer.Name,
+						Black:    player.Name,
+						FullTime: 600,
+						UserID:   userId,
+						IsOnline: true,
+					})
+
+					startingBoard := MakeBoard()
+					startingPieces := MakePieces()
+
+					cfg.Matches[gameName] = Match{
+						board:                startingBoard,
+						pieces:               startingPieces,
+						selectedPiece:        components.Piece{},
+						coordinateMultiplier: 80,
+						isWhiteTurn:          true,
+						isWhiteUnderCheck:    false,
+						isBlackUnderCheck:    false,
+						whiteTimer:           600,
+						blackTimer:           600,
+						addition:             0,
+						matchId:              matchId,
+					}
+
+					startGame := http.Cookie{
+						Name:     "current_game",
+						Value:    gameName,
+						Path:     "/",
+						MaxAge:   604800,
+						HttpOnly: true,
+						Secure:   true,
+						SameSite: http.SameSiteLaxMode,
+					}
+
+					match := cfg.Matches[gameName]
+					cfg.fillBoard(gameName)
+					UpdateCoordinates(&match)
+					http.SetCookie(w, &startGame)
+
+					layout.MainPageOnline(match.board, match.pieces, match.coordinateMultiplier, whitePlayer, player, match.takenPiecesWhite, match.takenPiecesBlack, false).Render(r.Context(), w)
+					return
+				}
+			}
+		}
+	}
+	var currentGame string
+
+	randomString, err := auth.MakeRefreshToken()
+	currentGame = fmt.Sprintf("online:%v", randomString)
+
+	startGame := http.Cookie{
+		Name:     "current_game",
+		Value:    currentGame,
+		Path:     "/",
+		MaxAge:   604800,
+		HttpOnly: true,
+		Secure:   true,
+		SameSite: http.SameSiteLaxMode,
+	}
+
+	http.SetCookie(w, &startGame)
+	cfg.connections[currentGame] = map[string]components.OnlinePlayerStruct{
+		"white": {
+			ID:     userId,
+			Name:   userName,
+			Image:  "/assets/images/user-icon.png",
+			Timer:  formatTime(600),
+			Pieces: "white",
+		},
+		"black": {},
+	}
+
+	components.WaitingModal().Render(r.Context(), w)
+}
+
 func (cfg *appConfig) moveHandler(w http.ResponseWriter, r *http.Request) {
 	currentPieceName := r.Header.Get("Hx-Trigger")
 	c, err := r.Cookie("current_game")
@@ -132,17 +282,38 @@ func (cfg *appConfig) moveHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	currentGame := c.Value
+	onlineGame, found := cfg.connections[currentGame]
 	match := cfg.Matches[currentGame]
 	currentPiece := match.pieces[currentPieceName]
-	canPlay := cfg.canPlay(currentPiece, currentGame)
+	canPlay := cfg.canPlay(currentPiece, currentGame, onlineGame, r)
 	currentSquareName := currentPiece.Tile
 	currentSquare := match.board[currentSquareName]
 	selectedSquare := match.selectedPiece.Tile
 	selSq := match.board[selectedSquare]
-
 	legalMoves := cfg.checkLegalMoves(currentGame)
 
 	if canEat(match.selectedPiece, currentPiece) && slices.Contains(legalMoves, currentSquareName) {
+		if onlineGame != nil {
+			userC, err := r.Cookie("access_token")
+
+			if err != nil {
+				fmt.Println("user not found", err)
+				return
+			}
+
+			userId, err := auth.ValidateJWT(userC.Value, cfg.secret)
+
+			if err != nil {
+				fmt.Println("user not found", err)
+				return
+			}
+
+			if match.isWhiteTurn && onlineGame["white"].ID != userId {
+				return
+			} else if !match.isWhiteTurn && onlineGame["black"].ID != userId {
+				return
+			}
+		}
 		var kingCheck bool
 		if match.selectedPiece.IsKing {
 			kingCheck = cfg.handleChecksWhenKingMoves(currentSquareName, currentGame)
@@ -172,8 +343,12 @@ func (cfg *appConfig) moveHandler(w http.ResponseWriter, r *http.Request) {
 			userColor = "black"
 		}
 
-		fmt.Fprintf(w, `
-			<span id="%v" hx-post="/move" hx-swap-oob="true" hx-swap="outerHTML" class="tile tile-md hover:cursor-grab absolute transition-all" style="bottom: %vpx; left: %vpx">
+		message := fmt.Sprintf(`
+			<span id="%v" hx-post="/move" hx-swap-oob="true" class="tile tile-md hover:cursor-grab absolute transition-all" style="display: none">
+				<img src="/assets/pieces/%v.svg" />
+			</span>
+
+			<span id="%v" hx-post="/move" hx-swap-oob="true" class="tile tile-md hover:cursor-grab absolute transition-all" style="bottom: %vpx; left: %vpx">
 				<img src="/assets/pieces/%v.svg" />
 			</span>
 
@@ -181,6 +356,8 @@ func (cfg *appConfig) moveHandler(w http.ResponseWriter, r *http.Request) {
 				<img src="/assets/pieces/%v.svg" class="w-[18px] h-[18px]" />
 			</div>
 		`,
+			currentPiece.Name,
+			currentPiece.Image,
 			match.selectedPiece.Name,
 			currentSquare.Coordinates[0],
 			currentSquare.Coordinates[1],
@@ -188,6 +365,16 @@ func (cfg *appConfig) moveHandler(w http.ResponseWriter, r *http.Request) {
 			userColor,
 			currentPiece.Image,
 		)
+		if found {
+			for playerColor, onlinePlayer := range onlineGame {
+				err := onlinePlayer.Conn.WriteMessage(websocket.TextMessage, []byte(message))
+				if err != nil {
+					fmt.Println("WebSocket write error to", playerColor, ":", err)
+				}
+			}
+		} else {
+			fmt.Fprint(w, message)
+		}
 		match.allMoves = append(match.allMoves, currentSquareName)
 		delete(match.pieces, currentPieceName)
 		match.selectedPiece.Tile = currentSquareName
@@ -224,7 +411,7 @@ func (cfg *appConfig) moveHandler(w http.ResponseWriter, r *http.Request) {
 			getKing := match.pieces[kingName]
 			getKingSquare := match.board[getKing.Tile]
 
-			fmt.Fprintf(w, `
+			message = fmt.Sprintf(`
 			<span id="%v" hx-post="/move" hx-swap-oob="true" hx-swap="outerHTML" class="tile tile-md hover:cursor-grab absolute transition-all" style="bottom: %vpx; left: %vpx">
 				<img src="/assets/pieces/%v.svg" />
 			</span>
@@ -234,11 +421,22 @@ func (cfg *appConfig) moveHandler(w http.ResponseWriter, r *http.Request) {
 				getKingSquare.Coordinates[1],
 				getKing.Image,
 			)
+			if found {
+				for playerColor, onlinePlayer := range onlineGame {
+					err := onlinePlayer.Conn.WriteMessage(websocket.TextMessage, []byte(message))
+					if err != nil {
+						fmt.Println("WebSocket write error to", playerColor, ":", err)
+					}
+				}
+			} else {
+				fmt.Fprint(w, message)
+			}
 		}
 		cfg.endTurn(w, r, currentGame)
 
 		return
 	}
+
 	if !canPlay {
 		w.WriteHeader(http.StatusNoContent)
 		return
@@ -355,6 +553,7 @@ func (cfg *appConfig) moveToHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	currentGame := c.Value
+	onlineGame, found := cfg.connections[currentGame]
 	match := cfg.Matches[currentGame]
 	currentSquare := match.board[currentSquareName]
 	selectedSquare := match.selectedPiece.Tile
@@ -380,10 +579,10 @@ func (cfg *appConfig) moveToHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if selectedSquare != "" && selectedSquare != currentSquareName {
-		fmt.Fprintf(w, `
+		message := fmt.Sprintf(`
 			<div id="%v" hx-post="/move-to" hx-swap-oob="true" class="tile tile-md" style="background-color: %v"></div>
 
-			<span id="%v" hx-post="/move" hx-swap-oob="true" hx-swap="outerHTML" class="tile tile-md hover:cursor-grab absolute transition-all" style="bottom: %vpx; left: %vpx">
+			<span id="%v" hx-post="/move" hx-swap-oob="true" class="tile tile-md hover:cursor-grab absolute transition-all" style="bottom: %vpx; left: %vpx">
 				<img src="/assets/pieces/%v.svg" />
 			</span>
 		`,
@@ -394,6 +593,16 @@ func (cfg *appConfig) moveToHandler(w http.ResponseWriter, r *http.Request) {
 			currentSquare.Coordinates[1],
 			match.selectedPiece.Image,
 		)
+		if found {
+			for playerColor, onlinePlayer := range onlineGame {
+				err := onlinePlayer.Conn.WriteMessage(websocket.TextMessage, []byte(message))
+				if err != nil {
+					fmt.Println("WebSocket write error to", playerColor, ":", err)
+				}
+			}
+		} else {
+			fmt.Fprint(w, message)
+		}
 		saveSelected := match.selectedPiece
 		match.allMoves = append(match.allMoves, currentSquareName)
 		bigCleanup(currentSquareName, &match)
@@ -425,6 +634,7 @@ func (cfg *appConfig) coverCheckHandler(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	currentGame := c.Value
+	onlineGame, found := cfg.connections[currentGame]
 	match := cfg.Matches[currentGame]
 	currentSquare := match.board[currentSquareName]
 	selectedSquare := match.selectedPiece.Tile
@@ -459,7 +669,7 @@ func (cfg *appConfig) coverCheckHandler(w http.ResponseWriter, r *http.Request) 
 	kingSquare := match.board[king.Tile]
 
 	if selectedSquare != "" && selectedSquare != currentSquareName {
-		fmt.Fprintf(w, `
+		message := fmt.Sprintf(`
 			<div id="%v" hx-post="/move-to" hx-swap-oob="true" class="tile tile-md h-full w-full" style="background-color: %v"></div>
 
 			<span id="%v" hx-post="/move" hx-swap-oob="true" hx-swap="outerHTML" class="tile tile-md hover:cursor-grab absolute transition-all" style="bottom: %vpx; left: %vpx">
@@ -481,6 +691,16 @@ func (cfg *appConfig) coverCheckHandler(w http.ResponseWriter, r *http.Request) 
 			currentSquare.Coordinates[1],
 			match.selectedPiece.Image,
 		)
+		if found {
+			for playerColor, onlinePlayer := range onlineGame {
+				err := onlinePlayer.Conn.WriteMessage(websocket.TextMessage, []byte(message))
+				if err != nil {
+					fmt.Println("WebSocket write error to", playerColor, ":", err)
+				}
+			}
+		} else {
+			fmt.Fprint(w, message)
+		}
 		saveSelected := match.selectedPiece
 		match.allMoves = append(match.allMoves, currentSquareName)
 		bigCleanup(currentSquareName, &match)
@@ -495,16 +715,26 @@ func (cfg *appConfig) coverCheckHandler(w http.ResponseWriter, r *http.Request) 
 					fmt.Println(err)
 				}
 			} else {
-				_, err := fmt.Fprintf(w, `
+				message := fmt.Sprintf(`
 						<div id="%v" hx-post="/move-to" hx-swap-oob="true" class="tile tile-md" style="background-color: %v"></div>
 				`,
 					tile,
 					t.Color,
 				)
-
-				if err != nil {
-					fmt.Println(err)
+				if found {
+					for playerColor, onlinePlayer := range onlineGame {
+						err := onlinePlayer.Conn.WriteMessage(websocket.TextMessage, []byte(message))
+						if err != nil {
+							fmt.Println("WebSocket write error to", playerColor, ":", err)
+						}
+					}
+				} else {
+					fmt.Fprint(w, message)
 				}
+
+				// if err != nil {
+				// 	fmt.Println(err)
+				// }
 			}
 		}
 
@@ -537,6 +767,7 @@ func (cfg *appConfig) timerHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	currentGame := c.Value
+	onlineGame, found := cfg.connections[currentGame]
 	match := cfg.Matches[currentGame]
 
 	var toChangeColor string
@@ -558,12 +789,23 @@ func (cfg *appConfig) timerHandler(w http.ResponseWriter, r *http.Request) {
 		stayTheSameColor = "white"
 	}
 
-	fmt.Fprintf(w, `	
-				<div id="%v" hx-swap-oob="true" class="px-7 py-3 bg-white">%v</div>
+	message := fmt.Sprintf(`
+	<div id="%v" hx-swap-oob="true" class="px-7 py-3 bg-white">%v</div>
+	
+	<div id="%v" hx-swap-oob="true" class="px-7 py-3 bg-gray-500">%v</div>
+	
+	`, toChangeColor, formatTime(toChange), stayTheSameColor, formatTime(stayTheSame))
 
-				<div id="%v" hx-swap-oob="true" class="px-7 py-3 bg-gray-500">%v</div>
-
-			`, toChangeColor, formatTime(toChange), stayTheSameColor, formatTime(stayTheSame))
+	if found {
+		for playerColor, onlinePlayer := range onlineGame {
+			err := onlinePlayer.Conn.WriteMessage(websocket.TextMessage, []byte(message))
+			if err != nil {
+				fmt.Println("WebSocket write error to", playerColor, ":", err)
+			}
+		}
+	} else {
+		fmt.Fprint(w, message)
+	}
 
 	cfg.Matches[currentGame] = match
 }
@@ -635,6 +877,7 @@ func (cfg *appConfig) startGameHandler(w http.ResponseWriter, r *http.Request) {
 				Black:    "Opponent",
 				FullTime: 600,
 				UserID:   user,
+				IsOnline: false,
 			})
 
 			if err != nil {
@@ -746,6 +989,7 @@ func (cfg *appConfig) getAllMovesHandler(w http.ResponseWriter, r *http.Request)
 	}
 
 	match, ok := cfg.Matches[c.Value]
+	onlineGame, found := cfg.connections[c.Value]
 
 	if !ok {
 		fmt.Println("game not found")
@@ -754,8 +998,9 @@ func (cfg *appConfig) getAllMovesHandler(w http.ResponseWriter, r *http.Request)
 	}
 
 	for i := 1; i <= len(match.allMoves); i++ {
+		var message string
 		if i%2 == 0 {
-			fmt.Fprintf(w, `
+			message = fmt.Sprintf(`
 				<div id="moves" hx-swap-oob="beforeend" class="grid grid-cols-3 text-white h-moves mt-8">
 					<span>%v</span>
 				</div>
@@ -763,7 +1008,7 @@ func (cfg *appConfig) getAllMovesHandler(w http.ResponseWriter, r *http.Request)
 				match.allMoves[i-1],
 			)
 		} else {
-			fmt.Fprintf(w, `
+			message = fmt.Sprintf(`
 				<div id="moves" hx-swap-oob="beforeend" class="grid grid-cols-3 text-white h-moves mt-8">
 					<span>%v.</span>
 					<span>%v</span>
@@ -772,6 +1017,16 @@ func (cfg *appConfig) getAllMovesHandler(w http.ResponseWriter, r *http.Request)
 				i/2+1,
 				match.allMoves[i-1],
 			)
+		}
+		if found {
+			for playerColor, onlinePlayer := range onlineGame {
+				err := onlinePlayer.Conn.WriteMessage(websocket.TextMessage, []byte(message))
+				if err != nil {
+					fmt.Println("WebSocket write error to", playerColor, ":", err)
+				}
+			}
+		} else {
+			fmt.Fprint(w, message)
 		}
 	}
 }
@@ -954,11 +1209,22 @@ func (cfg *appConfig) signupHandler(w http.ResponseWriter, r *http.Request) {
 		SameSite: http.SameSiteLaxMode,
 	}
 
+	sGC := http.Cookie{
+		Name:     "saved_game",
+		Value:    "",
+		Path:     "/",
+		MaxAge:   -1,
+		HttpOnly: true,
+		Secure:   true,
+		SameSite: http.SameSiteLaxMode,
+	}
+
 	http.SetCookie(w, &c)
 	http.SetCookie(w, &refreshC)
 	http.SetCookie(w, &cGC)
+	http.SetCookie(w, &sGC)
 
-	cfg.users[user.ID] = CurrentUser{
+	cfg.users[user.ID] = User{
 		Id:    user.ID,
 		Name:  user.Name,
 		Email: user.Email,
@@ -1058,11 +1324,22 @@ func (cfg *appConfig) loginHandler(w http.ResponseWriter, r *http.Request) {
 		SameSite: http.SameSiteLaxMode,
 	}
 
+	sGC := http.Cookie{
+		Name:     "saved_game",
+		Value:    "",
+		Path:     "/",
+		MaxAge:   -1,
+		HttpOnly: true,
+		Secure:   true,
+		SameSite: http.SameSiteLaxMode,
+	}
+
 	http.SetCookie(w, &c)
 	http.SetCookie(w, &refreshC)
 	http.SetCookie(w, &cGC)
+	http.SetCookie(w, &sGC)
 
-	cfg.users[user.ID] = CurrentUser{
+	cfg.users[user.ID] = User{
 		Id:    user.ID,
 		Name:  user.Name,
 		Email: user.Email,
@@ -1120,10 +1397,20 @@ func (cfg *appConfig) logoutHandler(w http.ResponseWriter, r *http.Request) {
 		Secure:   true,
 		SameSite: http.SameSiteLaxMode,
 	}
+	sGC := http.Cookie{
+		Name:     "saved_game",
+		Value:    "",
+		Path:     "/",
+		MaxAge:   -1,
+		HttpOnly: true,
+		Secure:   true,
+		SameSite: http.SameSiteLaxMode,
+	}
 
 	http.SetCookie(w, &accC)
 	http.SetCookie(w, &refreshC)
 	http.SetCookie(w, &cGC)
+	http.SetCookie(w, &sGC)
 
 	w.Header().Add("Hx-Redirect", "/")
 }
@@ -1159,10 +1446,8 @@ func (cfg *appConfig) matchHistoryHandler(w http.ResponseWriter, r *http.Request
 			return
 		}
 		var ended bool
-		var local bool
 		if i%2 == 0 {
 			ended = true
-			local = true
 		}
 		newMatch := components.MatchStruct{
 			White:   dbMatches[i].White,
@@ -1171,7 +1456,7 @@ func (cfg *appConfig) matchHistoryHandler(w http.ResponseWriter, r *http.Request
 			Date:    dbMatches[i].CreatedAt.Format("Jan 1, 2006"),
 			NoMoves: int(numberOfMoves),
 			Result:  "0-0",
-			Local:   local,
+			Online:  dbMatches[i].IsOnline,
 			MatchId: int(dbMatches[i].ID),
 		}
 
@@ -1220,6 +1505,35 @@ func (cfg *appConfig) playHandler(w http.ResponseWriter, r *http.Request) {
 		game = "initial"
 	}
 
+	sC, err := r.Cookie("saved_game")
+
+	if err == nil {
+		game = sC.Value
+
+		startGame := http.Cookie{
+			Name:     "current_game",
+			Value:    game,
+			Path:     "/",
+			MaxAge:   604800,
+			HttpOnly: true,
+			Secure:   true,
+			SameSite: http.SameSiteLaxMode,
+		}
+
+		sGC := http.Cookie{
+			Name:     "saved_game",
+			Value:    "",
+			Path:     "/",
+			MaxAge:   -1,
+			HttpOnly: true,
+			Secure:   true,
+			SameSite: http.SameSiteLaxMode,
+		}
+
+		http.SetCookie(w, &startGame)
+		http.SetCookie(w, &sGC)
+	}
+
 	match := cfg.Matches[game]
 	cfg.fillBoard(game)
 
@@ -1262,6 +1576,22 @@ func (cfg *appConfig) matchesHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	newGame := fmt.Sprintf("database:matchId-%v", match.ID)
+
+	c, noCookie := r.Cookie("current_game")
+
+	if noCookie == nil {
+		saveGame := http.Cookie{
+			Name:     "saved_game",
+			Value:    c.Value,
+			Path:     "/",
+			MaxAge:   604800,
+			HttpOnly: true,
+			Secure:   true,
+			SameSite: http.SameSiteLaxMode,
+		}
+
+		http.SetCookie(w, &saveGame)
+	}
 
 	startGame := http.Cookie{
 		Name:     "current_game",
@@ -1374,6 +1704,7 @@ func (cfg *appConfig) handlePromotion(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	currentGame := cfg.Matches[c.Value]
+	onlineGame, found := cfg.connections[c.Value]
 	pawnName := r.FormValue("pawn")
 	pieceName := r.FormValue("piece")
 
@@ -1401,7 +1732,7 @@ func (cfg *appConfig) handlePromotion(w http.ResponseWriter, r *http.Request) {
 
 	cfg.Matches[c.Value] = currentGame
 
-	fmt.Fprintf(w, `
+	message := fmt.Sprintf(`
 					<span id="%v" hx-post="/move" hx-swap-oob="true" hx-swap="outerHTML" class="tile tile-md hover:cursor-grab absolute transition-all" style="bottom: %vpx; left: %vpx">
 						<img src="/assets/pieces/%v.svg" />
 					</span>
@@ -1415,6 +1746,16 @@ func (cfg *appConfig) handlePromotion(w http.ResponseWriter, r *http.Request) {
 		currentSquare.Coordinates[1],
 		currentSquare.Piece.Image,
 	)
+	if found {
+		for playerColor, onlinePlayer := range onlineGame {
+			err := onlinePlayer.Conn.WriteMessage(websocket.TextMessage, []byte(message))
+			if err != nil {
+				fmt.Println("WebSocket write error to", playerColor, ":", err)
+			}
+		}
+	} else {
+		fmt.Fprint(w, message)
+	}
 
 	userId := cfg.isUserLoggedIn(r)
 
@@ -1463,7 +1804,7 @@ func (cfg *appConfig) handlePromotion(w http.ResponseWriter, r *http.Request) {
 		getKing := currentGame.pieces[kingName]
 		getKingSquare := currentGame.board[getKing.Tile]
 
-		fmt.Fprintf(w, `
+		message := fmt.Sprintf(`
 			<span id="%v" hx-post="/move" hx-swap-oob="true" hx-swap="outerHTML" class="tile tile-md hover:cursor-grab absolute transition-all" style="bottom: %vpx; left: %vpx">
 				<img src="/assets/pieces/%v.svg" />
 			</span>
@@ -1473,17 +1814,129 @@ func (cfg *appConfig) handlePromotion(w http.ResponseWriter, r *http.Request) {
 			getKingSquare.Coordinates[1],
 			getKing.Image,
 		)
+		if found {
+			for playerColor, onlinePlayer := range onlineGame {
+				err := onlinePlayer.Conn.WriteMessage(websocket.TextMessage, []byte(message))
+				if err != nil {
+					fmt.Println("WebSocket write error to", playerColor, ":", err)
+				}
+			}
+		} else {
+			fmt.Fprint(w, message)
+		}
 	}
 
 	cfg.endTurn(w, r, c.Value)
 }
 
-func (cfg *appConfig) testWebsockets(w http.ResponseWriter, r *http.Request) {
-	message := fmt.Sprintf(`<div id="counter" class="text-white">Counter: %d</div>`, 100)
-	conn := cfg.connections["initial"]
-	err := conn.WriteMessage(websocket.TextMessage, []byte(message))
+func (cfg *appConfig) wsHandler(w http.ResponseWriter, r *http.Request) {
+	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		log.Println("WebSocket write error:", err)
+		log.Println("WebSocket upgrade failed:", err)
 		return
 	}
+	c, err := r.Cookie("current_game")
+	if err != nil {
+		log.Println("No game found:", err)
+		return
+	}
+	userC, err := r.Cookie("access_token")
+	if err != nil {
+		log.Println("No user:", err)
+		return
+	}
+	userId, err := auth.ValidateJWT(userC.Value, cfg.secret)
+	game := cfg.connections[c.Value]
+	for color, player := range game {
+		if player.ID == userId {
+			player.Conn = conn
+			game[color] = player
+		}
+	}
+	go func() {
+		for {
+			_, msg, err := conn.ReadMessage()
+			if err != nil {
+				log.Println("read error from", err)
+				break
+			}
+
+			for _, connect := range game {
+				if conn != connect.Conn {
+					err = connect.Conn.WriteMessage(websocket.TextMessage, msg)
+					if err != nil {
+						log.Println("write error to", err)
+					}
+				}
+			}
+		}
+	}()
+}
+
+func (cfg *appConfig) searchingOppHandler(w http.ResponseWriter, r *http.Request) {
+	c, err := r.Cookie("current_game")
+	if err != nil {
+		log.Println("No game found:", err)
+		return
+	}
+	currentGame := c.Value
+	game := cfg.connections[currentGame]
+	var emptyPlayer components.OnlinePlayerStruct
+	if game["black"] == emptyPlayer {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+
+	whitePlayer := game["white"]
+	blackPlayer := game["black"]
+
+	userCookie, err := r.Cookie("access_token")
+	if err != nil {
+		log.Println("No user found")
+		return
+	}
+
+	userId, err := auth.ValidateJWT(userCookie.Value, cfg.secret)
+
+	matchId, _ := cfg.database.CreateMatch(r.Context(), database.CreateMatchParams{
+		White:    whitePlayer.Name,
+		Black:    blackPlayer.Name,
+		FullTime: 600,
+		UserID:   userId,
+		IsOnline: true,
+	})
+
+	startingBoard := MakeBoard()
+	startingPieces := MakePieces()
+
+	cfg.Matches[currentGame] = Match{
+		board:                startingBoard,
+		pieces:               startingPieces,
+		selectedPiece:        components.Piece{},
+		coordinateMultiplier: 80,
+		isWhiteTurn:          true,
+		isWhiteUnderCheck:    false,
+		isBlackUnderCheck:    false,
+		whiteTimer:           600,
+		blackTimer:           600,
+		addition:             0,
+		matchId:              matchId,
+	}
+
+	startGame := http.Cookie{
+		Name:     "current_game",
+		Value:    currentGame,
+		Path:     "/",
+		MaxAge:   604800,
+		HttpOnly: true,
+		Secure:   true,
+		SameSite: http.SameSiteLaxMode,
+	}
+
+	match := cfg.Matches[currentGame]
+	cfg.fillBoard(currentGame)
+	UpdateCoordinates(&match)
+	http.SetCookie(w, &startGame)
+
+	layout.MainPageOnline(match.board, match.pieces, match.coordinateMultiplier, whitePlayer, blackPlayer, match.takenPiecesWhite, match.takenPiecesBlack, true).Render(r.Context(), w)
 }
