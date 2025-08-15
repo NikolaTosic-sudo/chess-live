@@ -48,7 +48,7 @@ func RightSide(ofline bool) templ.Component {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, " hx-target=\"#right-side\" hx-get=\"/play-online\" class=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, " hx-target=\"#body\" hx-swap=\"afterbegin\" hx-get=\"/play-online\" class=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
