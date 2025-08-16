@@ -389,7 +389,7 @@ func (cfg *appConfig) handleCastle(w http.ResponseWriter, currentPiece component
 		cfg.showMoves(match, "O-O-O", "king", w, r)
 	}
 
-	go cfg.gameDone(currentGame)
+	go cfg.gameDone(currentGame, w, r)
 
 	return nil
 }
@@ -598,7 +598,7 @@ func (cfg *appConfig) handleChecksWhenKingMoves(currentSquareName, currentGame s
 	return false
 }
 
-func (cfg *appConfig) gameDone(currentGame string) {
+func (cfg *appConfig) gameDone(currentGame string, w http.ResponseWriter, r *http.Request) {
 	match := cfg.Matches[currentGame]
 	var king components.Piece
 	if match.isWhiteTurn {
@@ -609,21 +609,16 @@ func (cfg *appConfig) gameDone(currentGame string) {
 
 	savePiece := match.selectedPiece
 	match.selectedPiece = king
-
 	cfg.Matches[currentGame] = match
-
 	legalMoves := cfg.checkLegalMoves(currentGame)
-
 	match.selectedPiece = savePiece
 	cfg.Matches[currentGame] = match
 	var checkCount []bool
-
 	for _, move := range legalMoves {
 		if cfg.handleChecksWhenKingMoves(move, currentGame) {
 			checkCount = append(checkCount, true)
 		}
 	}
-
 	if len(legalMoves) == len(checkCount) {
 		if match.isWhiteTurn && match.isWhiteUnderCheck {
 			for _, piece := range match.pieces {
@@ -643,6 +638,9 @@ func (cfg *appConfig) gameDone(currentGame string) {
 				}
 			}
 			fmt.Println("checkmate")
+			r.Header.Add("Hx-Target", "#body")
+			r.Header.Add("Hx-Swap", "afterbegin")
+			components.EndGameModal("0-1", "black").Render(r.Context(), w)
 		} else if !match.isWhiteTurn && match.isBlackUnderCheck {
 			for _, piece := range match.pieces {
 				if !piece.IsWhite && !piece.IsKing {
@@ -661,6 +659,9 @@ func (cfg *appConfig) gameDone(currentGame string) {
 				}
 			}
 			fmt.Println("checkmate")
+			r.Header.Add("Hx-Target", "#body")
+			r.Header.Add("Hx-Swap", "afterbegin")
+			components.EndGameModal("1-0", "white").Render(r.Context(), w)
 		} else if match.isWhiteTurn {
 			for _, piece := range match.pieces {
 				if piece.IsWhite && !piece.IsKing {
@@ -716,14 +717,11 @@ func handleIfCheck(w http.ResponseWriter, cfg *appConfig, selected components.Pi
 	if check {
 		setUserCheck(king, &match)
 		err := cfg.respondWithCheck(w, kingSquare, king, currentGame)
-
 		if err != nil {
 			fmt.Println(err)
 		}
-
 		match.tilesUnderAttack = tilesUnderAttack
 		cfg.Matches[currentGame] = match
-
 		for _, tile := range tilesUnderAttack {
 			t := match.board[tile]
 
@@ -778,7 +776,8 @@ func (cfg *appConfig) endTurn(w http.ResponseWriter, r *http.Request, currentGam
 	}
 	match.isWhiteTurn = !match.isWhiteTurn
 	cfg.Matches[currentGame] = match
-	cfg.gameDone(currentGame)
+
+	cfg.gameDone(currentGame, w, r)
 	cfg.timerHandler(w, r)
 }
 
