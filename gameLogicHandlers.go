@@ -347,18 +347,16 @@ func (cfg *appConfig) moveToHandler(w http.ResponseWriter, r *http.Request) {
 		match.allMoves = append(match.allMoves, currentSquareName)
 		bigCleanup(currentSquareName, &match)
 		cfg.showMoves(match, currentSquareName, saveSelected.Name, w, r)
-
+		cfg.Matches[currentGame] = match
 		noCheck := handleIfCheck(w, cfg, saveSelected, currentGame)
 		if noCheck {
 			match.isWhiteUnderCheck = false
 			match.isBlackUnderCheck = false
+			cfg.Matches[currentGame] = match
 		}
-
-		cfg.Matches[currentGame] = match
 		if saveSelected.IsPawn && cfg.checkForPawnPromotion(saveSelected.Name, currentGame, w) {
 			return
 		}
-
 		cfg.endTurn(w, r, currentGame)
 		return
 	}
@@ -682,12 +680,41 @@ func (cfg *appConfig) handlePromotion(w http.ResponseWriter, r *http.Request) {
 	cfg.endTurn(w, r, c.Value)
 }
 
-func (cfg *appConfig) handleEndGame(w http.ResponseWriter, r *http.Request) {
+func (cfg *appConfig) endGameHandler(w http.ResponseWriter, r *http.Request) {
 	currentGame, err := r.Cookie("current_game")
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
+	err = r.ParseForm()
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	saveGame := cfg.Matches[currentGame.Value]
 	delete(cfg.Matches, currentGame.Value)
-
+	err = cfg.database.UpdateMatchOnEnd(r.Context(), database.UpdateMatchOnEndParams{
+		Result: r.FormValue("result"),
+		ID:     saveGame.matchId,
+	})
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	if match, ok := cfg.connections[currentGame.Value]; ok {
+		match["white"].Conn.Close()
+		match["black"].Conn.Close()
+		delete(cfg.connections, currentGame.Value)
+	}
+	cGC := http.Cookie{
+		Name:     "current_game",
+		Value:    "",
+		Path:     "/",
+		MaxAge:   -1,
+		HttpOnly: true,
+		Secure:   true,
+		SameSite: http.SameSiteLaxMode,
+	}
+	http.SetCookie(w, &cGC)
+	w.WriteHeader(http.StatusNoContent)
 }
