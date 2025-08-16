@@ -5,6 +5,8 @@ CREATE TABLE matches(
   black TEXT NOT NULL,
   full_time INT NOT NULL,
   is_online BOOLEAN DEFAULT FALSE NOT NULL,
+  result TEXT NOT NULL,
+  ended BOOLEAN DEFAULT FALSE NOT NULL,
   user_id UUID NOT NULL,
   FOREIGN KEY (user_id)
   REFERENCES users(ID)
