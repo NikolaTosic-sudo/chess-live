@@ -91,8 +91,11 @@ func (cfg *appConfig) privateBoardHandler(w http.ResponseWriter, r *http.Request
 	if err != nil {
 		fmt.Println(err)
 		game = "initial"
-	} else if c.Value != "" {
+	} else if c.Value != "" && !strings.Contains(c.Value, "online:") {
 		game = c.Value
+	} else if strings.Contains(c.Value, "online:") {
+		cfg.endGameCleaner(w, r, c.Value)
+		game = "initial"
 	} else {
 		game = "initial"
 	}

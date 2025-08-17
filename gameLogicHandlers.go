@@ -130,7 +130,7 @@ func (cfg *appConfig) moveHandler(w http.ResponseWriter, r *http.Request) {
 		cfg.Matches[currentGame] = match
 		cfg.showMoves(match, currentSquareName, saveSelected.Name, w, r)
 
-		if saveSelected.IsPawn && cfg.checkForPawnPromotion(saveSelected.Name, currentGame, w) {
+		if saveSelected.IsPawn && cfg.checkForPawnPromotion(saveSelected.Name, currentGame, w, r) {
 			return
 		}
 
@@ -354,7 +354,7 @@ func (cfg *appConfig) moveToHandler(w http.ResponseWriter, r *http.Request) {
 			match.isBlackUnderCheck = false
 			cfg.Matches[currentGame] = match
 		}
-		if saveSelected.IsPawn && cfg.checkForPawnPromotion(saveSelected.Name, currentGame, w) {
+		if saveSelected.IsPawn && cfg.checkForPawnPromotion(saveSelected.Name, currentGame, w, r) {
 			return
 		}
 		cfg.endTurn(w, r, currentGame)
@@ -469,14 +469,10 @@ func (cfg *appConfig) coverCheckHandler(w http.ResponseWriter, r *http.Request) 
 				} else {
 					fmt.Fprint(w, message)
 				}
-
-				// if err != nil {
-				// 	fmt.Println(err)
-				// }
 			}
 		}
 
-		if saveSelected.IsPawn && cfg.checkForPawnPromotion(saveSelected.Name, currentGame, w) {
+		if saveSelected.IsPawn && cfg.checkForPawnPromotion(saveSelected.Name, currentGame, w, r) {
 			return
 		}
 
@@ -538,6 +534,14 @@ func (cfg *appConfig) timerHandler(w http.ResponseWriter, r *http.Request) {
 		for playerColor, onlinePlayer := range onlineGame {
 			err := onlinePlayer.Conn.WriteMessage(websocket.TextMessage, []byte(message))
 			if err != nil {
+				if strings.Contains(err.Error(), "websocket: close sent") {
+					msg, err := TemplString(components.EndGameModal("1-0", "white"))
+					if err != nil {
+						return
+					}
+					onlineGame["white"].Conn.WriteMessage(websocket.TextMessage, []byte(msg))
+					break
+				}
 				fmt.Println("WebSocket write error to", playerColor, ":", err)
 			}
 		}

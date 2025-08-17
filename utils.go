@@ -57,9 +57,13 @@ func (cfg *appConfig) canPlay(piece components.Piece, currentGame string, online
 			return false
 		}
 
-		if match.isWhiteTurn && onlineGame["white"].ID == userId {
+		if piece.IsWhite && match.isWhiteTurn && onlineGame["white"].ID == userId {
 			return true
-		} else if !match.isWhiteTurn && onlineGame["black"].ID == userId {
+		} else if match.selectedPiece.IsWhite && piece.IsWhite && match.isWhiteTurn && onlineGame["white"].ID == userId {
+			return true
+		} else if !piece.IsWhite && !match.isWhiteTurn && onlineGame["black"].ID == userId {
+			return true
+		} else if !match.selectedPiece.IsWhite && !piece.IsWhite && !match.isWhiteTurn && onlineGame["black"].ID == userId {
 			return true
 		}
 
@@ -1020,7 +1024,7 @@ func (cfg *appConfig) cleanFillBoard(gameName string, pieces map[string]componen
 	cfg.Matches[gameName] = match
 }
 
-func (cfg *appConfig) checkForPawnPromotion(pawnName, currentGame string, w http.ResponseWriter) bool {
+func (cfg *appConfig) checkForPawnPromotion(pawnName, currentGame string, w http.ResponseWriter, r *http.Request) bool {
 	var isOnLastTile bool
 	match := cfg.Matches[currentGame]
 	onlineGame, found := cfg.connections[currentGame]
@@ -1079,10 +1083,22 @@ func (cfg *appConfig) checkForPawnPromotion(pawnName, currentGame string, w http
 			pieceColor,
 		)
 		if found {
+			uC, err := r.Cookie("access_token")
+			if err != nil {
+				fmt.Println(err)
+				return false
+			}
+			userId, err := auth.ValidateJWT(uC.Value, cfg.secret)
+			if err != nil {
+				fmt.Println(err)
+				return false
+			}
 			for playerColor, onlinePlayer := range onlineGame {
-				err := onlinePlayer.Conn.WriteMessage(websocket.TextMessage, []byte(message))
-				if err != nil {
-					fmt.Println("WebSocket write error to", playerColor, ":", err)
+				if onlinePlayer.ID == userId {
+					err := onlinePlayer.Conn.WriteMessage(websocket.TextMessage, []byte(message))
+					if err != nil {
+						fmt.Println("WebSocket write error to", playerColor, ":", err)
+					}
 				}
 			}
 		} else {
@@ -1098,4 +1114,46 @@ func TemplString(t templ.Component) (string, error) {
 		return "", err
 	}
 	return b.String(), nil
+}
+
+func (cfg *appConfig) endGameCleaner(w http.ResponseWriter, r *http.Request, currentGame string) {
+	uC, err := r.Cookie("access_token")
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	userId, err := auth.ValidateJWT(uC.Value, cfg.secret)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	var result string
+	conn := cfg.connections[currentGame]
+	if conn["white"].ID == userId {
+		result = "0-1"
+	} else if conn["black"].ID == userId {
+		result = "1-0"
+	} else {
+		result = "1-1"
+	}
+	saveGame := cfg.Matches[currentGame]
+	delete(cfg.Matches, currentGame)
+	err = cfg.database.UpdateMatchOnEnd(r.Context(), database.UpdateMatchOnEndParams{
+		Result: result,
+		ID:     saveGame.matchId,
+	})
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	cGC := http.Cookie{
+		Name:     "current_game",
+		Value:    "",
+		Path:     "/",
+		MaxAge:   -1,
+		HttpOnly: true,
+		Secure:   true,
+		SameSite: http.SameSiteLaxMode,
+	}
+	http.SetCookie(w, &cGC)
 }
