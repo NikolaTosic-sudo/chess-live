@@ -12,15 +12,15 @@ import (
 )
 
 const createMatch = `-- name: CreateMatch :one
-INSERT INTO matches(white, black, full_time, user_id, is_online, created_at, result)
+INSERT INTO matches(white, black, full_time, user_id, is_online, result, created_at)
 VALUES(
   $1,
   $2,
   $3,
   $4,
   $5,
-  NOW(),
-  "0-0"
+  $6,
+  NOW()
 ) RETURNING id
 `
 
@@ -30,6 +30,7 @@ type CreateMatchParams struct {
 	FullTime int32
 	UserID   uuid.UUID
 	IsOnline bool
+	Result   string
 }
 
 func (q *Queries) CreateMatch(ctx context.Context, arg CreateMatchParams) (int32, error) {
@@ -39,6 +40,7 @@ func (q *Queries) CreateMatch(ctx context.Context, arg CreateMatchParams) (int32
 		arg.FullTime,
 		arg.UserID,
 		arg.IsOnline,
+		arg.Result,
 	)
 	var id int32
 	err := row.Scan(&id)

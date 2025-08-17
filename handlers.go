@@ -340,6 +340,7 @@ func (cfg *appConfig) startGameHandler(w http.ResponseWriter, r *http.Request) {
 				FullTime: 600,
 				UserID:   user,
 				IsOnline: false,
+				Result:   "0-0",
 			})
 
 			if err != nil {

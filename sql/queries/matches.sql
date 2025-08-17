@@ -1,13 +1,13 @@
 -- name: CreateMatch :one
-INSERT INTO matches(white, black, full_time, user_id, is_online, created_at, result)
+INSERT INTO matches(white, black, full_time, user_id, is_online, result, created_at)
 VALUES(
   $1,
   $2,
   $3,
   $4,
   $5,
-  NOW(),
-  "0-0"
+  $6,
+  NOW()
 ) RETURNING id;
 
 -- name: GetAllMatchesForUser :many
