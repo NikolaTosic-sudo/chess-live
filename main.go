@@ -84,6 +84,7 @@ func main() {
 	http.HandleFunc("/play-online", cfg.onlineBoardHandler)
 	http.HandleFunc("/searching", cfg.searchingOppHandler)
 	http.HandleFunc("/end-game", cfg.endGameHandler)
+	http.HandleFunc("/surrender", cfg.surrenderHandler)
 
 	fmt.Printf("Listening on :%v\n", port)
 	http.ListenAndServe(fmt.Sprintf(":%v", port), nil)

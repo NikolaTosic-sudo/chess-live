@@ -546,6 +546,34 @@ func (cfg *appConfig) timerHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	cfg.Matches[currentGame] = match
+
+	if match.isWhiteTurn && (match.whiteTimer < 0 || match.whiteTimer == 0) {
+		msg, err := TemplString(components.EndGameModal("0-1", "black"))
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+		if found {
+			onlineGame["white"].Conn.WriteMessage(websocket.TextMessage, []byte(msg))
+			onlineGame["black"].Conn.WriteMessage(websocket.TextMessage, []byte(msg))
+			return
+		} else {
+			fmt.Fprint(w, msg)
+		}
+	} else if !match.isWhiteTurn && (match.blackTimer < 0 || match.blackTimer == 0) {
+		msg, err := TemplString(components.EndGameModal("1-0", "white"))
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+		if found {
+			onlineGame["white"].Conn.WriteMessage(websocket.TextMessage, []byte(msg))
+			onlineGame["black"].Conn.WriteMessage(websocket.TextMessage, []byte(msg))
+			return
+		} else {
+			fmt.Fprint(w, msg)
+		}
+	}
 }
 
 func (cfg *appConfig) handlePromotion(w http.ResponseWriter, r *http.Request) {
@@ -717,4 +745,44 @@ func (cfg *appConfig) endGameHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	http.SetCookie(w, &cGC)
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func (cfg *appConfig) surrenderHandler(w http.ResponseWriter, r *http.Request) {
+	c, err := r.Cookie("current_game")
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	uC, err := r.Cookie("access_token")
+	if err == nil && uC.Value != "" && strings.Contains(c.Value, "online:") {
+		var msg string
+		connection := cfg.connections[c.Value]
+		userId, err := auth.ValidateJWT(uC.Value, cfg.secret)
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+		if connection["white"].ID == userId {
+			msg, err = TemplString(components.EndGameModal("0-1", "black"))
+			if err != nil {
+				fmt.Println(err)
+				return
+			}
+		} else if connection["black"].ID == userId {
+			msg, err = TemplString(components.EndGameModal("1-0", "white"))
+			if err != nil {
+				fmt.Println(err)
+				return
+			}
+		}
+		connection["white"].Conn.WriteMessage(websocket.TextMessage, []byte(msg))
+		connection["black"].Conn.WriteMessage(websocket.TextMessage, []byte(msg))
+		return
+	}
+	currentGame := cfg.Matches[c.Value]
+	if currentGame.isWhiteTurn {
+		components.EndGameModal("0-1", "black").Render(r.Context(), w)
+	} else {
+		components.EndGameModal("1-0", "white").Render(r.Context(), w)
+	}
 }
