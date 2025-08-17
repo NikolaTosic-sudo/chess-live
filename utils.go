@@ -517,7 +517,10 @@ func (cfg *appConfig) checkCheck(tilesUnderCheck *[]string, startingPosition, st
 			}
 		} else if !strings.Contains(pieceOnCurrentTile.Name, pieceColor) &&
 			pieceOnCurrentTile.IsPawn {
-			if ((move[0] == 1 && (move[1] == 1 || move[1] == -1)) || (move[0] == -1 && (move[1] == 1 || move[1] == -1))) && startPosCompare[0] == startingPosition[0] && startPosCompare[1] == startingPosition[1] {
+			if pieceColor == "white" && ((move[0] == -1 && (move[1] == 1 || move[1] == -1)) && startPosCompare[0] == startingPosition[0] && startPosCompare[1] == startingPosition[1]) {
+				*tilesUnderCheck = append(*tilesUnderCheck, currentTile)
+				return true
+			} else if pieceColor == "black" && ((move[0] == 1 && (move[1] == 1 || move[1] == -1)) && startPosCompare[0] == startingPosition[0] && startPosCompare[1] == startingPosition[1]) {
 				*tilesUnderCheck = append(*tilesUnderCheck, currentTile)
 				return true
 			} else {

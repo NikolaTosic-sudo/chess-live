@@ -589,11 +589,12 @@ func (cfg *appConfig) matchHistoryHandler(w http.ResponseWriter, r *http.Request
 			fmt.Println(err)
 			return
 		}
+		fmt.Println(dbMatches[i].CreatedAt, "time")
 		newMatch := components.MatchStruct{
 			White:   dbMatches[i].White,
 			Black:   dbMatches[i].Black,
 			Ended:   dbMatches[i].Ended,
-			Date:    dbMatches[i].CreatedAt.Format("Jan 1, 2006"),
+			Date:    dbMatches[i].CreatedAt.Format("Jan 2, 2006"),
 			NoMoves: int(numberOfMoves),
 			Result:  dbMatches[i].Result,
 			Online:  dbMatches[i].IsOnline,
