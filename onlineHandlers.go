@@ -7,7 +7,6 @@ import (
 	"github.com/NikolaTosic-sudo/chess-live/containers/components"
 	layout "github.com/NikolaTosic-sudo/chess-live/containers/layouts"
 	"github.com/NikolaTosic-sudo/chess-live/internal/auth"
-	"github.com/NikolaTosic-sudo/chess-live/internal/database"
 	"github.com/gorilla/websocket"
 )
 
@@ -74,40 +73,6 @@ func (cfg *appConfig) searchingOppHandler(w http.ResponseWriter, r *http.Request
 
 	whitePlayer := game["white"]
 	blackPlayer := game["black"]
-
-	userCookie, err := r.Cookie("access_token")
-	if err != nil {
-		log.Println("No user found")
-		return
-	}
-
-	userId, err := auth.ValidateJWT(userCookie.Value, cfg.secret)
-
-	matchId, _ := cfg.database.CreateMatch(r.Context(), database.CreateMatchParams{
-		White:    whitePlayer.Name,
-		Black:    blackPlayer.Name,
-		FullTime: 600,
-		UserID:   userId,
-		IsOnline: true,
-	})
-
-	startingBoard := MakeBoard()
-	startingPieces := MakePieces()
-
-	cfg.Matches[currentGame] = Match{
-		board:                startingBoard,
-		pieces:               startingPieces,
-		selectedPiece:        components.Piece{},
-		coordinateMultiplier: 80,
-		isWhiteTurn:          true,
-		isWhiteUnderCheck:    false,
-		isBlackUnderCheck:    false,
-		whiteTimer:           600,
-		blackTimer:           600,
-		addition:             0,
-		matchId:              matchId,
-	}
-
 	startGame := http.Cookie{
 		Name:     "current_game",
 		Value:    currentGame,
