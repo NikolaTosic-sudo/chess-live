@@ -1,6 +1,8 @@
 package main
 
 import (
+	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -11,6 +13,7 @@ import (
 	"github.com/NikolaTosic-sudo/chess-live/containers/components"
 	"github.com/NikolaTosic-sudo/chess-live/internal/auth"
 	"github.com/NikolaTosic-sudo/chess-live/internal/database"
+	"github.com/a-h/templ"
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 )
@@ -638,8 +641,6 @@ func (cfg *appConfig) gameDone(currentGame string, w http.ResponseWriter, r *htt
 				}
 			}
 			fmt.Println("checkmate")
-			r.Header.Add("Hx-Target", "#body")
-			r.Header.Add("Hx-Swap", "afterbegin")
 			components.EndGameModal("0-1", "black").Render(r.Context(), w)
 		} else if !match.isWhiteTurn && match.isBlackUnderCheck {
 			for _, piece := range match.pieces {
@@ -659,8 +660,6 @@ func (cfg *appConfig) gameDone(currentGame string, w http.ResponseWriter, r *htt
 				}
 			}
 			fmt.Println("checkmate")
-			r.Header.Add("Hx-Target", "#body")
-			r.Header.Add("Hx-Swap", "afterbegin")
 			components.EndGameModal("1-0", "white").Render(r.Context(), w)
 		} else if match.isWhiteTurn {
 			for _, piece := range match.pieces {
@@ -678,6 +677,7 @@ func (cfg *appConfig) gameDone(currentGame string, w http.ResponseWriter, r *htt
 				}
 			}
 			fmt.Println("stalemate")
+			components.EndGameModal("1-1", "").Render(r.Context(), w)
 		} else if !match.isWhiteTurn {
 			for _, piece := range match.pieces {
 				if !piece.IsWhite && !piece.IsKing {
@@ -694,6 +694,7 @@ func (cfg *appConfig) gameDone(currentGame string, w http.ResponseWriter, r *htt
 				}
 			}
 			fmt.Println("stalemate")
+			components.EndGameModal("1-1", "").Render(r.Context(), w)
 		}
 	} else {
 		fmt.Println("you are good")
@@ -713,7 +714,6 @@ func handleIfCheck(w http.ResponseWriter, cfg *appConfig, selected components.Pi
 	match := cfg.Matches[currentGame]
 	check, king, tilesUnderAttack := cfg.handleCheckForCheck("", currentGame, selected)
 	kingSquare := match.board[king.Tile]
-
 	if check {
 		setUserCheck(king, &match)
 		err := cfg.respondWithCheck(w, kingSquare, king, currentGame)
@@ -733,7 +733,6 @@ func handleIfCheck(w http.ResponseWriter, cfg *appConfig, selected components.Pi
 				}
 			} else {
 				err := cfg.respondWithCoverCheck(w, tile, t, currentGame)
-
 				if err != nil {
 					fmt.Println(err)
 				}
@@ -741,7 +740,6 @@ func handleIfCheck(w http.ResponseWriter, cfg *appConfig, selected components.Pi
 		}
 		return false
 	}
-
 	return true
 }
 
@@ -1092,4 +1090,12 @@ func (cfg *appConfig) checkForPawnPromotion(pawnName, currentGame string, w http
 		}
 	}
 	return isOnLastTile
+}
+
+func TemplString(t templ.Component) (string, error) {
+	var b bytes.Buffer
+	if err := t.Render(context.Background(), &b); err != nil {
+		return "", err
+	}
+	return b.String(), nil
 }

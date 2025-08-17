@@ -38,6 +38,9 @@ func (cfg *appConfig) wsHandler(w http.ResponseWriter, r *http.Request) {
 	go func() {
 		for {
 			_, msg, err := conn.ReadMessage()
+			if e, ok := err.(*websocket.CloseError); ok && e.Code == websocket.CloseNormalClosure {
+				break
+			}
 			if err != nil {
 				log.Println("read error from", err)
 				break
