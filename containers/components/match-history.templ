@@ -4,6 +4,11 @@ import "strconv"
 
 templ MatchHistory(matches []MatchStruct) {
 <div class="space-y-4 mx-auto mt-10">
+  if len(matches) == 0 {
+    <div class="bg-[#3e3b38] text-white text-center rounded-lg p-4 shadow-md hover:bg-[#4a4744] transition-colors duration-200 cursor-pointer items-center">
+      <h3>No matches in your history</h3>
+    </div>
+  }
   for i := 0; i < len(matches); i++ {
     <div 
       id={matches[i].MatchId} 

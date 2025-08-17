@@ -1,19 +1,31 @@
 package components
 
+import "fmt"
+
 templ EndGameModal(result, winner string) {
-  <div class="fixed inset-0 bg-black/60 flex items-center justify-center z-30"
-        hx-swap-oob="afterbegin #body">
-
-    <div hx-get="/end-game" hx-trigger="load" hx-vals='{"result": result}'></div>
-
-    <div id="modal-content" class="w-full max-w-md bg-[#3e3a36] rounded-lg shadow-xl p-6 z-40"
-        onclick="event.stopPropagation()">
-        <div class="text-center text-white text-2xl">
-          Congrats { winner }, you win
-        </div>
-        <button class="w-full mt-4 bg-emerald-500 hover:bg-emerald-600 text-white py-2 rounded transition">
-          Go to main page
-        </button>
+  {{ msg := fmt.Sprintf(`{"result": "%v"}`, result)}}
+  <div hx-swap-oob="afterbegin:#body">
+    <div class="fixed inset-0 bg-black/60 flex items-center justify-center z-30">
+      <div
+        hx-get="/end-game"
+        hx-trigger="load delay:0.4s"
+        hx-vals={ msg }
+      ></div>
+      <div id="modal-content" class="w-full max-w-md bg-[#3e3a36] rounded-lg shadow-xl p-6 z-40"
+          onclick="event.stopPropagation()">
+          <div class="text-center text-white text-2xl">
+          if result == "1-1" {
+            Stalemate
+          } else {
+            Congrats { winner }, you win
+          }
+          </div>
+          <button class="w-full mt-4 bg-emerald-500 hover:bg-emerald-600 text-white py-2 rounded transition cursor-pointer" hx-get="/" hx-target="#body">
+            Go to main page
+          </button>
+      </div>
     </div>
   </div>
+
+  <div id="timer-update" hx-swap-oob="outerHTML"></div>
 }
