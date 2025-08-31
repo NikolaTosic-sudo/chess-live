@@ -1,4 +1,4 @@
-# Chess Project ♟️
+# Chess Live ♟️
 
 A modern web-based chess platform built with **Go**, **HTMX**, **Templ**, and **PostgreSQL**.  
 The app supports both **local and online play**, user authentication, match history, and game reviews.  
