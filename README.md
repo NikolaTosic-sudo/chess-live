@@ -16,6 +16,14 @@ The app supports both **local and online play**, user authentication, match hist
 
 ---
 
+## Why Chess ♟️
+
+Simply put, I love playing chess, and it seemed like a great project to combine
+my previous knowledge of frontend (with practicing "pure HTML", tailwind and making requests with HTMX),
+my new-found knowledge of backend, and my love for chess.
+
+---
+
 ## ✨ Features
 
 - **User Accounts**: Login and signup functionality.  
