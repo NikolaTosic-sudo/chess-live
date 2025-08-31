@@ -8,7 +8,11 @@ The app supports both **local and online play**, user authentication, match hist
 
 ---
 
-![Go Gopher playing chess](https://raw.githubusercontent.com/golang-samples/gopher-vector/master/gopher.svg)
+<p align="center">
+  <img src="assets/images/main-private.png" width="30%" />
+  <img src="assets/images/playing.png" width="30%" />
+  <img src="assets/images/match-history.png" width="30%" />
+</p>
 
 ---
 
