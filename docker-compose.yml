@@ -1,0 +1,36 @@
+services:
+  db:
+    image: postgres:15
+    container_name: chess-live-db
+    restart: always
+    environment:
+      POSTGRES_USER: nikolatosic
+      POSTGRES_DB: chess
+      POSTGRES_PASSWORD: secret
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./sql/schema:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nikolatosic -d chess"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build: .
+    container_name: chess-live-app
+    restart: always
+    environment:
+      PORT: 8080
+      DB_URL: postgres://nikolatosic:secret@db:5432/chess?sslmode=disable
+      SECRET: XZc//+O63+GUAe0qiAf8X+DC94ImeDJ620KPz8XDbKwLVrr4QZyhvX0I1wCWiNQexB58z6WkAKW0g7ju70SB5A
+    ports:
+      - "8080:8080"
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  pgdata:
