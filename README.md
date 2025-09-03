@@ -45,7 +45,7 @@ my new-found knowledge of backend, and my love for chess.
 
 ## 🚧 Roadmap
 
-- [ ] Add **Docker support** for easy local hosting  
+- [x] Add **Docker support** for easy local hosting  
 - [ ] Deploy to a public domain  
 - [ ] Improve playability & testing environment  
 - [ ] Add more robust matchmaking features  
@@ -55,11 +55,13 @@ my new-found knowledge of backend, and my love for chess.
 
 ---
 
-## 📦 Installation (Coming Soon)
+## 📦 Installation
 
-A Docker image will be provided for local setup.  
+### <img src="https://www.docker.com/wp-content/uploads/2022/03/Moby-logo.png" alt="docker" width="40"/> Running with Docker
 
-For now, if you want to explore the code:  
+See [INSTALL.md](./INSTALL.md) for detailed intructions on running with Docker.
+
+If you want to explore the code:
 
 ```bash
 git clone https://github.com/NikolaTosic-sudo/chess-live
