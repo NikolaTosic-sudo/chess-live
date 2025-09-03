@@ -35,7 +35,6 @@ func (cfg *appConfig) boardHandler(w http.ResponseWriter, r *http.Request) {
 		match = cfg.Matches["initial"]
 	}
 	cfg.fillBoard(game)
-
 	whitePlayer := components.PlayerStruct{
 		Image:  "/assets/images/user-icon.png",
 		Name:   "Guest",
@@ -210,11 +209,25 @@ func (cfg *appConfig) onlineBoardHandler(w http.ResponseWriter, r *http.Request)
 					startingBoard := MakeBoard()
 					startingPieces := MakePieces()
 
+					mC, noMc := r.Cookie("multiplier")
+
+					var multiplier int
+					if noMc != nil {
+						multiplier = 80
+					} else {
+						mcInt, err := strconv.Atoi(mC.Value)
+						if err != nil {
+							fmt.Println(err)
+							return
+						}
+						multiplier = mcInt
+					}
+
 					cfg.Matches[gameName] = Match{
 						board:                startingBoard,
 						pieces:               startingPieces,
 						selectedPiece:        components.Piece{},
-						coordinateMultiplier: 80,
+						coordinateMultiplier: multiplier,
 						isWhiteTurn:          true,
 						isWhiteUnderCheck:    false,
 						isBlackUnderCheck:    false,
@@ -296,16 +309,28 @@ func (cfg *appConfig) updateMultiplerHandler(w http.ResponseWriter, r *http.Requ
 	}
 
 	c, err := r.Cookie("current_game")
+	var currentGame string
 	if err != nil {
-		fmt.Println("no game found")
-		return
+		currentGame = "initial"
+	} else {
+		currentGame = c.Value
 	}
-	currentGame := c.Value
 	match := cfg.Matches[currentGame]
 
 	match.coordinateMultiplier = multiplier
 	UpdateCoordinates(&match)
 	cfg.Matches[currentGame] = match
+
+	multiplierCookie := http.Cookie{
+		Name:     "multiplier",
+		Value:    r.FormValue("multiplier"),
+		Path:     "/",
+		MaxAge:   604800,
+		HttpOnly: true,
+		Secure:   true,
+		SameSite: http.SameSiteLaxMode,
+	}
+	http.SetCookie(w, &multiplierCookie)
 
 	for k, piece := range match.pieces {
 		tile := match.board[piece.Tile]
@@ -386,11 +411,25 @@ func (cfg *appConfig) startGameHandler(w http.ResponseWriter, r *http.Request) {
 		fmt.Println(err)
 		return
 	}
+	mC, noMc := r.Cookie("multiplier")
+
+	var multiplier int
+	if noMc != nil {
+		multiplier = 80
+	} else {
+		mcInt, err := strconv.Atoi(mC.Value)
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+		multiplier = mcInt
+	}
+
 	cfg.Matches[newGameName] = Match{
 		board:                startingBoard,
 		pieces:               startingPieces,
 		selectedPiece:        components.Piece{},
-		coordinateMultiplier: 80,
+		coordinateMultiplier: multiplier,
 		isWhiteTurn:          true,
 		isWhiteUnderCheck:    false,
 		isBlackUnderCheck:    false,
@@ -640,6 +679,18 @@ func (cfg *appConfig) playHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		fmt.Println(err)
 		game = "initial"
+	} else if strings.Contains(c.Value, "database:") {
+		cGC := http.Cookie{
+			Name:     "current_game",
+			Value:    "",
+			Path:     "/",
+			MaxAge:   -1,
+			HttpOnly: true,
+			Secure:   true,
+			SameSite: http.SameSiteLaxMode,
+		}
+		http.SetCookie(w, &cGC)
+		game = "initial"
 	} else if c.Value != "" {
 		game = c.Value
 	} else {
@@ -734,6 +785,20 @@ func (cfg *appConfig) matchesHandler(w http.ResponseWriter, r *http.Request) {
 		http.SetCookie(w, &saveGame)
 	}
 
+	mC, noMc := r.Cookie("multiplier")
+
+	var multiplier int
+	if noMc != nil {
+		multiplier = 80
+	} else {
+		mcInt, err := strconv.Atoi(mC.Value)
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+		multiplier = mcInt
+	}
+
 	startGame := http.Cookie{
 		Name:     "current_game",
 		Value:    newGame,
@@ -751,7 +816,7 @@ func (cfg *appConfig) matchesHandler(w http.ResponseWriter, r *http.Request) {
 		board:                startingBoard,
 		pieces:               startingPieces,
 		selectedPiece:        components.Piece{},
-		coordinateMultiplier: 80,
+		coordinateMultiplier: multiplier,
 		isWhiteTurn:          true,
 		isWhiteUnderCheck:    false,
 		isBlackUnderCheck:    false,
