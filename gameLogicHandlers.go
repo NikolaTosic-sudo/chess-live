@@ -18,7 +18,7 @@ func (cfg *appConfig) moveHandler(w http.ResponseWriter, r *http.Request) {
 	currentPieceName := r.Header.Get("Hx-Trigger")
 	c, err := r.Cookie("current_game")
 	if err != nil {
-		fmt.Println("no game found")
+		respondWithAnError(w, http.StatusNotFound, "no game found", err)
 		return
 	}
 	currentGame := c.Value
@@ -27,7 +27,8 @@ func (cfg *appConfig) moveHandler(w http.ResponseWriter, r *http.Request) {
 	currentPiece := match.pieces[currentPieceName]
 	canPlay, err := cfg.canPlay(currentPiece, currentGame, onlineGame, r)
 	if err != nil {
-		fmt.Println(err)
+		respondWithAnError(w, http.StatusUnauthorized, "user not found", err)
+		return
 	}
 	currentSquareName := currentPiece.Tile
 	currentSquare := match.board[currentSquareName]
@@ -40,14 +41,14 @@ func (cfg *appConfig) moveHandler(w http.ResponseWriter, r *http.Request) {
 			userC, err := r.Cookie("access_token")
 
 			if err != nil {
-				fmt.Println("user not found", err)
+				respondWithAnError(w, http.StatusUnauthorized, "user not found", err)
 				return
 			}
 
 			userId, err := auth.ValidateJWT(userC.Value, cfg.secret)
 
 			if err != nil {
-				fmt.Println("user not found", err)
+				respondWithAnError(w, http.StatusUnauthorized, "user not found", err)
 				return
 			}
 
@@ -112,14 +113,14 @@ func (cfg *appConfig) moveHandler(w http.ResponseWriter, r *http.Request) {
 			for playerColor, onlinePlayer := range onlineGame {
 				err := onlinePlayer.Conn.WriteMessage(websocket.TextMessage, []byte(message))
 				if err != nil {
-					fmt.Println("WebSocket write error to", playerColor, ":", err)
+					respondWithAnError(w, http.StatusInternalServerError, fmt.Sprintf("WebSocket write error to: %v", playerColor), err)
 					return
 				}
 			}
 		} else {
 			_, err := fmt.Fprint(w, message)
 			if err != nil {
-				fmt.Println(err, "Couldn't print to page")
+				respondWithAnError(w, http.StatusInternalServerError, "couldn't print to page", err)
 				return
 			}
 		}
@@ -139,7 +140,8 @@ func (cfg *appConfig) moveHandler(w http.ResponseWriter, r *http.Request) {
 		cfg.showMoves(match, currentSquareName, saveSelected.Name, w, r)
 		pawnPromotion, err := cfg.checkForPawnPromotion(saveSelected.Name, currentGame, w, r)
 		if err != nil {
-			fmt.Println(err)
+			respondWithAnError(w, http.StatusInternalServerError, "pawn promotion error: ", err)
+			return
 		}
 
 		if saveSelected.IsPawn && pawnPromotion {
@@ -148,7 +150,8 @@ func (cfg *appConfig) moveHandler(w http.ResponseWriter, r *http.Request) {
 
 		noCheck, err := handleIfCheck(w, cfg, saveSelected, currentGame)
 		if err != nil {
-			fmt.Println(err)
+			respondWithAnError(w, http.StatusInternalServerError, "handle check error: ", err)
+			return
 		}
 		if noCheck {
 			var kingName string
@@ -180,14 +183,14 @@ func (cfg *appConfig) moveHandler(w http.ResponseWriter, r *http.Request) {
 				for playerColor, onlinePlayer := range onlineGame {
 					err := onlinePlayer.Conn.WriteMessage(websocket.TextMessage, []byte(message))
 					if err != nil {
-						fmt.Println("WebSocket write error to", playerColor, ":", err)
+						respondWithAnError(w, http.StatusInternalServerError, fmt.Sprintf("WebSocket write error to: %v", playerColor), err)
 						return
 					}
 				}
 			} else {
 				_, err := fmt.Fprint(w, message)
 				if err != nil {
-					fmt.Println(err, "Couldn't write to page")
+					respondWithAnError(w, http.StatusInternalServerError, "couldn't write to page", err)
 					return
 				}
 			}
@@ -247,7 +250,7 @@ func (cfg *appConfig) moveHandler(w http.ResponseWriter, r *http.Request) {
 		)
 
 		if err != nil {
-			fmt.Println(err)
+			respondWithAnError(w, http.StatusInternalServerError, "couldn't send to page", err)
 		}
 
 		match.selectedPiece = currentPiece
@@ -283,7 +286,7 @@ func (cfg *appConfig) moveHandler(w http.ResponseWriter, r *http.Request) {
 		)
 
 		if err != nil {
-			fmt.Println(err)
+			respondWithAnError(w, http.StatusInternalServerError, "couldn't write to page", err)
 		}
 
 		cfg.Matches[currentGame] = match
@@ -300,7 +303,7 @@ func (cfg *appConfig) moveHandler(w http.ResponseWriter, r *http.Request) {
 		`, currentPieceName, currentSquare.Coordinates[0], currentSquare.Coordinates[1], currentPiece.Image)
 
 		if err != nil {
-			fmt.Println(err, "Couldn't write to page")
+			respondWithAnError(w, http.StatusInternalServerError, "couldn't write to page", err)
 			return
 		}
 		cfg.Matches[currentGame] = match
@@ -312,7 +315,7 @@ func (cfg *appConfig) moveToHandler(w http.ResponseWriter, r *http.Request) {
 	currentSquareName := r.Header.Get("Hx-Trigger")
 	c, err := r.Cookie("current_game")
 	if err != nil {
-		fmt.Println("no game found")
+		respondWithAnError(w, http.StatusNotFound, "no game found", err)
 		return
 	}
 	currentGame := c.Value
@@ -360,13 +363,13 @@ func (cfg *appConfig) moveToHandler(w http.ResponseWriter, r *http.Request) {
 			for playerColor, onlinePlayer := range onlineGame {
 				err := onlinePlayer.Conn.WriteMessage(websocket.TextMessage, []byte(message))
 				if err != nil {
-					fmt.Println("WebSocket write error to", playerColor, ":", err)
+					respondWithAnError(w, http.StatusInternalServerError, fmt.Sprintf("WebSocket write error to: %v", playerColor), err)
 				}
 			}
 		} else {
 			_, err := fmt.Fprint(w, message)
 			if err != nil {
-				fmt.Println(err, "Couldn't write to page")
+				respondWithAnError(w, http.StatusInternalServerError, "couldn't write to page", err)
 				return
 			}
 		}
@@ -386,7 +389,7 @@ func (cfg *appConfig) moveToHandler(w http.ResponseWriter, r *http.Request) {
 		}
 		pawnPromotion, err := cfg.checkForPawnPromotion(saveSelected.Name, currentGame, w, r)
 		if err != nil {
-			fmt.Println(err)
+			respondWithAnError(w, http.StatusInternalServerError, "error checking pawn promotion", err)
 		}
 		if saveSelected.IsPawn && pawnPromotion {
 			return
@@ -402,7 +405,7 @@ func (cfg *appConfig) coverCheckHandler(w http.ResponseWriter, r *http.Request) 
 	currentSquareName := r.Header.Get("Hx-Trigger")
 	c, err := r.Cookie("current_game")
 	if err != nil {
-		fmt.Println("no game found")
+		respondWithAnError(w, http.StatusNotFound, "game not found", err)
 		return
 	}
 	currentGame := c.Value
@@ -467,13 +470,14 @@ func (cfg *appConfig) coverCheckHandler(w http.ResponseWriter, r *http.Request) 
 			for playerColor, onlinePlayer := range onlineGame {
 				err := onlinePlayer.Conn.WriteMessage(websocket.TextMessage, []byte(message))
 				if err != nil {
-					fmt.Println("WebSocket write error to", playerColor, ":", err)
+					respondWithAnError(w, http.StatusInternalServerError, fmt.Sprintf("WebSocket write error to: %v", playerColor), err)
+					return
 				}
 			}
 		} else {
 			_, err := fmt.Fprint(w, message)
 			if err != nil {
-				fmt.Println(err, "Couldn't write to page")
+				respondWithAnError(w, http.StatusInternalServerError, "couldn't write to page", err)
 				return
 			}
 		}
@@ -488,7 +492,8 @@ func (cfg *appConfig) coverCheckHandler(w http.ResponseWriter, r *http.Request) 
 				err := respondWithNewPiece(w, t)
 
 				if err != nil {
-					fmt.Println(err)
+					respondWithAnError(w, http.StatusInternalServerError, "error with new piece", err)
+					return
 				}
 			} else {
 				message := fmt.Sprintf(`
@@ -501,13 +506,13 @@ func (cfg *appConfig) coverCheckHandler(w http.ResponseWriter, r *http.Request) 
 					for playerColor, onlinePlayer := range onlineGame {
 						err := onlinePlayer.Conn.WriteMessage(websocket.TextMessage, []byte(message))
 						if err != nil {
-							fmt.Println("WebSocket write error to", playerColor, ":", err)
+							respondWithAnError(w, http.StatusInternalServerError, fmt.Sprintf("WebSocket write error to: %v", playerColor), err)
 						}
 					}
 				} else {
 					_, err := fmt.Fprint(w, message)
 					if err != nil {
-						fmt.Println(err, "Couldn't write to page")
+						respondWithAnError(w, http.StatusInternalServerError, "Couldn't write to page", err)
 						return
 					}
 				}
@@ -516,7 +521,7 @@ func (cfg *appConfig) coverCheckHandler(w http.ResponseWriter, r *http.Request) 
 
 		pawnPromotion, err := cfg.checkForPawnPromotion(saveSelected.Name, currentGame, w, r)
 		if err != nil {
-			fmt.Println(err)
+			respondWithAnError(w, http.StatusInternalServerError, "check pawn promotion error", err)
 		}
 		if saveSelected.IsPawn && pawnPromotion {
 			return
@@ -524,7 +529,7 @@ func (cfg *appConfig) coverCheckHandler(w http.ResponseWriter, r *http.Request) 
 
 		noCheck, err := handleIfCheck(w, cfg, saveSelected, currentGame)
 		if err != nil {
-			fmt.Println(err)
+			respondWithAnError(w, http.StatusInternalServerError, "handle check error", err)
 		}
 		if noCheck {
 			match.isWhiteUnderCheck = false
@@ -544,7 +549,7 @@ func (cfg *appConfig) timerHandler(w http.ResponseWriter, r *http.Request) {
 
 	c, err := r.Cookie("current_game")
 	if err != nil {
-		fmt.Println("no game found")
+		respondWithAnError(w, http.StatusNotFound, "game not found", err)
 		return
 	} else if strings.Split(c.Value, ":")[0] == "database" {
 		return
@@ -586,18 +591,19 @@ func (cfg *appConfig) timerHandler(w http.ResponseWriter, r *http.Request) {
 				if strings.Contains(err.Error(), "websocket: close sent") {
 					msg, err := TemplString(components.EndGameModal("1-0", "white"))
 					if err != nil {
+						respondWithAnError(w, http.StatusInternalServerError, "error converting component to string", err)
 						return
 					}
 					onlineGame["white"].Conn.WriteMessage(websocket.TextMessage, []byte(msg))
 					break
 				}
-				fmt.Println("WebSocket write error to", playerColor, ":", err)
+				respondWithAnError(w, http.StatusInternalServerError, fmt.Sprintf("WebSocket write error to: %v", playerColor), err)
 			}
 		}
 	} else {
 		_, err := fmt.Fprint(w, message)
 		if err != nil {
-			fmt.Println(err, "Couldn't write to page")
+			respondWithAnError(w, http.StatusInternalServerError, "couldn't write to page", err)
 			return
 		}
 	}
@@ -607,7 +613,7 @@ func (cfg *appConfig) timerHandler(w http.ResponseWriter, r *http.Request) {
 	if match.isWhiteTurn && (match.whiteTimer < 0 || match.whiteTimer == 0) {
 		msg, err := TemplString(components.EndGameModal("0-1", "black"))
 		if err != nil {
-			fmt.Println(err)
+			respondWithAnError(w, http.StatusInternalServerError, "error converting component to string", err)
 			return
 		}
 		if found {
@@ -617,14 +623,14 @@ func (cfg *appConfig) timerHandler(w http.ResponseWriter, r *http.Request) {
 		} else {
 			_, err := fmt.Fprint(w, msg)
 			if err != nil {
-				fmt.Println(err, "Couldn't write to page")
+				respondWithAnError(w, http.StatusInternalServerError, "couldn't write to page", err)
 				return
 			}
 		}
 	} else if !match.isWhiteTurn && (match.blackTimer < 0 || match.blackTimer == 0) {
 		msg, err := TemplString(components.EndGameModal("1-0", "white"))
 		if err != nil {
-			fmt.Println(err)
+			respondWithAnError(w, http.StatusInternalServerError, "error converting component to string", err)
 			return
 		}
 		if found {
@@ -634,7 +640,7 @@ func (cfg *appConfig) timerHandler(w http.ResponseWriter, r *http.Request) {
 		} else {
 			_, err := fmt.Fprint(w, msg)
 			if err != nil {
-				fmt.Println(err, "Couldn't write to page")
+				respondWithAnError(w, http.StatusInternalServerError, "couldn't write to page", err)
 				return
 			}
 		}
@@ -644,7 +650,7 @@ func (cfg *appConfig) timerHandler(w http.ResponseWriter, r *http.Request) {
 func (cfg *appConfig) handlePromotion(w http.ResponseWriter, r *http.Request) {
 	c, err := r.Cookie("current_game")
 	if err != nil {
-		fmt.Println(err)
+		respondWithAnError(w, http.StatusNotFound, "game not found", err)
 		return
 	}
 	currentGame := cfg.Matches[c.Value]
@@ -694,20 +700,22 @@ func (cfg *appConfig) handlePromotion(w http.ResponseWriter, r *http.Request) {
 		for playerColor, onlinePlayer := range onlineGame {
 			err := onlinePlayer.Conn.WriteMessage(websocket.TextMessage, []byte(message))
 			if err != nil {
-				fmt.Println("WebSocket write error to", playerColor, ":", err)
+				respondWithAnError(w, http.StatusInternalServerError, fmt.Sprintf("WebSocket write error to: %v", playerColor), err)
+				return
 			}
 		}
 	} else {
 		_, err := fmt.Fprint(w, message)
 		if err != nil {
-			fmt.Println(err, "Couldn't write to page")
+			respondWithAnError(w, http.StatusInternalServerError, "couldn't write to page", err)
 			return
 		}
 	}
 
 	userId, err := cfg.isUserLoggedIn(r)
 	if err != nil {
-		fmt.Println(err)
+		respondWithAnError(w, http.StatusUnauthorized, "user not authorized", err)
+		return
 	}
 
 	if userId != uuid.Nil {
@@ -719,14 +727,14 @@ func (cfg *appConfig) handlePromotion(w http.ResponseWriter, r *http.Request) {
 		jsonBoard, err := json.Marshal(boardState)
 
 		if err != nil {
-			fmt.Println(err)
+			respondWithAnError(w, http.StatusInternalServerError, "error marshaling board state", err)
 			return
 		}
 
 		moveDB, err := cfg.database.GetLatestMoveForMatch(r.Context(), currentGame.matchId)
 
 		if err != nil {
-			fmt.Println(err)
+			respondWithAnError(w, http.StatusInternalServerError, "database erro", err)
 			return
 		}
 
@@ -736,14 +744,15 @@ func (cfg *appConfig) handlePromotion(w http.ResponseWriter, r *http.Request) {
 			Move:    moveDB.Move,
 		})
 		if err != nil {
-			fmt.Println(err, "Couldn't update board for move")
+			respondWithAnError(w, http.StatusInternalServerError, "Couldn't update board for move", err)
 			return
 		}
 	}
 
 	noCheck, err := handleIfCheck(w, cfg, newPiece, c.Value)
 	if err != nil {
-		fmt.Println(err)
+		respondWithAnError(w, http.StatusInternalServerError, "error with handle check", err)
+		return
 	}
 	if noCheck && (currentGame.isBlackUnderCheck || currentGame.isWhiteUnderCheck) {
 		var kingName string
@@ -776,13 +785,14 @@ func (cfg *appConfig) handlePromotion(w http.ResponseWriter, r *http.Request) {
 			for playerColor, onlinePlayer := range onlineGame {
 				err := onlinePlayer.Conn.WriteMessage(websocket.TextMessage, []byte(message))
 				if err != nil {
-					fmt.Println("WebSocket write error to", playerColor, ":", err)
+					respondWithAnError(w, http.StatusInternalServerError, fmt.Sprintf("WebSocket write error to: %v", playerColor), err)
+					return
 				}
 			}
 		} else {
 			_, err := fmt.Fprint(w, message)
 			if err != nil {
-				fmt.Println(err, "Couldn't write to page")
+				respondWithAnError(w, http.StatusInternalServerError, "couldn't write to page", err)
 				return
 			}
 		}
@@ -795,11 +805,12 @@ func (cfg *appConfig) endGameHandler(w http.ResponseWriter, r *http.Request) {
 	currentGame, err := r.Cookie("current_game")
 	if err != nil {
 		fmt.Println(err)
+		respondWithAnError(w, http.StatusNotFound, "game not found", err)
 		return
 	}
 	err = r.ParseForm()
 	if err != nil {
-		fmt.Println(err)
+		respondWithAnError(w, http.StatusInternalServerError, "error parsing form", err)
 		return
 	}
 	saveGame := cfg.Matches[currentGame.Value]
@@ -809,7 +820,7 @@ func (cfg *appConfig) endGameHandler(w http.ResponseWriter, r *http.Request) {
 		ID:     saveGame.matchId,
 	})
 	if err != nil {
-		fmt.Println(err)
+		respondWithAnError(w, http.StatusInternalServerError, "error updating match", err)
 		return
 	}
 	if match, ok := cfg.connections[currentGame.Value]; ok {
@@ -833,7 +844,7 @@ func (cfg *appConfig) endGameHandler(w http.ResponseWriter, r *http.Request) {
 func (cfg *appConfig) surrenderHandler(w http.ResponseWriter, r *http.Request) {
 	c, err := r.Cookie("current_game")
 	if err != nil {
-		fmt.Println(err)
+		respondWithAnError(w, http.StatusNotFound, "game not found", err)
 		return
 	}
 	uC, err := r.Cookie("access_token")
@@ -842,19 +853,19 @@ func (cfg *appConfig) surrenderHandler(w http.ResponseWriter, r *http.Request) {
 		connection := cfg.connections[c.Value]
 		userId, err := auth.ValidateJWT(uC.Value, cfg.secret)
 		if err != nil {
-			fmt.Println(err)
+			respondWithAnError(w, http.StatusUnauthorized, "user not found", err)
 			return
 		}
 		if connection["white"].ID == userId {
 			msg, err = TemplString(components.EndGameModal("0-1", "black"))
 			if err != nil {
-				fmt.Println(err)
+				respondWithAnError(w, http.StatusInternalServerError, "error converting component to string", err)
 				return
 			}
 		} else if connection["black"].ID == userId {
 			msg, err = TemplString(components.EndGameModal("1-0", "white"))
 			if err != nil {
-				fmt.Println(err)
+				respondWithAnError(w, http.StatusInternalServerError, "error converting component to string", err)
 				return
 			}
 		}

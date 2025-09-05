@@ -46,14 +46,12 @@ func (cfg *appConfig) canPlay(piece components.Piece, currentGame string, online
 		userC, err := r.Cookie("access_token")
 
 		if err != nil {
-			fmt.Println("user not found", err)
 			return false, err
 		}
 
 		userId, err := auth.ValidateJWT(userC.Value, cfg.secret)
 
 		if err != nil {
-			fmt.Println("user not found", err)
 			return false, err
 		}
 
@@ -1097,6 +1095,7 @@ func (cfg *appConfig) checkForPawnPromotion(pawnName, currentGame string, w http
 					err := onlinePlayer.Conn.WriteMessage(websocket.TextMessage, []byte(message))
 					if err != nil {
 						fmt.Println("WebSocket write error to", playerColor, ":", err)
+						return false, err
 					}
 				}
 			}
