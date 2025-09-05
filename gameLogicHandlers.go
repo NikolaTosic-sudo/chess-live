@@ -25,7 +25,10 @@ func (cfg *appConfig) moveHandler(w http.ResponseWriter, r *http.Request) {
 	onlineGame, found := cfg.connections[currentGame]
 	match := cfg.Matches[currentGame]
 	currentPiece := match.pieces[currentPieceName]
-	canPlay := cfg.canPlay(currentPiece, currentGame, onlineGame, r)
+	canPlay, err := cfg.canPlay(currentPiece, currentGame, onlineGame, r)
+	if err != nil {
+		fmt.Println(err)
+	}
 	currentSquareName := currentPiece.Tile
 	currentSquare := match.board[currentSquareName]
 	selectedSquare := match.selectedPiece.Tile
@@ -110,10 +113,15 @@ func (cfg *appConfig) moveHandler(w http.ResponseWriter, r *http.Request) {
 				err := onlinePlayer.Conn.WriteMessage(websocket.TextMessage, []byte(message))
 				if err != nil {
 					fmt.Println("WebSocket write error to", playerColor, ":", err)
+					return
 				}
 			}
 		} else {
-			fmt.Fprint(w, message)
+			_, err := fmt.Fprint(w, message)
+			if err != nil {
+				fmt.Println(err, "Couldn't print to page")
+				return
+			}
 		}
 		match.allMoves = append(match.allMoves, currentSquareName)
 		delete(match.pieces, currentPieceName)
@@ -129,12 +137,19 @@ func (cfg *appConfig) moveHandler(w http.ResponseWriter, r *http.Request) {
 
 		cfg.Matches[currentGame] = match
 		cfg.showMoves(match, currentSquareName, saveSelected.Name, w, r)
+		pawnPromotion, err := cfg.checkForPawnPromotion(saveSelected.Name, currentGame, w, r)
+		if err != nil {
+			fmt.Println(err)
+		}
 
-		if saveSelected.IsPawn && cfg.checkForPawnPromotion(saveSelected.Name, currentGame, w, r) {
+		if saveSelected.IsPawn && pawnPromotion {
 			return
 		}
 
-		noCheck := handleIfCheck(w, cfg, saveSelected, currentGame)
+		noCheck, err := handleIfCheck(w, cfg, saveSelected, currentGame)
+		if err != nil {
+			fmt.Println(err)
+		}
 		if noCheck {
 			var kingName string
 			if match.isWhiteUnderCheck {
@@ -166,14 +181,18 @@ func (cfg *appConfig) moveHandler(w http.ResponseWriter, r *http.Request) {
 					err := onlinePlayer.Conn.WriteMessage(websocket.TextMessage, []byte(message))
 					if err != nil {
 						fmt.Println("WebSocket write error to", playerColor, ":", err)
+						return
 					}
 				}
 			} else {
-				fmt.Fprint(w, message)
+				_, err := fmt.Fprint(w, message)
+				if err != nil {
+					fmt.Println(err, "Couldn't write to page")
+					return
+				}
 			}
 		}
 		cfg.endTurn(w, r, currentGame)
-
 		return
 	}
 
@@ -274,12 +293,16 @@ func (cfg *appConfig) moveHandler(w http.ResponseWriter, r *http.Request) {
 		currentSquare.Selected = true
 		match.selectedPiece = currentPiece
 		match.board[currentSquareName] = currentSquare
-		fmt.Fprintf(w, `
+		_, err := fmt.Fprintf(w, `
 			<span id="%v" hx-post="/move" hx-swap-oob="true" hx-swap="outerHTML" class="tile tile-md hover:cursor-grab absolute transition-all" style="bottom: %vpx; left: %vpx">
 				<img src="/assets/pieces/%v.svg" class="bg-sky-300 " />
 			</span>
 		`, currentPieceName, currentSquare.Coordinates[0], currentSquare.Coordinates[1], currentPiece.Image)
 
+		if err != nil {
+			fmt.Println(err, "Couldn't write to page")
+			return
+		}
 		cfg.Matches[currentGame] = match
 		return
 	}
@@ -341,20 +364,31 @@ func (cfg *appConfig) moveToHandler(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 		} else {
-			fmt.Fprint(w, message)
+			_, err := fmt.Fprint(w, message)
+			if err != nil {
+				fmt.Println(err, "Couldn't write to page")
+				return
+			}
 		}
 		saveSelected := match.selectedPiece
 		match.allMoves = append(match.allMoves, currentSquareName)
 		bigCleanup(currentSquareName, &match)
 		cfg.showMoves(match, currentSquareName, saveSelected.Name, w, r)
 		cfg.Matches[currentGame] = match
-		noCheck := handleIfCheck(w, cfg, saveSelected, currentGame)
+		noCheck, err := handleIfCheck(w, cfg, saveSelected, currentGame)
+		if err != nil {
+			fmt.Println(err)
+		}
 		if noCheck {
 			match.isWhiteUnderCheck = false
 			match.isBlackUnderCheck = false
 			cfg.Matches[currentGame] = match
 		}
-		if saveSelected.IsPawn && cfg.checkForPawnPromotion(saveSelected.Name, currentGame, w, r) {
+		pawnPromotion, err := cfg.checkForPawnPromotion(saveSelected.Name, currentGame, w, r)
+		if err != nil {
+			fmt.Println(err)
+		}
+		if saveSelected.IsPawn && pawnPromotion {
 			return
 		}
 		cfg.endTurn(w, r, currentGame)
@@ -437,7 +471,11 @@ func (cfg *appConfig) coverCheckHandler(w http.ResponseWriter, r *http.Request) 
 				}
 			}
 		} else {
-			fmt.Fprint(w, message)
+			_, err := fmt.Fprint(w, message)
+			if err != nil {
+				fmt.Println(err, "Couldn't write to page")
+				return
+			}
 		}
 		saveSelected := match.selectedPiece
 		match.allMoves = append(match.allMoves, currentSquareName)
@@ -467,16 +505,27 @@ func (cfg *appConfig) coverCheckHandler(w http.ResponseWriter, r *http.Request) 
 						}
 					}
 				} else {
-					fmt.Fprint(w, message)
+					_, err := fmt.Fprint(w, message)
+					if err != nil {
+						fmt.Println(err, "Couldn't write to page")
+						return
+					}
 				}
 			}
 		}
 
-		if saveSelected.IsPawn && cfg.checkForPawnPromotion(saveSelected.Name, currentGame, w, r) {
+		pawnPromotion, err := cfg.checkForPawnPromotion(saveSelected.Name, currentGame, w, r)
+		if err != nil {
+			fmt.Println(err)
+		}
+		if saveSelected.IsPawn && pawnPromotion {
 			return
 		}
 
-		noCheck := handleIfCheck(w, cfg, saveSelected, currentGame)
+		noCheck, err := handleIfCheck(w, cfg, saveSelected, currentGame)
+		if err != nil {
+			fmt.Println(err)
+		}
 		if noCheck {
 			match.isWhiteUnderCheck = false
 			match.isBlackUnderCheck = false
@@ -546,7 +595,11 @@ func (cfg *appConfig) timerHandler(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	} else {
-		fmt.Fprint(w, message)
+		_, err := fmt.Fprint(w, message)
+		if err != nil {
+			fmt.Println(err, "Couldn't write to page")
+			return
+		}
 	}
 
 	cfg.Matches[currentGame] = match
@@ -562,7 +615,11 @@ func (cfg *appConfig) timerHandler(w http.ResponseWriter, r *http.Request) {
 			onlineGame["black"].Conn.WriteMessage(websocket.TextMessage, []byte(msg))
 			return
 		} else {
-			fmt.Fprint(w, msg)
+			_, err := fmt.Fprint(w, msg)
+			if err != nil {
+				fmt.Println(err, "Couldn't write to page")
+				return
+			}
 		}
 	} else if !match.isWhiteTurn && (match.blackTimer < 0 || match.blackTimer == 0) {
 		msg, err := TemplString(components.EndGameModal("1-0", "white"))
@@ -575,7 +632,11 @@ func (cfg *appConfig) timerHandler(w http.ResponseWriter, r *http.Request) {
 			onlineGame["black"].Conn.WriteMessage(websocket.TextMessage, []byte(msg))
 			return
 		} else {
-			fmt.Fprint(w, msg)
+			_, err := fmt.Fprint(w, msg)
+			if err != nil {
+				fmt.Println(err, "Couldn't write to page")
+				return
+			}
 		}
 	}
 }
@@ -637,10 +698,17 @@ func (cfg *appConfig) handlePromotion(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	} else {
-		fmt.Fprint(w, message)
+		_, err := fmt.Fprint(w, message)
+		if err != nil {
+			fmt.Println(err, "Couldn't write to page")
+			return
+		}
 	}
 
-	userId := cfg.isUserLoggedIn(r)
+	userId, err := cfg.isUserLoggedIn(r)
+	if err != nil {
+		fmt.Println(err)
+	}
 
 	if userId != uuid.Nil {
 		boardState := make(map[string]string, 0)
@@ -667,9 +735,16 @@ func (cfg *appConfig) handlePromotion(w http.ResponseWriter, r *http.Request) {
 			MatchID: moveDB.MatchID,
 			Move:    moveDB.Move,
 		})
+		if err != nil {
+			fmt.Println(err, "Couldn't update board for move")
+			return
+		}
 	}
 
-	noCheck := handleIfCheck(w, cfg, newPiece, c.Value)
+	noCheck, err := handleIfCheck(w, cfg, newPiece, c.Value)
+	if err != nil {
+		fmt.Println(err)
+	}
 	if noCheck && (currentGame.isBlackUnderCheck || currentGame.isWhiteUnderCheck) {
 		var kingName string
 		if currentGame.isWhiteUnderCheck {
@@ -705,7 +780,11 @@ func (cfg *appConfig) handlePromotion(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 		} else {
-			fmt.Fprint(w, message)
+			_, err := fmt.Fprint(w, message)
+			if err != nil {
+				fmt.Println(err, "Couldn't write to page")
+				return
+			}
 		}
 	}
 

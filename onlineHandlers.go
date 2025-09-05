@@ -27,6 +27,10 @@ func (cfg *appConfig) wsHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	userId, err := auth.ValidateJWT(userC.Value, cfg.secret)
+	if err != nil {
+		log.Println("No user:", err)
+		return
+	}
 	game := cfg.connections[c.Value]
 	for color, player := range game {
 		if player.ID == userId {
@@ -38,6 +42,7 @@ func (cfg *appConfig) wsHandler(w http.ResponseWriter, r *http.Request) {
 		for {
 			_, msg, err := conn.ReadMessage()
 			if e, ok := err.(*websocket.CloseError); ok && e.Code == websocket.CloseNormalClosure {
+				log.Println("close error", err)
 				break
 			}
 			if err != nil {
@@ -88,5 +93,9 @@ func (cfg *appConfig) searchingOppHandler(w http.ResponseWriter, r *http.Request
 	UpdateCoordinates(&match)
 	http.SetCookie(w, &startGame)
 
-	layout.MainPageOnline(match.board, match.pieces, match.coordinateMultiplier, whitePlayer, blackPlayer, match.takenPiecesWhite, match.takenPiecesBlack, true).Render(r.Context(), w)
+	err = layout.MainPageOnline(match.board, match.pieces, match.coordinateMultiplier, whitePlayer, blackPlayer, match.takenPiecesWhite, match.takenPiecesBlack, true).Render(r.Context(), w)
+	if err != nil {
+		log.Println("couldn't render template", err)
+		return
+	}
 }

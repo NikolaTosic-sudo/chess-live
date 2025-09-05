@@ -252,7 +252,10 @@ func (cfg *appConfig) onlineBoardHandler(w http.ResponseWriter, r *http.Request)
 					UpdateCoordinates(&match)
 					http.SetCookie(w, &startGame)
 
-					layout.MainPageOnline(match.board, match.pieces, match.coordinateMultiplier, whitePlayer, player, match.takenPiecesWhite, match.takenPiecesBlack, false).Render(r.Context(), w)
+					err = layout.MainPageOnline(match.board, match.pieces, match.coordinateMultiplier, whitePlayer, player, match.takenPiecesWhite, match.takenPiecesBlack, false).Render(r.Context(), w)
+					if err != nil {
+						respondWithAnErrorPage(w, r, http.StatusInternalServerError, "Couldn't render template")
+					}
 					return
 				}
 			}
@@ -261,6 +264,10 @@ func (cfg *appConfig) onlineBoardHandler(w http.ResponseWriter, r *http.Request)
 	var currentGame string
 
 	randomString, err := auth.MakeRefreshToken()
+	if err != nil {
+		fmt.Println(err, "Coudln't make refresh Token")
+		return
+	}
 	currentGame = fmt.Sprintf("online:%v", randomString)
 
 	startGame := http.Cookie{
@@ -285,11 +292,11 @@ func (cfg *appConfig) onlineBoardHandler(w http.ResponseWriter, r *http.Request)
 		"black": {},
 	}
 
-	components.WaitingModal().Render(r.Context(), w)
-}
-
-type MultiplerBody struct {
-	Multiplier int `json:"multiplier"`
+	err = components.WaitingModal().Render(r.Context(), w)
+	if err != nil {
+		respondWithAnErrorPage(w, r, http.StatusInternalServerError, "Couldn't render template")
+		return
+	}
 }
 
 func (cfg *appConfig) updateMultiplerHandler(w http.ResponseWriter, r *http.Request) {
@@ -335,19 +342,26 @@ func (cfg *appConfig) updateMultiplerHandler(w http.ResponseWriter, r *http.Requ
 	for k, piece := range match.pieces {
 		tile := match.board[piece.Tile]
 
-		fmt.Fprintf(w, `
+		_, err := fmt.Fprintf(w, `
 			<span id="%v" hx-post="/move" hx-swap-oob="true" hx-swap="outerHTML" class="tile-md tile hover:cursor-grab absolute transition-all" style="bottom: %vpx; left: %vpx">
 				<img src="/assets/pieces/%v.svg" />
 			</span>
 		`,
 			k, tile.Coordinates[0], tile.Coordinates[1], piece.Image)
+		if err != nil {
+			fmt.Println(err, "couldn't send to page")
+			return
+		}
 	}
 }
 
 func (cfg *appConfig) startGameHandler(w http.ResponseWriter, r *http.Request) {
 
-	user := cfg.isUserLoggedIn(r)
-	err := r.ParseForm()
+	user, err := cfg.isUserLoggedIn(r)
+	if err != nil {
+		fmt.Println(err)
+	}
+	err = r.ParseForm()
 	if err != nil {
 		fmt.Println(err)
 	}
@@ -477,7 +491,11 @@ func (cfg *appConfig) resumeGameHandler(w http.ResponseWriter, r *http.Request) 
 	cfg.fillBoard(c.Value)
 	UpdateCoordinates(&match)
 
-	components.StartGameRight().Render(r.Context(), w)
+	err = components.StartGameRight().Render(r.Context(), w)
+	if err != nil {
+		fmt.Println(err, "Couldn't render template")
+		return
+	}
 }
 
 func (cfg *appConfig) getAllMovesHandler(w http.ResponseWriter, r *http.Request) {
@@ -531,14 +549,18 @@ func (cfg *appConfig) getAllMovesHandler(w http.ResponseWriter, r *http.Request)
 				}
 			}
 		} else {
-			fmt.Fprint(w, message)
+			_, err := fmt.Fprint(w, message)
+			if err != nil {
+				fmt.Println(err, "couldn't send to page")
+				return
+			}
 		}
 	}
 }
 
 func (cfg *appConfig) timeOptionHandler(w http.ResponseWriter, r *http.Request) {
 
-	fmt.Fprintf(w, `
+	_, err := fmt.Fprintf(w, `
 		<div class="absolute right-0 mt-2 w-48 bg-[#1e1c1a] border border-[#3a3733] text-white rounded-md shadow-lg z-50">
 			<div hx-post="/set-time" hx-vals='{"time": "15"}' hx-target="#timer" class="block px-4 py-2 hover:bg-emerald-600 hover:text-white transition cursor-pointer">15 Minutes</div>
 			<div hx-post="/set-time" hx-vals='{"time": "15", "addition": "3"}' hx-target="#timer" class="block px-4 py-2 hover:bg-emerald-600 hover:text-white transition cursor-pointer">15 + 3</div>
@@ -548,6 +570,10 @@ func (cfg *appConfig) timeOptionHandler(w http.ResponseWriter, r *http.Request) 
 			<div hx-post="/set-time" hx-vals='{"time": "3", "addition": "1"}' hx-target="#timer" class="block px-4 py-2 hover:bg-emerald-600 hover:text-white transition cursor-pointer">3 + 1</div>
 		</div>
 	`)
+	if err != nil {
+		fmt.Println(err, "Couldn't send to page")
+		return
+	}
 }
 
 func (cfg *appConfig) setTimeOption(w http.ResponseWriter, r *http.Request) {
@@ -585,7 +611,7 @@ func (cfg *appConfig) setTimeOption(w http.ResponseWriter, r *http.Request) {
 
 	duration := fmt.Sprintf("%v+%v", t*60, a)
 
-	fmt.Fprintf(w, `
+	_, err = fmt.Fprintf(w, `
 		<div id="dropdown-menu" hx-swap-oob="true" class="relative mb-8"></div>
 
 		<div id="white" hx-swap-oob="true" class="px-7 py-3 bg-gray-500">%v</div>
@@ -596,6 +622,10 @@ func (cfg *appConfig) setTimeOption(w http.ResponseWriter, r *http.Request) {
 
 		%v Min %v
 	`, formatTime(t*60), formatTime(t*60), duration, time, seconds)
+	if err != nil {
+		fmt.Println(err, "couldn't send to page")
+		return
+	}
 }
 
 func (cfg *appConfig) matchHistoryHandler(w http.ResponseWriter, r *http.Request) {
@@ -628,7 +658,6 @@ func (cfg *appConfig) matchHistoryHandler(w http.ResponseWriter, r *http.Request
 			fmt.Println(err)
 			return
 		}
-		fmt.Println(dbMatches[i].CreatedAt, "time")
 		newMatch := components.MatchStruct{
 			White:   dbMatches[i].White,
 			Black:   dbMatches[i].Black,
@@ -643,7 +672,11 @@ func (cfg *appConfig) matchHistoryHandler(w http.ResponseWriter, r *http.Request
 		matches = append(matches, newMatch)
 	}
 
-	components.MatchHistory(matches).Render(r.Context(), w)
+	err = components.MatchHistory(matches).Render(r.Context(), w)
+	if err != nil {
+		fmt.Println(err, "couldn't render template")
+		return
+	}
 }
 
 func (cfg *appConfig) playHandler(w http.ResponseWriter, r *http.Request) {
@@ -851,7 +884,11 @@ func (cfg *appConfig) matchesHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	layout.MatchHistoryBoard(cur.board, cur.pieces, cur.coordinateMultiplier, whitePlayer, blackPlayer, cur.takenPiecesWhite, cur.takenPiecesBlack, moves).Render(r.Context(), w)
+	err = layout.MatchHistoryBoard(cur.board, cur.pieces, cur.coordinateMultiplier, whitePlayer, blackPlayer, cur.takenPiecesWhite, cur.takenPiecesBlack, moves).Render(r.Context(), w)
+	if err != nil {
+		fmt.Println(err, "couldn't render template")
+		return
+	}
 }
 
 func (cfg *appConfig) moveHistoryHandler(w http.ResponseWriter, r *http.Request) {
@@ -900,5 +937,9 @@ func (cfg *appConfig) moveHistoryHandler(w http.ResponseWriter, r *http.Request)
 
 	curr := cfg.Matches[c.Value]
 
-	components.UpdateBoardHistory(curr.board, pieces, curr.coordinateMultiplier, formatTime(int(board.WhiteTime)), formatTime(int(board.BlackTime))).Render(r.Context(), w)
+	err = components.UpdateBoardHistory(curr.board, pieces, curr.coordinateMultiplier, formatTime(int(board.WhiteTime)), formatTime(int(board.BlackTime))).Render(r.Context(), w)
+	if err != nil {
+		fmt.Println(err, "couldn't render template")
+		return
+	}
 }

@@ -60,11 +60,15 @@ func (cfg *appConfig) signupHandler(w http.ResponseWriter, r *http.Request) {
 
 	if err != nil {
 		if strings.Contains(err.Error(), "violates unique constraint") {
-			fmt.Fprintf(w, `
+			_, err = fmt.Fprintf(w, `
 				<div id="incorrect-password" hx-swap-oob="innerHTML">
 					<p class="text-red-400 text-center">User with that email already exists</p>
 				</div>
 			`)
+			if err != nil {
+				fmt.Println(err, "couldn't send to page")
+				return
+			}
 		}
 		fmt.Println(err)
 		return
@@ -161,11 +165,15 @@ func (cfg *appConfig) loginHandler(w http.ResponseWriter, r *http.Request) {
 
 	if err != nil {
 		if strings.Contains(err.Error(), "no rows in result") {
-			fmt.Fprintf(w, `
+			_, err := fmt.Fprintf(w, `
 				<div id="incorrect-password" hx-swap-oob="innerHTML">
 					<p class="text-red-400 text-center">User with the email doesn't exist</p>
 				</div>
 			`)
+			if err != nil {
+				fmt.Println(err, "couldn't send to page")
+				return
+			}
 		}
 		fmt.Println(err)
 		return
@@ -175,11 +183,15 @@ func (cfg *appConfig) loginHandler(w http.ResponseWriter, r *http.Request) {
 
 	if err != nil {
 		if strings.Contains(err.Error(), "hashedPassword is not the hash of the given password") {
-			fmt.Fprintf(w, `
+			_, err := fmt.Fprintf(w, `
 				<div id="incorrect-password" hx-swap-oob="innerHTML">
 					<p class="text-red-400 text-center">Incorrect password</p>
 				</div>
 			`)
+			if err != nil {
+				fmt.Println(err, "couldn't send to page")
+				return
+			}
 		}
 		fmt.Println(err)
 		return

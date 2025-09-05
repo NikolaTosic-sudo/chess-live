@@ -40,50 +40,50 @@ var rowIdxMap = map[string]int{
 	"1": 7,
 }
 
-func (cfg *appConfig) canPlay(piece components.Piece, currentGame string, onlineGame map[string]components.OnlinePlayerStruct, r *http.Request) bool {
+func (cfg *appConfig) canPlay(piece components.Piece, currentGame string, onlineGame map[string]components.OnlinePlayerStruct, r *http.Request) (bool, error) {
 	match := cfg.Matches[currentGame]
 	if onlineGame != nil {
 		userC, err := r.Cookie("access_token")
 
 		if err != nil {
 			fmt.Println("user not found", err)
-			return false
+			return false, err
 		}
 
 		userId, err := auth.ValidateJWT(userC.Value, cfg.secret)
 
 		if err != nil {
 			fmt.Println("user not found", err)
-			return false
+			return false, err
 		}
 
 		if piece.IsWhite && match.isWhiteTurn && onlineGame["white"].ID == userId {
-			return true
+			return true, nil
 		} else if match.selectedPiece.IsWhite && piece.IsWhite && match.isWhiteTurn && onlineGame["white"].ID == userId {
-			return true
+			return true, nil
 		} else if !piece.IsWhite && !match.isWhiteTurn && onlineGame["black"].ID == userId {
-			return true
+			return true, nil
 		} else if !match.selectedPiece.IsWhite && !piece.IsWhite && !match.isWhiteTurn && onlineGame["black"].ID == userId {
-			return true
+			return true, nil
 		}
 
-		return false
+		return false, nil
 	}
 	if match.isWhiteTurn {
 		if piece.IsWhite {
-			return true
+			return true, nil
 		} else if match.selectedPiece.IsWhite && piece.IsWhite {
-			return true
+			return true, nil
 		}
 	} else {
 		if !piece.IsWhite {
-			return true
+			return true, nil
 		} else if !match.selectedPiece.IsWhite && !piece.IsWhite {
-			return true
+			return true, nil
 		}
 	}
 
-	return false
+	return false, nil
 }
 
 func canEat(selectedPiece, currentPiece components.Piece) bool {
@@ -357,15 +357,15 @@ func (cfg *appConfig) handleCastle(w http.ResponseWriter, currentPiece component
 			err := onlinePlayer.Conn.WriteMessage(websocket.TextMessage, []byte(message))
 			if err != nil {
 				fmt.Println("WebSocket write error to", playerColor, ":", err)
+				return err
 			}
 		}
 	} else {
-		fmt.Fprint(w, message)
+		_, err := fmt.Fprint(w, message)
+		if err != nil {
+			return err
+		}
 	}
-
-	// if err != nil {
-	// 	return err
-	// }
 
 	rowIdx := rowIdxMap[string(king.Tile[0])]
 	king.Tile = mockBoard[rowIdx][kingSquare.Coordinates[1]/match.coordinateMultiplier]
@@ -647,7 +647,6 @@ func (cfg *appConfig) gameDone(currentGame string, w http.ResponseWriter, r *htt
 					}
 				}
 			}
-			fmt.Println("checkmate")
 			components.EndGameModal("0-1", "black").Render(r.Context(), w)
 		} else if !match.isWhiteTurn && match.isBlackUnderCheck {
 			for _, piece := range match.pieces {
@@ -666,7 +665,6 @@ func (cfg *appConfig) gameDone(currentGame string, w http.ResponseWriter, r *htt
 					}
 				}
 			}
-			fmt.Println("checkmate")
 			components.EndGameModal("1-0", "white").Render(r.Context(), w)
 		} else if match.isWhiteTurn {
 			for _, piece := range match.pieces {
@@ -683,7 +681,6 @@ func (cfg *appConfig) gameDone(currentGame string, w http.ResponseWriter, r *htt
 					}
 				}
 			}
-			fmt.Println("stalemate")
 			components.EndGameModal("1-1", "").Render(r.Context(), w)
 		} else if !match.isWhiteTurn {
 			for _, piece := range match.pieces {
@@ -700,11 +697,9 @@ func (cfg *appConfig) gameDone(currentGame string, w http.ResponseWriter, r *htt
 					}
 				}
 			}
-			fmt.Println("stalemate")
 			components.EndGameModal("1-1", "").Render(r.Context(), w)
 		}
 	} else {
-		fmt.Println("you are good")
 		return
 	}
 }
@@ -717,7 +712,7 @@ func setUserCheck(king components.Piece, currentMatch *Match) {
 	}
 }
 
-func handleIfCheck(w http.ResponseWriter, cfg *appConfig, selected components.Piece, currentGame string) bool {
+func handleIfCheck(w http.ResponseWriter, cfg *appConfig, selected components.Piece, currentGame string) (bool, error) {
 	match := cfg.Matches[currentGame]
 	check, king, tilesUnderAttack := cfg.handleCheckForCheck("", currentGame, selected)
 	kingSquare := match.board[king.Tile]
@@ -725,7 +720,7 @@ func handleIfCheck(w http.ResponseWriter, cfg *appConfig, selected components.Pi
 		setUserCheck(king, &match)
 		err := cfg.respondWithCheck(w, kingSquare, king, currentGame)
 		if err != nil {
-			fmt.Println(err)
+			return false, err
 		}
 		match.tilesUnderAttack = tilesUnderAttack
 		cfg.Matches[currentGame] = match
@@ -736,18 +731,18 @@ func handleIfCheck(w http.ResponseWriter, cfg *appConfig, selected components.Pi
 				err := respondWithNewPiece(w, t)
 
 				if err != nil {
-					fmt.Println(err)
+					return false, err
 				}
 			} else {
 				err := cfg.respondWithCoverCheck(w, tile, t, currentGame)
 				if err != nil {
-					fmt.Println(err)
+					return false, err
 				}
 			}
 		}
-		return false
+		return false, nil
 	}
-	return true
+	return true, nil
 }
 
 func bigCleanup(currentSquareName string, match *Match) {
@@ -839,25 +834,24 @@ func (cfg *appConfig) refreshToken(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-func (cfg *appConfig) checkUser(w http.ResponseWriter, r *http.Request) {
+func (cfg *appConfig) checkUser(w http.ResponseWriter, r *http.Request) error {
 	c, err := r.Cookie("access_token")
 
 	if err != nil {
-		fmt.Println(err)
+		return err
 	} else if c.Value != "" {
 		userId, err := auth.ValidateJWT(c.Value, cfg.secret)
 
 		if err != nil {
 			if strings.Contains(err.Error(), "token is expired") {
-				return
+				return err
 			}
-			fmt.Println(err)
+			return err
 		} else if userId != uuid.Nil {
 			_, err := cfg.database.GetUserById(r.Context(), userId)
 
 			if err != nil {
-				fmt.Println(err)
-				return
+				return err
 			}
 
 			_, ok := cfg.users[userId]
@@ -867,13 +861,13 @@ func (cfg *appConfig) checkUser(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
+	return nil
 }
 
-func (cfg *appConfig) checkUserPrivate(w http.ResponseWriter, r *http.Request) {
+func (cfg *appConfig) checkUserPrivate(w http.ResponseWriter, r *http.Request) error {
 	c, err := r.Cookie("access_token")
 	if err != nil {
-		fmt.Println(err)
-		http.Redirect(w, r, "/", http.StatusFound)
+		return err
 	} else if c.Value != "" {
 		userId, err := auth.ValidateJWT(c.Value, cfg.secret)
 
@@ -883,9 +877,7 @@ func (cfg *appConfig) checkUserPrivate(w http.ResponseWriter, r *http.Request) {
 		} else if userId != uuid.Nil {
 			_, err := cfg.database.GetUserById(r.Context(), userId)
 			if err != nil {
-				fmt.Println(err)
-				http.Redirect(w, r, "/", http.StatusFound)
-				return
+				return err
 			}
 			_, ok := cfg.users[userId]
 			if !ok {
@@ -894,60 +886,62 @@ func (cfg *appConfig) checkUserPrivate(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
+	return nil
 }
 
 func (cfg *appConfig) middleWareCheckForUser(next func(http.ResponseWriter, *http.Request)) func(http.ResponseWriter, *http.Request) {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		cfg.checkUser(w, r)
+		err := cfg.checkUser(w, r)
+		if err != nil {
+			fmt.Println(err)
+		}
 		next(w, r)
 	})
 }
 
 func (cfg *appConfig) middleWareCheckForUserPrivate(next func(http.ResponseWriter, *http.Request)) func(http.ResponseWriter, *http.Request) {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		cfg.checkUserPrivate(w, r)
+		err := cfg.checkUserPrivate(w, r)
+		if err != nil {
+			http.Redirect(w, r, "/", http.StatusFound)
+		}
 		next(w, r)
 	})
 }
 
-func (cfg *appConfig) isUserLoggedIn(r *http.Request) uuid.UUID {
+func (cfg *appConfig) isUserLoggedIn(r *http.Request) (uuid.UUID, error) {
 	c, err := r.Cookie("access_token")
 
 	if err != nil {
-		fmt.Println("couldn't find the token")
-		return uuid.Nil
+		return uuid.Nil, err
 	}
 
 	userId, err := auth.ValidateJWT(c.Value, cfg.secret)
 
 	if err != nil {
-		fmt.Println("invalid token")
-		return uuid.Nil
+		return uuid.Nil, err
 	}
 
 	_, err = cfg.database.GetUserById(r.Context(), userId)
 	if err != nil {
-		fmt.Println(err)
-		return uuid.Nil
+		return uuid.Nil, err
 	}
 	_, ok := cfg.users[userId]
 	if !ok {
-		fmt.Println("no user found")
-		return uuid.Nil
+		return uuid.Nil, err
 	}
 
-	return userId
+	return userId, nil
 }
 
-func (cfg *appConfig) showMoves(match Match, squareName, pieceName string, w http.ResponseWriter, r *http.Request) {
+func (cfg *appConfig) showMoves(match Match, squareName, pieceName string, w http.ResponseWriter, r *http.Request) error {
 	c, err := r.Cookie("current_game")
 	if err != nil {
-		fmt.Println(err)
-		return
+		return err
 	}
 	if c.Value != "" {
 		if strings.Split(c.Value, ":")[0] == "database" {
-			return
+			return err
 		}
 	}
 	onlineGame, found := cfg.connections[c.Value]
@@ -959,11 +953,13 @@ func (cfg *appConfig) showMoves(match Match, squareName, pieceName string, w htt
 	jsonBoard, err := json.Marshal(boardState)
 
 	if err != nil {
-		fmt.Println(err)
-		return
+		return err
 	}
 
-	userId := cfg.isUserLoggedIn(r)
+	userId, err := cfg.isUserLoggedIn(r)
+	if err != nil {
+		return err
+	}
 
 	if userId != uuid.Nil {
 		err = cfg.database.CreateMove(r.Context(), database.CreateMoveParams{
@@ -975,8 +971,7 @@ func (cfg *appConfig) showMoves(match Match, squareName, pieceName string, w htt
 		})
 
 		if err != nil {
-			fmt.Println(err)
-			return
+			return err
 		}
 	}
 
@@ -1005,11 +1000,14 @@ func (cfg *appConfig) showMoves(match Match, squareName, pieceName string, w htt
 			err := onlinePlayer.Conn.WriteMessage(websocket.TextMessage, []byte(message))
 			if err != nil {
 				fmt.Println("WebSocket write error to", playerColor, ":", err)
+				return err
 			}
 		}
 	} else {
-		fmt.Fprint(w, message)
+		_, err := fmt.Fprint(w, message)
+		return err
 	}
+	return nil
 }
 
 func (cfg *appConfig) cleanFillBoard(gameName string, pieces map[string]components.Piece) {
@@ -1027,7 +1025,7 @@ func (cfg *appConfig) cleanFillBoard(gameName string, pieces map[string]componen
 	cfg.Matches[gameName] = match
 }
 
-func (cfg *appConfig) checkForPawnPromotion(pawnName, currentGame string, w http.ResponseWriter, r *http.Request) bool {
+func (cfg *appConfig) checkForPawnPromotion(pawnName, currentGame string, w http.ResponseWriter, r *http.Request) (bool, error) {
 	var isOnLastTile bool
 	match := cfg.Matches[currentGame]
 	onlineGame, found := cfg.connections[currentGame]
@@ -1088,13 +1086,11 @@ func (cfg *appConfig) checkForPawnPromotion(pawnName, currentGame string, w http
 		if found {
 			uC, err := r.Cookie("access_token")
 			if err != nil {
-				fmt.Println(err)
-				return false
+				return false, err
 			}
 			userId, err := auth.ValidateJWT(uC.Value, cfg.secret)
 			if err != nil {
-				fmt.Println(err)
-				return false
+				return false, err
 			}
 			for playerColor, onlinePlayer := range onlineGame {
 				if onlinePlayer.ID == userId {
@@ -1105,10 +1101,13 @@ func (cfg *appConfig) checkForPawnPromotion(pawnName, currentGame string, w http
 				}
 			}
 		} else {
-			fmt.Fprint(w, message)
+			_, err := fmt.Fprint(w, message)
+			if err != nil {
+				return false, err
+			}
 		}
 	}
-	return isOnLastTile
+	return isOnLastTile, nil
 }
 
 func TemplString(t templ.Component) (string, error) {
@@ -1119,16 +1118,14 @@ func TemplString(t templ.Component) (string, error) {
 	return b.String(), nil
 }
 
-func (cfg *appConfig) endGameCleaner(w http.ResponseWriter, r *http.Request, currentGame string) {
+func (cfg *appConfig) endGameCleaner(w http.ResponseWriter, r *http.Request, currentGame string) error {
 	uC, err := r.Cookie("access_token")
 	if err != nil {
-		fmt.Println(err)
-		return
+		return err
 	}
 	userId, err := auth.ValidateJWT(uC.Value, cfg.secret)
 	if err != nil {
-		fmt.Println(err)
-		return
+		return err
 	}
 	var result string
 	conn := cfg.connections[currentGame]
@@ -1146,8 +1143,7 @@ func (cfg *appConfig) endGameCleaner(w http.ResponseWriter, r *http.Request, cur
 		ID:     saveGame.matchId,
 	})
 	if err != nil {
-		fmt.Println(err)
-		return
+		return err
 	}
 	cGC := http.Cookie{
 		Name:     "current_game",
@@ -1159,4 +1155,5 @@ func (cfg *appConfig) endGameCleaner(w http.ResponseWriter, r *http.Request, cur
 		SameSite: http.SameSiteLaxMode,
 	}
 	http.SetCookie(w, &cGC)
+	return nil
 }

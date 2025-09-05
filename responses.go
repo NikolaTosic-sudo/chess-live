@@ -60,15 +60,16 @@ func (cfg *appConfig) respondWithCheck(w http.ResponseWriter, square components.
 			err := onlinePlayer.Conn.WriteMessage(websocket.TextMessage, []byte(message))
 			if err != nil {
 				fmt.Println("WebSocket write error to", playerColor, ":", err)
+				return err
 			}
 		}
 	} else {
-		fmt.Fprint(w, message)
-	}
+		_, err := fmt.Fprint(w, message)
+		if err != nil {
+			return err
+		}
 
-	// if err != nil {
-	// 	return err
-	// }
+	}
 
 	return nil
 }
@@ -90,12 +91,11 @@ func (cfg *appConfig) respondWithCoverCheck(w http.ResponseWriter, tile string, 
 			}
 		}
 	} else {
-		fmt.Fprint(w, message)
+		_, err := fmt.Fprint(w, message)
+		if err != nil {
+			return err
+		}
 	}
-
-	// if err != nil {
-	// 	return err
-	// }
 
 	return nil
 }
