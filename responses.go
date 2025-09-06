@@ -26,6 +26,11 @@ func respondWithAnErrorPage(w http.ResponseWriter, r *http.Request, code int, me
 	}
 }
 
+func logError(message string, err error) {
+	log.SetFlags(log.Lshortfile)
+	log.Printf("%v:%v\n", message, err)
+}
+
 func respondWithNewPiece(w http.ResponseWriter, square components.Square) error {
 	_, err := fmt.Fprintf(w, `
 					<span id="%v" hx-post="/move" hx-swap-oob="true" hx-swap="outerHTML" class="tile tile-md hover:cursor-grab absolute transition-all" style="bottom: %vpx; left: %vpx">
