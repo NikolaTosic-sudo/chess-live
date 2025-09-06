@@ -27,7 +27,7 @@ func (cfg *appConfig) moveHandler(w http.ResponseWriter, r *http.Request) {
 	currentPiece := match.pieces[currentPieceName]
 	canPlay, err := cfg.canPlay(currentPiece, currentGame, onlineGame, r)
 	if err != nil {
-		respondWithAnError(w, http.StatusUnauthorized, "user not found", err)
+		respondWithAnErrorPage(w, r, http.StatusUnauthorized, "user not found")
 		return
 	}
 	currentSquareName := currentPiece.Tile
@@ -41,14 +41,14 @@ func (cfg *appConfig) moveHandler(w http.ResponseWriter, r *http.Request) {
 			userC, err := r.Cookie("access_token")
 
 			if err != nil {
-				respondWithAnError(w, http.StatusUnauthorized, "user not found", err)
+				respondWithAnErrorPage(w, r, http.StatusUnauthorized, "user not found")
 				return
 			}
 
 			userId, err := auth.ValidateJWT(userC.Value, cfg.secret)
 
 			if err != nil {
-				respondWithAnError(w, http.StatusUnauthorized, "user not found", err)
+				respondWithAnErrorPage(w, r, http.StatusUnauthorized, "user not found")
 				return
 			}
 
@@ -380,7 +380,7 @@ func (cfg *appConfig) moveToHandler(w http.ResponseWriter, r *http.Request) {
 		cfg.Matches[currentGame] = match
 		noCheck, err := handleIfCheck(w, cfg, saveSelected, currentGame)
 		if err != nil {
-			fmt.Println(err)
+			respondWithAnError(w, http.StatusInternalServerError, "couldn't write to page", err)
 		}
 		if noCheck {
 			match.isWhiteUnderCheck = false
@@ -551,7 +551,7 @@ func (cfg *appConfig) timerHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		respondWithAnError(w, http.StatusNotFound, "game not found", err)
 		return
-	} else if strings.Split(c.Value, ":")[0] == "database" {
+	} else if strings.Contains(c.Value, "database:") {
 		return
 	}
 	currentGame := c.Value
@@ -714,8 +714,7 @@ func (cfg *appConfig) handlePromotion(w http.ResponseWriter, r *http.Request) {
 
 	userId, err := cfg.isUserLoggedIn(r)
 	if err != nil {
-		respondWithAnError(w, http.StatusUnauthorized, "user not authorized", err)
-		return
+		logError("user not authorized", err)
 	}
 
 	if userId != uuid.Nil {
@@ -804,7 +803,6 @@ func (cfg *appConfig) handlePromotion(w http.ResponseWriter, r *http.Request) {
 func (cfg *appConfig) endGameHandler(w http.ResponseWriter, r *http.Request) {
 	currentGame, err := r.Cookie("current_game")
 	if err != nil {
-		fmt.Println(err)
 		respondWithAnError(w, http.StatusNotFound, "game not found", err)
 		return
 	}

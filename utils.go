@@ -783,19 +783,18 @@ func (cfg *appConfig) refreshToken(w http.ResponseWriter, r *http.Request) {
 	c, err := r.Cookie("refresh_token")
 
 	if err != nil {
-		fmt.Println(err)
+		respondWithAnError(w, http.StatusNotFound, "refresh token not found", err)
 		return
 	}
 
 	dbToken, err := cfg.database.SearchForToken(r.Context(), c.Value)
 
 	if err != nil {
-		fmt.Println(err)
+		respondWithAnError(w, http.StatusNotFound, "refresh token not found", err)
 		return
 	}
 
 	if dbToken.ExpiresAt.Before(time.Now()) {
-		fmt.Println("token expired")
 		delete(cfg.users, dbToken.UserID)
 		http.Redirect(w, r, "/", http.StatusUnauthorized)
 		return
@@ -804,7 +803,7 @@ func (cfg *appConfig) refreshToken(w http.ResponseWriter, r *http.Request) {
 	user, err := cfg.database.GetUserById(r.Context(), dbToken.UserID)
 
 	if err != nil {
-		fmt.Println("no user with that id")
+		logError("no user with that id", err)
 		http.Redirect(w, r, "/", http.StatusUnauthorized)
 		return
 	}
@@ -812,8 +811,7 @@ func (cfg *appConfig) refreshToken(w http.ResponseWriter, r *http.Request) {
 	newToken, err := auth.MakeJWT(user.ID, cfg.secret)
 
 	if err != nil {
-		fmt.Println("token err", err)
-		w.WriteHeader(http.StatusInternalServerError)
+		respondWithAnError(w, http.StatusInternalServerError, "couldn't make jwt", err)
 		return
 	}
 
@@ -870,7 +868,7 @@ func (cfg *appConfig) checkUserPrivate(w http.ResponseWriter, r *http.Request) e
 		userId, err := auth.ValidateJWT(c.Value, cfg.secret)
 
 		if err != nil {
-			fmt.Println(err)
+			logError("user not found", err)
 			http.Redirect(w, r, "/", http.StatusFound)
 		} else if userId != uuid.Nil {
 			_, err := cfg.database.GetUserById(r.Context(), userId)
@@ -891,7 +889,7 @@ func (cfg *appConfig) middleWareCheckForUser(next func(http.ResponseWriter, *htt
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		err := cfg.checkUser(w, r)
 		if err != nil {
-			fmt.Println(err)
+			logError("error with check user", err)
 		}
 		next(w, r)
 	})
@@ -901,6 +899,7 @@ func (cfg *appConfig) middleWareCheckForUserPrivate(next func(http.ResponseWrite
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		err := cfg.checkUserPrivate(w, r)
 		if err != nil {
+			logError("error with check private user", err)
 			http.Redirect(w, r, "/", http.StatusFound)
 		}
 		next(w, r)

@@ -1,7 +1,6 @@
 package main
 
 import (
-	"log"
 	"net/http"
 
 	"github.com/NikolaTosic-sudo/chess-live/containers/components"
@@ -13,22 +12,22 @@ import (
 func (cfg *appConfig) wsHandler(w http.ResponseWriter, r *http.Request) {
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		log.Println("WebSocket upgrade failed:", err)
+		respondWithAnError(w, http.StatusInternalServerError, "websocket upgrade failed", err)
 		return
 	}
 	c, err := r.Cookie("current_game")
 	if err != nil {
-		log.Println("No game found:", err)
+		respondWithAnError(w, http.StatusNotFound, "no game found", err)
 		return
 	}
 	userC, err := r.Cookie("access_token")
 	if err != nil {
-		log.Println("No user:", err)
+		respondWithAnError(w, http.StatusNotFound, "no user found", err)
 		return
 	}
 	userId, err := auth.ValidateJWT(userC.Value, cfg.secret)
 	if err != nil {
-		log.Println("No user:", err)
+		respondWithAnError(w, http.StatusUnauthorized, "unauthorized user", err)
 		return
 	}
 	game := cfg.connections[c.Value]
@@ -42,11 +41,11 @@ func (cfg *appConfig) wsHandler(w http.ResponseWriter, r *http.Request) {
 		for {
 			_, msg, err := conn.ReadMessage()
 			if e, ok := err.(*websocket.CloseError); ok && e.Code == websocket.CloseNormalClosure {
-				log.Println("close error", err)
+				respondWithAnError(w, http.StatusTeapot, "websocket closed", err)
 				break
 			}
 			if err != nil {
-				log.Println("read error from", err)
+				respondWithAnError(w, http.StatusInternalServerError, "couldn't read message", err)
 				break
 			}
 
@@ -54,7 +53,7 @@ func (cfg *appConfig) wsHandler(w http.ResponseWriter, r *http.Request) {
 				if conn != connect.Conn {
 					err = connect.Conn.WriteMessage(websocket.TextMessage, msg)
 					if err != nil {
-						log.Println("write error to", err)
+						logError("websocket write error", err)
 					}
 				}
 			}
@@ -65,7 +64,7 @@ func (cfg *appConfig) wsHandler(w http.ResponseWriter, r *http.Request) {
 func (cfg *appConfig) searchingOppHandler(w http.ResponseWriter, r *http.Request) {
 	c, err := r.Cookie("current_game")
 	if err != nil {
-		log.Println("No game found:", err)
+		respondWithAnError(w, http.StatusNotFound, "game not found", err)
 		return
 	}
 	currentGame := c.Value
@@ -95,7 +94,7 @@ func (cfg *appConfig) searchingOppHandler(w http.ResponseWriter, r *http.Request
 
 	err = layout.MainPageOnline(match.board, match.pieces, match.coordinateMultiplier, whitePlayer, blackPlayer, match.takenPiecesWhite, match.takenPiecesBlack, true).Render(r.Context(), w)
 	if err != nil {
-		log.Println("couldn't render template", err)
+		respondWithAnError(w, http.StatusInternalServerError, "couldn't render template", err)
 		return
 	}
 }
