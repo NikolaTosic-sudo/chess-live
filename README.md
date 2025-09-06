@@ -47,12 +47,12 @@ my new-found knowledge of backend, and my love for chess.
 
 - [x] Add **Docker support** for easy local hosting  
 - [x] Better error handling
-- [ ] Deploy to a public domain  
-- [ ] Improve playability & testing environment  
-- [ ] Add more robust matchmaking features  
-- [ ] Add unit tests  
 - [ ] Better use of Go routines
 - [ ] Tighting WebSocket implementation
+- [ ] Add more robust matchmaking features  
+- [ ] Add unit tests  
+- [ ] Improve playability & testing environment  
+- [ ] Deploy to a public domain  
 
 ---
 
