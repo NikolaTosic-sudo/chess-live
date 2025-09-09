@@ -766,6 +766,7 @@ func formatTime(seconds int) string {
 }
 
 func (cfg *appConfig) endTurn(w http.ResponseWriter, r *http.Request, currentGame string) {
+	// Add a mutex to the matches to escape potential probles with the map
 	match := cfg.Matches[currentGame]
 	if match.isWhiteTurn {
 		match.whiteTimer += match.addition
