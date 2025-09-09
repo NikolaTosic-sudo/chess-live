@@ -718,34 +718,36 @@ func (cfg *appConfig) handlePromotion(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if userId != uuid.Nil {
-		boardState := make(map[string]string, 0)
-		for k, v := range currentGame.pieces {
-			boardState[k] = v.Tile
-		}
+		go func(w http.ResponseWriter, r *http.Request) {
+			boardState := make(map[string]string, 0)
+			for k, v := range currentGame.pieces {
+				boardState[k] = v.Tile
+			}
 
-		jsonBoard, err := json.Marshal(boardState)
+			jsonBoard, err := json.Marshal(boardState)
 
-		if err != nil {
-			respondWithAnError(w, http.StatusInternalServerError, "error marshaling board state", err)
-			return
-		}
+			if err != nil {
+				respondWithAnError(w, http.StatusInternalServerError, "error marshaling board state", err)
+				return
+			}
 
-		moveDB, err := cfg.database.GetLatestMoveForMatch(r.Context(), currentGame.matchId)
+			moveDB, err := cfg.database.GetLatestMoveForMatch(r.Context(), currentGame.matchId)
 
-		if err != nil {
-			respondWithAnError(w, http.StatusInternalServerError, "database erro", err)
-			return
-		}
+			if err != nil {
+				respondWithAnError(w, http.StatusInternalServerError, "database erro", err)
+				return
+			}
 
-		err = cfg.database.UpdateBoardForMove(r.Context(), database.UpdateBoardForMoveParams{
-			Board:   jsonBoard,
-			MatchID: moveDB.MatchID,
-			Move:    moveDB.Move,
-		})
-		if err != nil {
-			respondWithAnError(w, http.StatusInternalServerError, "Couldn't update board for move", err)
-			return
-		}
+			err = cfg.database.UpdateBoardForMove(r.Context(), database.UpdateBoardForMoveParams{
+				Board:   jsonBoard,
+				MatchID: moveDB.MatchID,
+				Move:    moveDB.Move,
+			})
+			if err != nil {
+				respondWithAnError(w, http.StatusInternalServerError, "Couldn't update board for move", err)
+				return
+			}
+		}(w, r)
 	}
 
 	noCheck, err := handleIfCheck(w, cfg, newPiece, c.Value)
