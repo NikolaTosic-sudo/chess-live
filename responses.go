@@ -4,31 +4,41 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"runtime"
+	"strings"
 
 	"github.com/NikolaTosic-sudo/chess-live/containers/components"
 	"github.com/NikolaTosic-sudo/chess-live/containers/errorPage"
 	"github.com/gorilla/websocket"
 )
 
+func getCaller() string {
+	if _, file, line, ok := runtime.Caller(2); ok {
+		filePaths := strings.Split(file, "/")
+		return fmt.Sprintf("%v:%v", filePaths[len(filePaths)-1], line)
+	}
+	return ""
+}
+
 func respondWithAnError(w http.ResponseWriter, code int, message string, err error) {
-	log.SetFlags(log.Lshortfile)
-	log.Printf("%v:%v\n", message, err)
+	caller := getCaller()
+	log.Printf("%v -> %v:%v\n", caller, message, err)
 	w.WriteHeader(code)
 }
 
 func respondWithAnErrorPage(w http.ResponseWriter, r *http.Request, code int, message string) {
-	log.SetFlags(log.Lshortfile)
-	log.Printf("%v\n", message)
+	caller := getCaller()
+	log.Printf("%v -> %v\n", caller, message)
 	err := errorPage.Error(code, message).Render(r.Context(), w)
 	if err != nil {
-		respondWithAnError(w, http.StatusInternalServerError, "Couldn't render template", err)
+		respondWithAnError(w, http.StatusInternalServerError, "Couldn't render template in render Page", err)
 		return
 	}
 }
 
 func logError(message string, err error) {
-	log.SetFlags(log.Lshortfile)
-	log.Printf("%v:%v\n", message, err)
+	caller := getCaller()
+	log.Printf("%v -> %v:%v\n", caller, message, err)
 }
 
 func respondWithNewPiece(w http.ResponseWriter, square components.Square) error {
