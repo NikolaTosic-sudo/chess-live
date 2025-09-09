@@ -20,7 +20,9 @@ func (cfg *appConfig) boardHandler(w http.ResponseWriter, r *http.Request) {
 	c, err := r.Cookie("current_game")
 
 	if err != nil {
-		logError("game not found", err)
+		if !strings.Contains(err.Error(), "named cookie not present") {
+			logError("game not found", err)
+		}
 		game = "initial"
 	} else if c.Value != "" {
 		game = c.Value
@@ -356,7 +358,9 @@ func (cfg *appConfig) startGameHandler(w http.ResponseWriter, r *http.Request) {
 
 	user, err := cfg.isUserLoggedIn(r)
 	if err != nil {
-		logError("user not logged in", err)
+		if !strings.Contains(err.Error(), "named cookie not present") {
+			logError("user not logged in", err)
+		}
 	}
 	err = r.ParseForm()
 	if err != nil {

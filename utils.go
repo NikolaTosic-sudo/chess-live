@@ -777,7 +777,6 @@ func (cfg *appConfig) endTurn(w http.ResponseWriter, r *http.Request, currentGam
 	cfg.Matches[currentGame] = match
 
 	cfg.gameDone(currentGame, w, r)
-	cfg.timerHandler(w, r)
 }
 
 func (cfg *appConfig) refreshToken(w http.ResponseWriter, r *http.Request) {
@@ -890,7 +889,9 @@ func (cfg *appConfig) middleWareCheckForUser(next func(http.ResponseWriter, *htt
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		err := cfg.checkUser(w, r)
 		if err != nil {
-			logError("error with check user", err)
+			if !strings.Contains(err.Error(), "named cookie not present") {
+				logError("error with check user", err)
+			}
 		}
 		next(w, r)
 	})
