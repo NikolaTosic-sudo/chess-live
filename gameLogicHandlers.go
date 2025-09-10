@@ -34,7 +34,7 @@ func (cfg *appConfig) moveHandler(w http.ResponseWriter, r *http.Request) {
 	currentSquare := match.board[currentSquareName]
 	selectedSquare := match.selectedPiece.Tile
 	selSq := match.board[selectedSquare]
-	legalMoves := cfg.checkLegalMoves(currentGame)
+	legalMoves := cfg.checkLegalMoves(currentGame, Match{})
 
 	if canEat(match.selectedPiece, currentPiece) && slices.Contains(legalMoves, currentSquareName) {
 		if onlineGame != nil {
@@ -60,7 +60,7 @@ func (cfg *appConfig) moveHandler(w http.ResponseWriter, r *http.Request) {
 		}
 		var kingCheck bool
 		if match.selectedPiece.IsKing {
-			kingCheck = cfg.handleChecksWhenKingMoves(currentSquareName, currentGame)
+			kingCheck = cfg.handleChecksWhenKingMoves(currentSquareName, currentGame, Match{})
 		} else if match.isWhiteTurn && match.isWhiteUnderCheck && !slices.Contains(match.tilesUnderAttack, currentSquareName) {
 			w.WriteHeader(http.StatusNoContent)
 			return
@@ -160,7 +160,7 @@ func (cfg *appConfig) moveHandler(w http.ResponseWriter, r *http.Request) {
 			} else if match.isBlackUnderCheck {
 				kingName = "black_king"
 			} else {
-				go cfg.endTurn(w, r, currentGame)
+				cfg.endTurn(w, r, currentGame)
 				return
 			}
 			match.isWhiteUnderCheck = false
@@ -195,7 +195,7 @@ func (cfg *appConfig) moveHandler(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 		}
-		go cfg.endTurn(w, r, currentGame)
+		cfg.endTurn(w, r, currentGame)
 		return
 	}
 
@@ -324,11 +324,11 @@ func (cfg *appConfig) moveToHandler(w http.ResponseWriter, r *http.Request) {
 	currentSquare := match.board[currentSquareName]
 	selectedSquare := match.selectedPiece.Tile
 
-	legalMoves := cfg.checkLegalMoves(currentGame)
+	legalMoves := cfg.checkLegalMoves(currentGame, Match{})
 
 	var kingCheck bool
 	if match.selectedPiece.IsKing && slices.Contains(legalMoves, currentSquareName) {
-		kingCheck = cfg.handleChecksWhenKingMoves(currentSquareName, currentGame)
+		kingCheck = cfg.handleChecksWhenKingMoves(currentSquareName, currentGame, Match{})
 	} else if !slices.Contains(legalMoves, currentSquareName) {
 		w.WriteHeader(http.StatusNoContent)
 		return
@@ -394,7 +394,7 @@ func (cfg *appConfig) moveToHandler(w http.ResponseWriter, r *http.Request) {
 		if saveSelected.IsPawn && pawnPromotion {
 			return
 		}
-		go cfg.endTurn(w, r, currentGame)
+		cfg.endTurn(w, r, currentGame)
 		return
 	}
 
@@ -414,7 +414,7 @@ func (cfg *appConfig) coverCheckHandler(w http.ResponseWriter, r *http.Request) 
 	currentSquare := match.board[currentSquareName]
 	selectedSquare := match.selectedPiece.Tile
 
-	legalMoves := cfg.checkLegalMoves(currentGame)
+	legalMoves := cfg.checkLegalMoves(currentGame, Match{})
 
 	if !slices.Contains(legalMoves, currentSquareName) {
 		w.WriteHeader(http.StatusNoContent)
@@ -423,7 +423,7 @@ func (cfg *appConfig) coverCheckHandler(w http.ResponseWriter, r *http.Request) 
 	var check bool
 	var kingCheck bool
 	if match.selectedPiece.IsKing {
-		kingCheck = cfg.handleChecksWhenKingMoves(currentSquareName, currentGame)
+		kingCheck = cfg.handleChecksWhenKingMoves(currentSquareName, currentGame, Match{})
 	} else {
 		check, _, _ = cfg.handleCheckForCheck(currentSquareName, currentGame, match.selectedPiece)
 	}
@@ -537,7 +537,7 @@ func (cfg *appConfig) coverCheckHandler(w http.ResponseWriter, r *http.Request) 
 		}
 
 		cfg.Matches[currentGame] = match
-		go cfg.endTurn(w, r, currentGame)
+		cfg.endTurn(w, r, currentGame)
 
 		return
 	}
@@ -762,7 +762,7 @@ func (cfg *appConfig) handlePromotion(w http.ResponseWriter, r *http.Request) {
 		} else if currentGame.isBlackUnderCheck {
 			kingName = "black_king"
 		} else {
-			go cfg.endTurn(w, r, c.Value)
+			cfg.endTurn(w, r, c.Value)
 			return
 		}
 
@@ -799,7 +799,7 @@ func (cfg *appConfig) handlePromotion(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	go cfg.endTurn(w, r, c.Value)
+	cfg.endTurn(w, r, c.Value)
 }
 
 func (cfg *appConfig) endGameHandler(w http.ResponseWriter, r *http.Request) {
