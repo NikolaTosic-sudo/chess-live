@@ -1,12 +1,15 @@
 package main
 
 import (
+	"sync"
+
 	"github.com/NikolaTosic-sudo/chess-live/containers/components"
 	"github.com/NikolaTosic-sudo/chess-live/internal/database"
 	"github.com/google/uuid"
 )
 
 type appConfig struct {
+	mu          sync.RWMutex
 	database    *database.Queries
 	secret      string
 	users       map[uuid.UUID]User
