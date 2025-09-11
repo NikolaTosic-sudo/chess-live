@@ -160,7 +160,7 @@ func (cfg *appConfig) moveHandler(w http.ResponseWriter, r *http.Request) {
 			} else if match.isBlackUnderCheck {
 				kingName = "black_king"
 			} else {
-				cfg.endTurn(w, r, currentGame)
+				go cfg.endTurn(currentGame)
 				return
 			}
 			match.isWhiteUnderCheck = false
@@ -195,7 +195,7 @@ func (cfg *appConfig) moveHandler(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 		}
-		cfg.endTurn(w, r, currentGame)
+		go cfg.endTurn(currentGame)
 		return
 	}
 
@@ -394,7 +394,7 @@ func (cfg *appConfig) moveToHandler(w http.ResponseWriter, r *http.Request) {
 		if saveSelected.IsPawn && pawnPromotion {
 			return
 		}
-		cfg.endTurn(w, r, currentGame)
+		go cfg.endTurn(currentGame)
 		return
 	}
 
@@ -537,7 +537,7 @@ func (cfg *appConfig) coverCheckHandler(w http.ResponseWriter, r *http.Request) 
 		}
 
 		cfg.Matches[currentGame] = match
-		cfg.endTurn(w, r, currentGame)
+		go cfg.endTurn(currentGame)
 
 		return
 	}
@@ -762,7 +762,7 @@ func (cfg *appConfig) handlePromotion(w http.ResponseWriter, r *http.Request) {
 		} else if currentGame.isBlackUnderCheck {
 			kingName = "black_king"
 		} else {
-			cfg.endTurn(w, r, c.Value)
+			go cfg.endTurn(c.Value)
 			return
 		}
 
@@ -799,7 +799,7 @@ func (cfg *appConfig) handlePromotion(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	cfg.endTurn(w, r, c.Value)
+	go cfg.endTurn(c.Value)
 }
 
 func (cfg *appConfig) endGameHandler(w http.ResponseWriter, r *http.Request) {
