@@ -399,7 +399,7 @@ func (cfg *appConfig) handleCastle(w http.ResponseWriter, currentPiece component
 		cfg.showMoves(match, "O-O-O", "king", w, r)
 	}
 
-	go cfg.gameDone(match, w, r)
+	go cfg.gameDone(match)
 
 	return nil
 }
@@ -615,10 +615,10 @@ func (cfg *appConfig) handleChecksWhenKingMoves(currentSquareName, currentGame s
 	return false
 }
 
-func (cfg *appConfig) gameDone(match Match, w http.ResponseWriter, r *http.Request) {
+func (cfg *appConfig) gameDone(match Match) {
 	var king components.Piece
 	if match.isWhiteTurn {
-		king = match.pieces["black_king"]
+		king = match.pieces["white_king"]
 	} else {
 		king = match.pieces["black_king"]
 	}
@@ -635,7 +635,6 @@ func (cfg *appConfig) gameDone(match Match, w http.ResponseWriter, r *http.Reque
 		}
 		cfg.mu.Unlock()
 	}
-	fmt.Println(legalMoves, checkCount, match.isWhiteTurn, match.isBlackUnderCheck)
 	if len(legalMoves) == len(checkCount) {
 		if match.isWhiteTurn && match.isWhiteUnderCheck {
 			for _, piece := range match.pieces {
@@ -652,7 +651,6 @@ func (cfg *appConfig) gameDone(match Match, w http.ResponseWriter, r *http.Reque
 					}
 				}
 			}
-			components.EndGameModal("0-1", "black").Render(r.Context(), w)
 		} else if !match.isWhiteTurn && match.isBlackUnderCheck {
 			for _, piece := range match.pieces {
 				if !piece.IsWhite && !piece.IsKing {
@@ -668,7 +666,6 @@ func (cfg *appConfig) gameDone(match Match, w http.ResponseWriter, r *http.Reque
 					}
 				}
 			}
-			components.EndGameModal("1-0", "white").Render(r.Context(), w)
 		} else if match.isWhiteTurn {
 			for _, piece := range match.pieces {
 				if piece.IsWhite && !piece.IsKing {
@@ -682,7 +679,6 @@ func (cfg *appConfig) gameDone(match Match, w http.ResponseWriter, r *http.Reque
 					}
 				}
 			}
-			components.EndGameModal("1-1", "").Render(r.Context(), w)
 		} else if !match.isWhiteTurn {
 			for _, piece := range match.pieces {
 				if !piece.IsWhite && !piece.IsKing {
@@ -696,7 +692,6 @@ func (cfg *appConfig) gameDone(match Match, w http.ResponseWriter, r *http.Reque
 					}
 				}
 			}
-			components.EndGameModal("1-1", "").Render(r.Context(), w)
 		}
 	} else {
 		return
@@ -766,7 +761,8 @@ func formatTime(seconds int) string {
 	return fmt.Sprintf("%02d:%02d", minutes, secs)
 }
 
-func (cfg *appConfig) endTurn(w http.ResponseWriter, r *http.Request, currentGame string) {
+func (cfg *appConfig) endTurn(currentGame string) {
+	cfg.mu.Lock()
 	match := cfg.Matches[currentGame]
 	if match.isWhiteTurn {
 		match.whiteTimer += match.addition
@@ -775,7 +771,8 @@ func (cfg *appConfig) endTurn(w http.ResponseWriter, r *http.Request, currentGam
 	}
 	match.isWhiteTurn = !match.isWhiteTurn
 	cfg.Matches[currentGame] = match
-	go cfg.gameDone(match, w, r)
+	cfg.mu.Unlock()
+	cfg.gameDone(match)
 }
 
 func (cfg *appConfig) refreshToken(w http.ResponseWriter, r *http.Request) {
