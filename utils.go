@@ -666,6 +666,7 @@ func (cfg *appConfig) gameDone(match Match) {
 					}
 				}
 			}
+			match.result <- "1-0"
 		} else if match.isWhiteTurn {
 			for _, piece := range match.pieces {
 				if piece.IsWhite && !piece.IsKing {
