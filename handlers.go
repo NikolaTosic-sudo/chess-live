@@ -225,6 +225,7 @@ func (cfg *appConfig) onlineBoardHandler(w http.ResponseWriter, r *http.Request)
 					cfg.Matches[gameName] = Match{
 						board:                startingBoard,
 						pieces:               startingPieces,
+						result:               make(chan string),
 						selectedPiece:        components.Piece{},
 						coordinateMultiplier: multiplier,
 						isWhiteTurn:          true,
@@ -443,6 +444,7 @@ func (cfg *appConfig) startGameHandler(w http.ResponseWriter, r *http.Request) {
 	cfg.Matches[newGameName] = Match{
 		board:                startingBoard,
 		pieces:               startingPieces,
+		result:               make(chan string),
 		selectedPiece:        components.Piece{},
 		coordinateMultiplier: multiplier,
 		isWhiteTurn:          true,
@@ -466,6 +468,7 @@ func (cfg *appConfig) startGameHandler(w http.ResponseWriter, r *http.Request) {
 		respondWithAnError(w, http.StatusInternalServerError, "couldn't render template", err)
 		return
 	}
+
 }
 
 func (cfg *appConfig) resumeGameHandler(w http.ResponseWriter, r *http.Request) {
@@ -836,6 +839,7 @@ func (cfg *appConfig) matchesHandler(w http.ResponseWriter, r *http.Request) {
 	cfg.Matches[newGame] = Match{
 		board:                startingBoard,
 		pieces:               startingPieces,
+		result:               make(chan string),
 		selectedPiece:        components.Piece{},
 		coordinateMultiplier: multiplier,
 		isWhiteTurn:          true,
@@ -930,4 +934,25 @@ func (cfg *appConfig) moveHistoryHandler(w http.ResponseWriter, r *http.Request)
 		respondWithAnError(w, http.StatusInternalServerError, "couldn't render template", err)
 		return
 	}
+}
+
+func (cfg *appConfig) trackEndHandler(w http.ResponseWriter, r *http.Request) {
+	c, err := r.Cookie("current_game")
+	if err != nil {
+		fmt.Println(err, "odje pukne")
+	}
+	fmt.Println("tu smo sad")
+	match := cfg.Matches[c.Value]
+	go func() {
+		fmt.Println("poceo go routine")
+		for {
+			result := <-match.result
+			if result != "" {
+				fmt.Println(result, "startanje game-a")
+				err := components.EndGameModal(result, "white").Render(r.Context(), w)
+				fmt.Println(err)
+				break
+			}
+		}
+	}()
 }
