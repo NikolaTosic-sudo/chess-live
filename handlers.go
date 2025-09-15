@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -937,20 +938,35 @@ func (cfg *appConfig) moveHistoryHandler(w http.ResponseWriter, r *http.Request)
 }
 
 func (cfg *appConfig) trackEndHandler(w http.ResponseWriter, r *http.Request) {
-	c, err := r.Cookie("current_game")
-	if err != nil {
-		fmt.Println(err, "odje pukne")
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
+	// c, err := r.Cookie("current_game")
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		fmt.Println(ok, "odje pukne")
 	}
+	// if err != nil {
+	// 	fmt.Println(err, "odje pukne")
+	// }
+	fmt.Fprintln(w, "event: end")
+	fmt.Fprint(w, "data: connected")
 	fmt.Println("tu smo sad")
-	match := cfg.Matches[c.Value]
+	match := cfg.Matches["initial"]
 	go func() {
 		fmt.Println("poceo go routine")
 		for {
-			result := <-match.result
+			fmt.Println("ovo bi stalno trebao da slusa")
+			result, ok := <-match.result
+			fmt.Println(result, ok, "ssve")
 			if result != "" {
 				fmt.Println(result, "startanje game-a")
-				err := components.EndGameModal(result, "white").Render(r.Context(), w)
+				var buf bytes.Buffer
+				err := components.EndGameModal(result, "white").Render(r.Context(), &buf)
 				fmt.Println(err)
+				fmt.Fprintf(w, "event: end\n")
+				fmt.Fprintf(w, "data: %s\n\n", buf.String())
+				flusher.Flush()
 				break
 			}
 		}
