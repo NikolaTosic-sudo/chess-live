@@ -32,7 +32,7 @@ func GridBoard(board map[string]Square, pieces map[string]Piece, multiplier int,
 			templ_7745c5c3_Var1 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div id=\"chess-board\" hx-post=\"/update-multiplier\" hx-vals=\"js:{multiplier: getMultiplier()}\" hx-trigger=\"load\" hx-swap=\"none\" class=\"w-board w-board-md mx-auto mt-2 relative\"><div id=\"timer-update\" hx-get=\"/timer\"></div><div id=\"track-end\" hx-get=\"/track-end\" hx-trigger=\"load delay:10s\"></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div id=\"chess-board\" hx-post=\"/update-multiplier\" hx-vals=\"js:{multiplier: getMultiplier()}\" hx-trigger=\"load\" hx-swap=\"none\" class=\"w-board w-board-md mx-auto mt-2 relative\"><div id=\"timer-update\" hx-get=\"/timer\"></div><div id=\"track-end\" hx-ext=\"sse\" sse-connect=\"/track-end\" sse-swap=\"end\"></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
