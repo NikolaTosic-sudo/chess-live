@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -226,7 +225,6 @@ func (cfg *appConfig) onlineBoardHandler(w http.ResponseWriter, r *http.Request)
 					cfg.Matches[gameName] = Match{
 						board:                startingBoard,
 						pieces:               startingPieces,
-						result:               make(chan string),
 						selectedPiece:        components.Piece{},
 						coordinateMultiplier: multiplier,
 						isWhiteTurn:          true,
@@ -445,7 +443,6 @@ func (cfg *appConfig) startGameHandler(w http.ResponseWriter, r *http.Request) {
 	cfg.Matches[newGameName] = Match{
 		board:                startingBoard,
 		pieces:               startingPieces,
-		result:               make(chan string),
 		selectedPiece:        components.Piece{},
 		coordinateMultiplier: multiplier,
 		isWhiteTurn:          true,
@@ -840,7 +837,6 @@ func (cfg *appConfig) matchesHandler(w http.ResponseWriter, r *http.Request) {
 	cfg.Matches[newGame] = Match{
 		board:                startingBoard,
 		pieces:               startingPieces,
-		result:               make(chan string),
 		selectedPiece:        components.Piece{},
 		coordinateMultiplier: multiplier,
 		isWhiteTurn:          true,
@@ -935,40 +931,4 @@ func (cfg *appConfig) moveHistoryHandler(w http.ResponseWriter, r *http.Request)
 		respondWithAnError(w, http.StatusInternalServerError, "couldn't render template", err)
 		return
 	}
-}
-
-func (cfg *appConfig) trackEndHandler(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "text/event-stream")
-	w.Header().Set("Cache-Control", "no-cache")
-	w.Header().Set("Connection", "keep-alive")
-	// c, err := r.Cookie("current_game")
-	flusher, ok := w.(http.Flusher)
-	if !ok {
-		fmt.Println(ok, "odje pukne")
-	}
-	// if err != nil {
-	// 	fmt.Println(err, "odje pukne")
-	// }
-	fmt.Fprintln(w, "event: end")
-	fmt.Fprint(w, "data: connected")
-	fmt.Println("tu smo sad")
-	match := cfg.Matches["initial"]
-	go func() {
-		fmt.Println("poceo go routine")
-		for {
-			fmt.Println("ovo bi stalno trebao da slusa")
-			result, ok := <-match.result
-			fmt.Println(result, ok, "ssve")
-			if result != "" {
-				fmt.Println(result, "startanje game-a")
-				var buf bytes.Buffer
-				err := components.EndGameModal(result, "white").Render(r.Context(), &buf)
-				fmt.Println(err)
-				fmt.Fprintf(w, "event: end\n")
-				fmt.Fprintf(w, "data: %s\n\n", buf.String())
-				flusher.Flush()
-				break
-			}
-		}
-	}()
 }

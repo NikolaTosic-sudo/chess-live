@@ -38,7 +38,6 @@ func main() {
 			"initial": {
 				board:                startingBoard,
 				pieces:               startingPieces,
-				result:               make(chan string),
 				selectedPiece:        components.Piece{},
 				coordinateMultiplier: 80,
 				isWhiteTurn:          true,
@@ -59,7 +58,6 @@ func main() {
 	http.HandleFunc("/", cfg.middleWareCheckForUser(cfg.boardHandler))
 	http.HandleFunc("/private", cfg.middleWareCheckForUserPrivate(cfg.privateBoardHandler))
 	http.HandleFunc("POST /start", cfg.startGameHandler)
-	http.HandleFunc("/track-end", cfg.trackEndHandler)
 	http.HandleFunc("POST /resume", cfg.resumeGameHandler)
 	http.HandleFunc("POST /move", cfg.moveHandler)
 	http.HandleFunc("POST /move-to", cfg.moveToHandler)

@@ -399,7 +399,7 @@ func (cfg *appConfig) handleCastle(w http.ResponseWriter, currentPiece component
 		cfg.showMoves(match, "O-O-O", "king", w, r)
 	}
 
-	go cfg.gameDone(match)
+	cfg.gameDone(match, r, w)
 
 	return nil
 }
@@ -615,7 +615,7 @@ func (cfg *appConfig) handleChecksWhenKingMoves(currentSquareName, currentGame s
 	return false
 }
 
-func (cfg *appConfig) gameDone(match Match) {
+func (cfg *appConfig) gameDone(match Match, r *http.Request, w http.ResponseWriter) {
 	var king components.Piece
 	if match.isWhiteTurn {
 		king = match.pieces["white_king"]
@@ -629,11 +629,9 @@ func (cfg *appConfig) gameDone(match Match) {
 	match.selectedPiece = savePiece
 	var checkCount []bool
 	for _, move := range legalMoves {
-		cfg.mu.Lock()
 		if cfg.handleChecksWhenKingMoves(move, "", match) {
 			checkCount = append(checkCount, true)
 		}
-		cfg.mu.Unlock()
 	}
 	if len(legalMoves) == len(checkCount) {
 		if match.isWhiteTurn && match.isWhiteUnderCheck {
@@ -651,6 +649,11 @@ func (cfg *appConfig) gameDone(match Match) {
 					}
 				}
 			}
+			err := components.EndGameModal("0-1", "black").Render(r.Context(), w)
+			if err != nil {
+				logError("couldn't render end game modal", err)
+				return
+			}
 		} else if !match.isWhiteTurn && match.isBlackUnderCheck {
 			for _, piece := range match.pieces {
 				if !piece.IsWhite && !piece.IsKing {
@@ -666,7 +669,11 @@ func (cfg *appConfig) gameDone(match Match) {
 					}
 				}
 			}
-			match.result <- "1-0"
+			err := components.EndGameModal("1-0", "white").Render(r.Context(), w)
+			if err != nil {
+				logError("couldn't render end game modal", err)
+				return
+			}
 		} else if match.isWhiteTurn {
 			for _, piece := range match.pieces {
 				if piece.IsWhite && !piece.IsKing {
@@ -680,6 +687,11 @@ func (cfg *appConfig) gameDone(match Match) {
 					}
 				}
 			}
+			err := components.EndGameModal("1-1", "").Render(r.Context(), w)
+			if err != nil {
+				logError("couldn't render end game modal", err)
+				return
+			}
 		} else if !match.isWhiteTurn {
 			for _, piece := range match.pieces {
 				if !piece.IsWhite && !piece.IsKing {
@@ -692,6 +704,11 @@ func (cfg *appConfig) gameDone(match Match) {
 						return
 					}
 				}
+			}
+			err := components.EndGameModal("1-1", "").Render(r.Context(), w)
+			if err != nil {
+				logError("couldn't render end game modal", err)
+				return
 			}
 		}
 	} else {
@@ -762,7 +779,7 @@ func formatTime(seconds int) string {
 	return fmt.Sprintf("%02d:%02d", minutes, secs)
 }
 
-func (cfg *appConfig) endTurn(currentGame string) {
+func (cfg *appConfig) endTurn(currentGame string, r *http.Request, w http.ResponseWriter) {
 	cfg.mu.Lock()
 	match := cfg.Matches[currentGame]
 	if match.isWhiteTurn {
@@ -773,7 +790,7 @@ func (cfg *appConfig) endTurn(currentGame string) {
 	match.isWhiteTurn = !match.isWhiteTurn
 	cfg.Matches[currentGame] = match
 	cfg.mu.Unlock()
-	cfg.gameDone(match)
+	cfg.gameDone(match, r, w)
 }
 
 func (cfg *appConfig) refreshToken(w http.ResponseWriter, r *http.Request) {

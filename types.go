@@ -27,7 +27,6 @@ type Match struct {
 	board                map[string]components.Square
 	pieces               map[string]components.Piece
 	selectedPiece        components.Piece
-	result               chan string
 	coordinateMultiplier int
 	isWhiteTurn          bool
 	isWhiteUnderCheck    bool
