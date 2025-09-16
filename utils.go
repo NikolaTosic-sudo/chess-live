@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"slices"
 	"strings"
@@ -359,7 +360,7 @@ func (cfg *appConfig) handleCastle(w http.ResponseWriter, currentPiece component
 		for playerColor, onlinePlayer := range onlineGame {
 			err := onlinePlayer.Conn.WriteMessage(websocket.TextMessage, []byte(message))
 			if err != nil {
-				fmt.Println("WebSocket write error to", playerColor, ":", err)
+				log.Println("WebSocket write error to", playerColor, ":", err)
 				return err
 			}
 		}
@@ -393,10 +394,16 @@ func (cfg *appConfig) handleCastle(w http.ResponseWriter, currentPiece component
 
 	if kingSquare.CoordinatePosition[1]-rookSquare.CoordinatePosition[1] == -3 {
 		match.allMoves = append(match.allMoves, "O-O")
-		cfg.showMoves(match, "O-O", "king", w, r)
+		err := cfg.showMoves(match, "O-O", "king", w, r)
+		if err != nil {
+			return err
+		}
 	} else {
 		match.allMoves = append(match.allMoves, "O-O-O")
-		cfg.showMoves(match, "O-O-O", "king", w, r)
+		err := cfg.showMoves(match, "O-O-O", "king", w, r)
+		if err != nil {
+			return err
+		}
 	}
 
 	cfg.gameDone(match, r, w)
@@ -889,7 +896,7 @@ func (cfg *appConfig) checkUserPrivate(w http.ResponseWriter, r *http.Request) e
 			}
 			_, ok := cfg.users[userId]
 			if !ok {
-				fmt.Println("no user found")
+				logError("user not found", err)
 				http.Redirect(w, r, "/", http.StatusFound)
 			}
 		}
@@ -1010,7 +1017,7 @@ func (cfg *appConfig) showMoves(match Match, squareName, pieceName string, w htt
 		for playerColor, onlinePlayer := range onlineGame {
 			err := onlinePlayer.Conn.WriteMessage(websocket.TextMessage, []byte(message))
 			if err != nil {
-				fmt.Println("WebSocket write error to", playerColor, ":", err)
+				log.Println("WebSocket write error to", playerColor, ":", err)
 				return err
 			}
 		}
@@ -1107,7 +1114,7 @@ func (cfg *appConfig) checkForPawnPromotion(pawnName, currentGame string, w http
 				if onlinePlayer.ID == userId {
 					err := onlinePlayer.Conn.WriteMessage(websocket.TextMessage, []byte(message))
 					if err != nil {
-						fmt.Println("WebSocket write error to", playerColor, ":", err)
+						log.Println("WebSocket write error to", playerColor, ":", err)
 						return false, err
 					}
 				}

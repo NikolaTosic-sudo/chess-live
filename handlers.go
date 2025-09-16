@@ -68,14 +68,13 @@ func (cfg *appConfig) privateBoardHandler(w http.ResponseWriter, r *http.Request
 		userId, err := auth.ValidateJWT(userC.Value, cfg.secret)
 
 		if err != nil {
-			logError("user not found", err)
 			userName = "Guest"
 		}
 
 		user, err := cfg.database.GetUserById(r.Context(), userId)
 
 		if err != nil {
-			logError("user not found", err)
+			logError("user not found in the database", err)
 			userName = "Guest"
 		} else if user.Name != "" {
 			userName = user.Name
@@ -88,7 +87,6 @@ func (cfg *appConfig) privateBoardHandler(w http.ResponseWriter, r *http.Request
 	c, err := r.Cookie("current_game")
 
 	if err != nil {
-		logError("game not found", err)
 		game = "initial"
 	} else if c.Value != "" && !strings.Contains(c.Value, "online:") {
 		game = c.Value
@@ -391,7 +389,7 @@ func (cfg *appConfig) startGameHandler(w http.ResponseWriter, r *http.Request) {
 			})
 
 			if err != nil {
-				fmt.Println(err)
+				respondWithAnError(w, http.StatusInternalServerError, "couldn't create match", err)
 				return
 			}
 		}

@@ -77,7 +77,7 @@ func (cfg *appConfig) respondWithCheck(w http.ResponseWriter, square components.
 		for playerColor, onlinePlayer := range onlineGame {
 			err := onlinePlayer.Conn.WriteMessage(websocket.TextMessage, []byte(message))
 			if err != nil {
-				fmt.Println("WebSocket write error to", playerColor, ":", err)
+				log.Println("WebSocket write error to", playerColor, ":", err)
 				return err
 			}
 		}
@@ -105,7 +105,8 @@ func (cfg *appConfig) respondWithCoverCheck(w http.ResponseWriter, tile string, 
 		for playerColor, onlinePlayer := range onlineGame {
 			err := onlinePlayer.Conn.WriteMessage(websocket.TextMessage, []byte(message))
 			if err != nil {
-				fmt.Println("WebSocket write error to", playerColor, ":", err)
+				log.Println("WebSocket write error to", playerColor, ":", err)
+				return err
 			}
 		}
 	} else {
