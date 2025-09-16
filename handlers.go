@@ -93,7 +93,11 @@ func (cfg *appConfig) privateBoardHandler(w http.ResponseWriter, r *http.Request
 	} else if c.Value != "" && !strings.Contains(c.Value, "online:") {
 		game = c.Value
 	} else if strings.Contains(c.Value, "online:") {
-		cfg.endGameCleaner(w, r, c.Value)
+		err := cfg.endGameCleaner(w, r, c.Value)
+		if err != nil {
+			respondWithAnError(w, http.StatusInternalServerError, "end game cleaner failed", err)
+			return
+		}
 		game = "initial"
 	} else {
 		game = "initial"
@@ -902,6 +906,11 @@ func (cfg *appConfig) moveHistoryHandler(w http.ResponseWriter, r *http.Request)
 		MatchID: int32(matchId),
 		Move:    tile,
 	})
+
+	if err != nil {
+		respondWithAnError(w, http.StatusInternalServerError, "couldn't get the board for the move", err)
+		return
+	}
 
 	var boardState map[string]string
 

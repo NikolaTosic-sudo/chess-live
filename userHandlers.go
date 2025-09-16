@@ -20,7 +20,11 @@ func (cfg *appConfig) loginOpenHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (cfg *appConfig) closeModalHandler(w http.ResponseWriter, r *http.Request) {
-	w.Write([]byte{})
+	_, err := w.Write([]byte{})
+	if err != nil {
+		respondWithAnError(w, http.StatusInternalServerError, "failed closing the modal", err)
+		return
+	}
 }
 
 func (cfg *appConfig) signupModalHandler(w http.ResponseWriter, r *http.Request) {

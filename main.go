@@ -16,7 +16,11 @@ import (
 )
 
 func main() {
-	godotenv.Load()
+	err := godotenv.Load()
+	if err != nil {
+		logError("Couldn't load env", err)
+		return
+	}
 	port := os.Getenv("PORT")
 	dbUrl := os.Getenv("DB_URL")
 	secret := os.Getenv("SECRET")
@@ -87,7 +91,10 @@ func main() {
 	http.HandleFunc("/surrender", cfg.surrenderHandler)
 
 	fmt.Printf("Listening on :%v\n", port)
-	http.ListenAndServe(fmt.Sprintf(":%v", port), nil)
+	err = http.ListenAndServe(fmt.Sprintf(":%v", port), nil)
+	if err != nil {
+		logError("couldn't start the server", err)
+	}
 }
 
 var upgrader = websocket.Upgrader{

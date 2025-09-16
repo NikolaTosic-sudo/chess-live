@@ -137,7 +137,11 @@ func (cfg *appConfig) moveHandler(w http.ResponseWriter, r *http.Request) {
 		match.selectedPiece = components.Piece{}
 
 		cfg.Matches[currentGame] = match
-		cfg.showMoves(match, currentSquareName, saveSelected.Name, w, r)
+		err = cfg.showMoves(match, currentSquareName, saveSelected.Name, w, r)
+		if err != nil {
+			respondWithAnError(w, http.StatusInternalServerError, "show moves error: ", err)
+			return
+		}
 		pawnPromotion, err := cfg.checkForPawnPromotion(saveSelected.Name, currentGame, w, r)
 		if err != nil {
 			respondWithAnError(w, http.StatusInternalServerError, "pawn promotion error: ", err)
@@ -376,7 +380,11 @@ func (cfg *appConfig) moveToHandler(w http.ResponseWriter, r *http.Request) {
 		saveSelected := match.selectedPiece
 		match.allMoves = append(match.allMoves, currentSquareName)
 		bigCleanup(currentSquareName, &match)
-		cfg.showMoves(match, currentSquareName, saveSelected.Name, w, r)
+		err = cfg.showMoves(match, currentSquareName, saveSelected.Name, w, r)
+		if err != nil {
+			respondWithAnError(w, http.StatusInternalServerError, "show moves error: ", err)
+			return
+		}
 		cfg.Matches[currentGame] = match
 		noCheck, err := handleIfCheck(w, cfg, saveSelected, currentGame)
 		if err != nil {
@@ -484,7 +492,11 @@ func (cfg *appConfig) coverCheckHandler(w http.ResponseWriter, r *http.Request) 
 		saveSelected := match.selectedPiece
 		match.allMoves = append(match.allMoves, currentSquareName)
 		bigCleanup(currentSquareName, &match)
-		cfg.showMoves(match, currentSquareName, saveSelected.Name, w, r)
+		err = cfg.showMoves(match, currentSquareName, saveSelected.Name, w, r)
+		if err != nil {
+			respondWithAnError(w, http.StatusInternalServerError, "show moves error: ", err)
+			return
+		}
 
 		for _, tile := range match.tilesUnderAttack {
 			t := match.board[tile]
@@ -594,7 +606,11 @@ func (cfg *appConfig) timerHandler(w http.ResponseWriter, r *http.Request) {
 						respondWithAnError(w, http.StatusInternalServerError, "error converting component to string", err)
 						return
 					}
-					onlineGame["white"].Conn.WriteMessage(websocket.TextMessage, []byte(msg))
+					err = onlineGame["white"].Conn.WriteMessage(websocket.TextMessage, []byte(msg))
+					if err != nil {
+						respondWithAnError(w, http.StatusInternalServerError, "writing online message error: ", err)
+						return
+					}
 					break
 				}
 				respondWithAnError(w, http.StatusInternalServerError, fmt.Sprintf("WebSocket write error to: %v", playerColor), err)
@@ -617,8 +633,16 @@ func (cfg *appConfig) timerHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if found {
-			onlineGame["white"].Conn.WriteMessage(websocket.TextMessage, []byte(msg))
-			onlineGame["black"].Conn.WriteMessage(websocket.TextMessage, []byte(msg))
+			err := onlineGame["white"].Conn.WriteMessage(websocket.TextMessage, []byte(msg))
+			if err != nil {
+				respondWithAnError(w, http.StatusInternalServerError, "writing online message error: ", err)
+				return
+			}
+			err = onlineGame["black"].Conn.WriteMessage(websocket.TextMessage, []byte(msg))
+			if err != nil {
+				respondWithAnError(w, http.StatusInternalServerError, "writing online message error: ", err)
+				return
+			}
 			return
 		} else {
 			_, err := fmt.Fprint(w, msg)
@@ -634,8 +658,16 @@ func (cfg *appConfig) timerHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if found {
-			onlineGame["white"].Conn.WriteMessage(websocket.TextMessage, []byte(msg))
-			onlineGame["black"].Conn.WriteMessage(websocket.TextMessage, []byte(msg))
+			err := onlineGame["white"].Conn.WriteMessage(websocket.TextMessage, []byte(msg))
+			if err != nil {
+				respondWithAnError(w, http.StatusInternalServerError, "writing online message error: ", err)
+				return
+			}
+			err = onlineGame["black"].Conn.WriteMessage(websocket.TextMessage, []byte(msg))
+			if err != nil {
+				respondWithAnError(w, http.StatusInternalServerError, "writing online message error: ", err)
+				return
+			}
 			return
 		} else {
 			_, err := fmt.Fprint(w, msg)
@@ -824,8 +856,16 @@ func (cfg *appConfig) endGameHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if match, ok := cfg.connections[currentGame.Value]; ok {
-		match["white"].Conn.Close()
-		match["black"].Conn.Close()
+		err := match["white"].Conn.Close()
+		if err != nil {
+			respondWithAnError(w, http.StatusInternalServerError, "closing the connection error", err)
+			return
+		}
+		err = match["black"].Conn.Close()
+		if err != nil {
+			respondWithAnError(w, http.StatusInternalServerError, "closing the connection error", err)
+			return
+		}
 		delete(cfg.connections, currentGame.Value)
 	}
 	cGC := http.Cookie{
@@ -869,14 +909,30 @@ func (cfg *appConfig) surrenderHandler(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 		}
-		connection["white"].Conn.WriteMessage(websocket.TextMessage, []byte(msg))
-		connection["black"].Conn.WriteMessage(websocket.TextMessage, []byte(msg))
+		err = connection["white"].Conn.WriteMessage(websocket.TextMessage, []byte(msg))
+		if err != nil {
+			respondWithAnError(w, http.StatusInternalServerError, "writing online message error", err)
+			return
+		}
+		err = connection["black"].Conn.WriteMessage(websocket.TextMessage, []byte(msg))
+		if err != nil {
+			respondWithAnError(w, http.StatusInternalServerError, "writing online message error", err)
+			return
+		}
 		return
 	}
 	currentGame := cfg.Matches[c.Value]
 	if currentGame.isWhiteTurn {
-		components.EndGameModal("0-1", "black").Render(r.Context(), w)
+		err := components.EndGameModal("0-1", "black").Render(r.Context(), w)
+		if err != nil {
+			respondWithAnError(w, http.StatusInternalServerError, "error writing the end game modal", err)
+			return
+		}
 	} else {
-		components.EndGameModal("1-0", "white").Render(r.Context(), w)
+		err := components.EndGameModal("1-0", "white").Render(r.Context(), w)
+		if err != nil {
+			respondWithAnError(w, http.StatusInternalServerError, "error writing the end game modal", err)
+			return
+		}
 	}
 }
