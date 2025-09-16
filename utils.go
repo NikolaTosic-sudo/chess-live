@@ -780,7 +780,6 @@ func formatTime(seconds int) string {
 }
 
 func (cfg *appConfig) endTurn(currentGame string, r *http.Request, w http.ResponseWriter) {
-	cfg.mu.Lock()
 	match := cfg.Matches[currentGame]
 	if match.isWhiteTurn {
 		match.whiteTimer += match.addition
@@ -789,7 +788,6 @@ func (cfg *appConfig) endTurn(currentGame string, r *http.Request, w http.Respon
 	}
 	match.isWhiteTurn = !match.isWhiteTurn
 	cfg.Matches[currentGame] = match
-	cfg.mu.Unlock()
 	cfg.gameDone(match, r, w)
 }
 
