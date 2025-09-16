@@ -466,6 +466,7 @@ func (cfg *appConfig) startGameHandler(w http.ResponseWriter, r *http.Request) {
 		respondWithAnError(w, http.StatusInternalServerError, "couldn't render template", err)
 		return
 	}
+
 }
 
 func (cfg *appConfig) resumeGameHandler(w http.ResponseWriter, r *http.Request) {
