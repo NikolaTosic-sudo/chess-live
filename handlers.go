@@ -371,10 +371,12 @@ func (cfg *appConfig) startGameHandler(w http.ResponseWriter, r *http.Request) {
 	duration := r.FormValue("duration")
 	var newGameName string
 	var matchId int32
+	userName := "Guest"
 	if user != uuid.Nil {
 		newGameName = user.String()
 
 		fullUser, err := cfg.database.GetUserById(r.Context(), user)
+		userName = fullUser.Name
 
 		if err != nil {
 			respondWithAnError(w, http.StatusNotFound, "user not found in db", err)
@@ -462,7 +464,20 @@ func (cfg *appConfig) startGameHandler(w http.ResponseWriter, r *http.Request) {
 	UpdateCoordinates(&cur)
 	http.SetCookie(w, &startGame)
 
-	err = components.StartGameRight().Render(r.Context(), w)
+	whitePlayer := components.PlayerStruct{
+		Image:  "/assets/images/user-icon.png",
+		Name:   userName,
+		Timer:  formatTime(cur.whiteTimer),
+		Pieces: "white",
+	}
+	blackPlayer := components.PlayerStruct{
+		Image:  "/assets/images/user-icon.png",
+		Name:   "Opponent",
+		Timer:  formatTime(cur.blackTimer),
+		Pieces: "black",
+	}
+
+	err = components.StartLocalGame(cur.board, cur.pieces, multiplier, whitePlayer, blackPlayer).Render(r.Context(), w)
 
 	if err != nil {
 		respondWithAnError(w, http.StatusInternalServerError, "couldn't render template", err)
