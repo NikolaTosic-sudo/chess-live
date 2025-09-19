@@ -24,8 +24,8 @@ type Match struct {
 	board                 map[string]components.Square
 	pieces                map[string]components.Piece
 	selectedPiece         components.Piece
-	disconnected          chan string
 	coordinateMultiplier  int
+	disconnected          chan string
 	isWhiteTurn           bool
 	isWhiteUnderCheck     bool
 	isBlackUnderCheck     bool
