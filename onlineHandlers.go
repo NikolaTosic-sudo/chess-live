@@ -1,6 +1,7 @@
 package main
 
 import (
+	"log"
 	"net/http"
 
 	"github.com/NikolaTosic-sudo/chess-live/containers/components"
@@ -37,6 +38,7 @@ func (cfg *appConfig) wsHandler(w http.ResponseWriter, r *http.Request) {
 			game[color] = player
 		}
 	}
+	match := cfg.Matches[c.Value]
 	go func() {
 		for {
 			_, msg, err := conn.ReadMessage()
@@ -45,6 +47,8 @@ func (cfg *appConfig) wsHandler(w http.ResponseWriter, r *http.Request) {
 				break
 			}
 			if err != nil {
+				log.Println(match.disconnected, "neki tamo error")
+				match.disconnected <- "disconnected"
 				respondWithAnError(w, http.StatusInternalServerError, "couldn't read message", err)
 				break
 			}
@@ -52,6 +56,8 @@ func (cfg *appConfig) wsHandler(w http.ResponseWriter, r *http.Request) {
 			for _, connect := range game {
 				if conn != connect.Conn {
 					err = connect.Conn.WriteMessage(websocket.TextMessage, msg)
+					disconnected := <-match.disconnected
+					log.Println(disconnected, "dis bgm")
 					if err != nil {
 						logError("websocket write error", err)
 					}
