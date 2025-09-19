@@ -227,6 +227,7 @@ func (cfg *appConfig) onlineBoardHandler(w http.ResponseWriter, r *http.Request)
 					cfg.Matches[gameName] = Match{
 						board:                startingBoard,
 						pieces:               startingPieces,
+						disconnected:         make(chan string, 1),
 						selectedPiece:        components.Piece{},
 						coordinateMultiplier: multiplier,
 						isWhiteTurn:          true,

@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"slices"
 	"strings"
@@ -601,15 +602,28 @@ func (cfg *appConfig) timerHandler(w http.ResponseWriter, r *http.Request) {
 			err := onlinePlayer.Conn.WriteMessage(websocket.TextMessage, []byte(message))
 			if err != nil {
 				if strings.Contains(err.Error(), "websocket: close sent") {
-					msg, err := TemplString(components.EndGameModal("1-0", "white"))
-					if err != nil {
-						respondWithAnError(w, http.StatusInternalServerError, "error converting component to string", err)
-						return
-					}
-					err = onlineGame["white"].Conn.WriteMessage(websocket.TextMessage, []byte(msg))
-					if err != nil {
-						respondWithAnError(w, http.StatusInternalServerError, "writing online message error: ", err)
-						return
+					if playerColor == "white" {
+						msg, err := TemplString(components.EndGameModal("0-1", "black"))
+						if err != nil {
+							respondWithAnError(w, http.StatusInternalServerError, "error converting component to string", err)
+							return
+						}
+						err = onlineGame["black"].Conn.WriteMessage(websocket.TextMessage, []byte(msg))
+						if err != nil {
+							respondWithAnError(w, http.StatusInternalServerError, "writing online message error: ", err)
+							return
+						}
+					} else {
+						msg, err := TemplString(components.EndGameModal("1-0", "white"))
+						if err != nil {
+							respondWithAnError(w, http.StatusInternalServerError, "error converting component to string", err)
+							return
+						}
+						err = onlineGame["white"].Conn.WriteMessage(websocket.TextMessage, []byte(msg))
+						if err != nil {
+							respondWithAnError(w, http.StatusInternalServerError, "writing online message error: ", err)
+							return
+						}
 					}
 					break
 				}
@@ -676,6 +690,12 @@ func (cfg *appConfig) timerHandler(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 		}
+	}
+	log.Println(match.disconnected, "je li")
+	select {
+	case disconnected := <-match.disconnected:
+		log.Println("jeste bgm", disconnected)
+	default:
 	}
 }
 
