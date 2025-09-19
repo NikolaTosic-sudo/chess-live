@@ -25,6 +25,7 @@ type Match struct {
 	pieces                map[string]components.Piece
 	selectedPiece         components.Piece
 	coordinateMultiplier  int
+	disconnected          chan string
 	isWhiteTurn           bool
 	isWhiteUnderCheck     bool
 	isBlackUnderCheck     bool
