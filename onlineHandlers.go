@@ -47,7 +47,6 @@ func (cfg *appConfig) wsHandler(w http.ResponseWriter, r *http.Request) {
 				break
 			}
 			if err != nil {
-				log.Println(match.disconnected, "neki tamo error")
 				match.disconnected <- "disconnected"
 				respondWithAnError(w, http.StatusInternalServerError, "couldn't read message", err)
 				break
