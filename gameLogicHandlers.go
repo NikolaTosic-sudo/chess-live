@@ -729,33 +729,21 @@ func (cfg *appConfig) timerHandler(w http.ResponseWriter, r *http.Request) {
 		for playerColor, onlinePlayer := range onlineGame {
 			err := onlinePlayer.Conn.WriteMessage(websocket.TextMessage, []byte(message))
 			if err != nil {
-				if strings.Contains(err.Error(), "websocket: close sent") {
-					if playerColor == "white" {
-						msg, err := TemplString(components.EndGameModal("0-1", "black"))
-						if err != nil {
-							respondWithAnError(w, http.StatusInternalServerError, "error converting component to string", err)
-							return
-						}
-						err = onlineGame["black"].Conn.WriteMessage(websocket.TextMessage, []byte(msg))
-						if err != nil {
-							respondWithAnError(w, http.StatusInternalServerError, "writing online message error: ", err)
-							return
-						}
-					} else {
-						msg, err := TemplString(components.EndGameModal("1-0", "white"))
-						if err != nil {
-							respondWithAnError(w, http.StatusInternalServerError, "error converting component to string", err)
-							return
-						}
-						err = onlineGame["white"].Conn.WriteMessage(websocket.TextMessage, []byte(msg))
-						if err != nil {
-							respondWithAnError(w, http.StatusInternalServerError, "writing online message error: ", err)
-							return
-						}
+				if strings.Contains(err.Error(), "close sent") {
+					fmt.Println("odje?")
+					msg, err := TemplString(components.EndGameModal("1-0", "white"))
+					if err != nil {
+						respondWithAnError(w, http.StatusInternalServerError, "error converting component to string", err)
+						return
 					}
-					break
+					err = onlineGame["white"].Conn.WriteMessage(websocket.TextMessage, []byte(msg))
+					if err != nil {
+						respondWithAnError(w, http.StatusInternalServerError, "writing online message error: ", err)
+						return
+					}
+				} else {
+					respondWithAnError(w, http.StatusInternalServerError, fmt.Sprintf("WebSocket write error to: %v", playerColor), err)
 				}
-				respondWithAnError(w, http.StatusInternalServerError, fmt.Sprintf("WebSocket write error to: %v", playerColor), err)
 			}
 		}
 	} else {
