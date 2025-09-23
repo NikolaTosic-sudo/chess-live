@@ -975,7 +975,7 @@ func (cfg *appConfig) showMoves(match Match, squareName, pieceName string, w htt
 	}
 
 	userId, err := cfg.isUserLoggedIn(r)
-	if err != nil {
+	if err != nil && !strings.Contains(err.Error(), "named cookie not present") {
 		return err
 	}
 
