@@ -390,6 +390,7 @@ func (cfg *appConfig) handleCastle(w http.ResponseWriter, currentPiece component
 	match.board[rTile] = savedRookTile
 	match.selectedPiece = components.Piece{}
 	match.isWhiteTurn = !match.isWhiteTurn
+	match.movesSinceLastCapture++
 	cfg.Matches[currentGame] = match
 
 	if kingSquare.CoordinatePosition[1]-rookSquare.CoordinatePosition[1] == -3 {
@@ -623,6 +624,14 @@ func (cfg *appConfig) handleChecksWhenKingMoves(currentSquareName, currentGame s
 }
 
 func (cfg *appConfig) gameDone(match Match, r *http.Request, w http.ResponseWriter) {
+	if match.movesSinceLastCapture == 50 {
+		err := components.EndGameModal("1-1", "").Render(r.Context(), w)
+		if err != nil {
+			logError("couldn't render end game modal", err)
+			return
+		}
+		return
+	}
 	var king components.Piece
 	if match.isWhiteTurn {
 		king = match.pieces["white_king"]

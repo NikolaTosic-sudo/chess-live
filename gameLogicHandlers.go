@@ -135,6 +135,7 @@ func (cfg *appConfig) moveHandler(w http.ResponseWriter, r *http.Request) {
 		match.board[selectedSquare] = selSq
 		saveSelected := match.selectedPiece
 		match.selectedPiece = components.Piece{}
+		match.movesSinceLastCapture = 0
 
 		cfg.Matches[currentGame] = match
 		err = cfg.showMoves(match, currentSquareName, saveSelected.Name, w, r)
@@ -385,6 +386,7 @@ func (cfg *appConfig) moveToHandler(w http.ResponseWriter, r *http.Request) {
 			respondWithAnError(w, http.StatusInternalServerError, "show moves error: ", err)
 			return
 		}
+		match.movesSinceLastCapture++
 		cfg.Matches[currentGame] = match
 		noCheck, err := handleIfCheck(w, cfg, saveSelected, currentGame)
 		if err != nil {
@@ -548,6 +550,7 @@ func (cfg *appConfig) coverCheckHandler(w http.ResponseWriter, r *http.Request) 
 			match.isBlackUnderCheck = false
 		}
 
+		match.movesSinceLastCapture++
 		cfg.Matches[currentGame] = match
 		cfg.endTurn(currentGame, r, w)
 
@@ -831,6 +834,8 @@ func (cfg *appConfig) handlePromotion(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	currentGame.movesSinceLastCapture++
+	cfg.Matches[c.Value] = currentGame
 	cfg.endTurn(c.Value, r, w)
 }
 
