@@ -351,14 +351,10 @@ func (cfg *appConfig) moveToHandler(w http.ResponseWriter, r *http.Request) {
 
 	if selectedSquare != "" && selectedSquare != currentSquareName {
 		message := fmt.Sprintf(`
-			<div id="%v" hx-post="/move-to" hx-swap-oob="true" class="tile tile-md" style="background-color: %v"></div>
-
 			<span id="%v" hx-post="/move" hx-swap-oob="true" class="tile tile-md hover:cursor-grab absolute transition-all" style="bottom: %vpx; left: %vpx">
 				<img src="/assets/pieces/%v.svg" />
 			</span>
 		`,
-			currentSquareName,
-			currentSquare.Color,
 			match.selectedPiece.Name,
 			currentSquare.Coordinates[0],
 			currentSquare.Coordinates[1],
@@ -378,6 +374,8 @@ func (cfg *appConfig) moveToHandler(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 		}
+		match = cfg.checkForEnPessant(selectedSquare, currentSquare, match)
+		fmt.Println(match.possibleEnPessant, "en peessant")
 		saveSelected := match.selectedPiece
 		match.allMoves = append(match.allMoves, currentSquareName)
 		bigCleanup(currentSquareName, &match)
