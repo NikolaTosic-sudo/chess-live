@@ -21,20 +21,21 @@ type User struct {
 }
 
 type Match struct {
-	board                map[string]components.Square
-	pieces               map[string]components.Piece
-	selectedPiece        components.Piece
-	disconnected         chan string
-	coordinateMultiplier int
-	isWhiteTurn          bool
-	isWhiteUnderCheck    bool
-	isBlackUnderCheck    bool
-	tilesUnderAttack     []string
-	blackTimer           int
-	whiteTimer           int
-	addition             int
-	allMoves             []string
-	matchId              int32
-	takenPiecesWhite     []string
-	takenPiecesBlack     []string
+	board                 map[string]components.Square
+	pieces                map[string]components.Piece
+	selectedPiece         components.Piece
+	disconnected          chan string
+	coordinateMultiplier  int
+	isWhiteTurn           bool
+	isWhiteUnderCheck     bool
+	isBlackUnderCheck     bool
+	tilesUnderAttack      []string
+	blackTimer            int
+	whiteTimer            int
+	addition              int
+	allMoves              []string
+	matchId               int32
+	takenPiecesWhite      []string
+	takenPiecesBlack      []string
+	movesSinceLastCapture int8
 }
