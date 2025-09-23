@@ -154,10 +154,17 @@ func (cfg *appConfig) checkLegalMoves(currentGame string, currentMatch Match) []
 func (cfg *appConfig) getPawnMoves(possible *[]string, startingPosition [2]int, piece components.Piece, currentGame string) {
 	match := cfg.Matches[currentGame]
 	var moveIndex int
+	var possibleEnPessant bool
 	if piece.IsWhite {
 		moveIndex = -1
+		if strings.Contains(match.possibleEnPessant, "white") {
+			possibleEnPessant = true
+		}
 	} else {
 		moveIndex = 1
+		if strings.Contains(match.possibleEnPessant, "black") {
+			possibleEnPessant = true
+		}
 	}
 	currentPosition := [2]int{startingPosition[0] + moveIndex, startingPosition[1]}
 
@@ -167,6 +174,12 @@ func (cfg *appConfig) getPawnMoves(possible *[]string, startingPosition [2]int, 
 
 	if currentPosition[0] >= len(mockBoard) || currentPosition[1] >= len(mockBoard[startingPosition[0]]) {
 		return
+	}
+
+	// TODO: This works for left white only, update for black and right :)
+	if strings.Contains(match.possibleEnPessant, mockBoard[currentPosition[0]][currentPosition[1]+moveIndex]) && possibleEnPessant {
+		currentTile := mockBoard[currentPosition[0]+moveIndex][currentPosition[1]+moveIndex]
+		*possible = append(*possible, fmt.Sprintf("enpessant_%v", currentTile))
 	}
 
 	if startingPosition[1]+1 < len(mockBoard[startingPosition[0]]) {
@@ -390,6 +403,7 @@ func (cfg *appConfig) handleCastle(w http.ResponseWriter, currentPiece component
 	match.board[rTile] = savedRookTile
 	match.selectedPiece = components.Piece{}
 	match.isWhiteTurn = !match.isWhiteTurn
+	match.possibleEnPessant = ""
 	match.movesSinceLastCapture++
 	cfg.Matches[currentGame] = match
 
@@ -1187,7 +1201,6 @@ func (cfg *appConfig) endGameCleaner(w http.ResponseWriter, r *http.Request, cur
 }
 
 func (cfg *appConfig) checkForEnPessant(selectedSquare string, currentSquare components.Square, match Match) Match {
-	fmt.Println(selectedSquare)
 	if match.selectedPiece.IsPawn && !match.selectedPiece.Moved {
 		if match.board[selectedSquare].CoordinatePosition[0]-currentSquare.CoordinatePosition[0] == 2 {
 			freeTile := mockBoard[currentSquare.CoordinatePosition[0]-2][currentSquare.CoordinatePosition[1]]

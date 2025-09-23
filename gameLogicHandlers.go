@@ -136,6 +136,7 @@ func (cfg *appConfig) moveHandler(w http.ResponseWriter, r *http.Request) {
 		match.board[selectedSquare] = selSq
 		saveSelected := match.selectedPiece
 		match.selectedPiece = components.Piece{}
+		match.possibleEnPessant = ""
 		match.movesSinceLastCapture = 0
 
 		cfg.Matches[currentGame] = match
@@ -376,7 +377,6 @@ func (cfg *appConfig) moveToHandler(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		match = cfg.checkForEnPessant(selectedSquare, currentSquare, match)
-		fmt.Println(match.possibleEnPessant, "en peessant")
 		saveSelected := match.selectedPiece
 		match.allMoves = append(match.allMoves, currentSquareName)
 		bigCleanup(currentSquareName, &match)
@@ -549,6 +549,7 @@ func (cfg *appConfig) coverCheckHandler(w http.ResponseWriter, r *http.Request) 
 			match.isBlackUnderCheck = false
 		}
 
+		match.possibleEnPessant = ""
 		match.movesSinceLastCapture++
 		cfg.Matches[currentGame] = match
 		cfg.endTurn(currentGame, r, w)
@@ -840,6 +841,7 @@ func (cfg *appConfig) handlePromotion(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	currentGame.possibleEnPessant = ""
 	currentGame.movesSinceLastCapture++
 	cfg.Matches[c.Value] = currentGame
 	cfg.endTurn(c.Value, r, w)
