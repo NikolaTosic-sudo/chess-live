@@ -370,10 +370,13 @@ func (cfg *appConfig) moveToHandler(w http.ResponseWriter, r *http.Request) {
 		pieceToDelete := squareToDelete.Piece
 		currentSquare := match.board[currentSquareName]
 		message := fmt.Sprintf(`
+<<<<<<< HEAD
 			<span id="%v" hx-post="/move" hx-swap-oob="true" class="tile tile-md hover:cursor-grab absolute transition-all" style="display: none">
 				<img src="/assets/pieces/%v.svg" />
 			</span>
 
+=======
+>>>>>>> b549cb9 (feature: En Pessant implementation WIP)
 			<span id="%v" hx-post="/move" hx-swap-oob="true" class="tile tile-md hover:cursor-grab absolute transition-all" style="bottom: %vpx; left: %vpx">
 				<img src="/assets/pieces/%v.svg" />
 			</span>
@@ -502,7 +505,12 @@ func (cfg *appConfig) moveToHandler(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 		}
+<<<<<<< HEAD
 		match = checkForEnPessant(selectedSquare, currentSquare, match)
+=======
+		match = cfg.checkForEnPessant(selectedSquare, currentSquare, match)
+		fmt.Println(match.possibleEnPessant, "en peessant")
+>>>>>>> b549cb9 (feature: En Pessant implementation WIP)
 		saveSelected := match.selectedPiece
 		match.allMoves = append(match.allMoves, currentSquareName)
 		bigCleanup(currentSquareName, &match)
