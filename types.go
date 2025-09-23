@@ -35,7 +35,8 @@ type Match struct {
 	addition              int
 	allMoves              []string
 	matchId               int32
+	movesSinceLastCapture int8
+	possibleEnPessant     string
 	takenPiecesWhite      []string
 	takenPiecesBlack      []string
-	movesSinceLastCapture int8
 }
