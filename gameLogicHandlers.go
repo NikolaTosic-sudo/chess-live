@@ -881,7 +881,7 @@ func (cfg *appConfig) handlePromotion(w http.ResponseWriter, r *http.Request) {
 	}
 
 	userId, err := cfg.isUserLoggedIn(r)
-	if err != nil {
+	if err != nil && !strings.Contains(err.Error(), "named cookie not present") {
 		logError("user not authorized", err)
 	}
 
