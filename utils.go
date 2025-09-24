@@ -1194,11 +1194,15 @@ func (cfg *appConfig) endGameCleaner(w http.ResponseWriter, r *http.Request, cur
 }
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 func checkForEnPessant(selectedSquare string, currentSquare components.Square, match Match) Match {
 =======
 func (cfg *appConfig) checkForEnPessant(selectedSquare string, currentSquare components.Square, match Match) Match {
 	fmt.Println(selectedSquare)
 >>>>>>> b549cb9 (feature: En Pessant implementation WIP)
+=======
+func checkForEnPessant(selectedSquare string, currentSquare components.Square, match Match) Match {
+>>>>>>> 1660c61 (feature: finally implemented en)
 	if match.selectedPiece.IsPawn && !match.selectedPiece.Moved {
 		if match.board[selectedSquare].CoordinatePosition[0]-currentSquare.CoordinatePosition[0] == 2 {
 			freeTile := mockBoard[currentSquare.CoordinatePosition[0]-2][currentSquare.CoordinatePosition[1]]
