@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"slices"
+	"strconv"
 	"strings"
 
 	"github.com/NikolaTosic-sudo/chess-live/containers/components"
@@ -336,7 +337,7 @@ func (cfg *appConfig) moveToHandler(w http.ResponseWriter, r *http.Request) {
 	var kingCheck bool
 	if match.selectedPiece.IsKing && slices.Contains(legalMoves, currentSquareName) {
 		kingCheck = cfg.handleChecksWhenKingMoves(currentSquareName, currentGame, Match{})
-	} else if !slices.Contains(legalMoves, currentSquareName) {
+	} else if !slices.Contains(legalMoves, currentSquareName) && !slices.Contains(legalMoves, fmt.Sprintf("enpessant_%v", currentSquareName)) {
 		w.WriteHeader(http.StatusNoContent)
 		return
 	}
@@ -348,6 +349,131 @@ func (cfg *appConfig) moveToHandler(w http.ResponseWriter, r *http.Request) {
 
 	if check || kingCheck {
 		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+
+	if slices.Contains(legalMoves, fmt.Sprintf("enpessant_%v", currentSquareName)) {
+		var squareToDeleteName string
+		var userColor string
+		if strings.Contains(match.possibleEnPessant, "white") {
+			enPessantSlice := strings.Split(match.possibleEnPessant, "_")
+			squareNumber, _ := strconv.Atoi(string(enPessantSlice[1][0]))
+			squareToDeleteName = fmt.Sprintf("%v%v", squareNumber-1, string(enPessantSlice[1][1]))
+			userColor = "white"
+		} else {
+			enPessantSlice := strings.Split(match.possibleEnPessant, "_")
+			squareNumber, _ := strconv.Atoi(string(enPessantSlice[1][0]))
+			squareToDeleteName = fmt.Sprintf("%v%v", squareNumber+1, string(enPessantSlice[1][1]))
+			userColor = "black"
+		}
+		squareToDelete := match.board[squareToDeleteName]
+		pieceToDelete := squareToDelete.Piece
+		currentSquare := match.board[currentSquareName]
+		message := fmt.Sprintf(`
+			<span id="%v" hx-post="/move" hx-swap-oob="true" class="tile tile-md hover:cursor-grab absolute transition-all" style="display: none">
+				<img src="/assets/pieces/%v.svg" />
+			</span>
+
+			<span id="%v" hx-post="/move" hx-swap-oob="true" class="tile tile-md hover:cursor-grab absolute transition-all" style="bottom: %vpx; left: %vpx">
+				<img src="/assets/pieces/%v.svg" />
+			</span>
+
+			<div id="lost-pieces-%v" hx-swap-oob="afterbegin">
+				<img src="/assets/pieces/%v.svg" class="w-[18px] h-[18px]" />
+			</div>
+		`,
+			pieceToDelete.Name,
+			pieceToDelete.Image,
+			match.selectedPiece.Name,
+			currentSquare.Coordinates[0],
+			currentSquare.Coordinates[1],
+			match.selectedPiece.Image,
+			userColor,
+			pieceToDelete.Image,
+		)
+		if found {
+			for playerColor, onlinePlayer := range onlineGame {
+				err := onlinePlayer.Conn.WriteMessage(websocket.TextMessage, []byte(message))
+				if err != nil {
+					respondWithAnError(w, http.StatusInternalServerError, fmt.Sprintf("WebSocket write error to: %v", playerColor), err)
+					return
+				}
+			}
+		} else {
+			_, err := fmt.Fprint(w, message)
+			if err != nil {
+				respondWithAnError(w, http.StatusInternalServerError, "couldn't print to page", err)
+				return
+			}
+		}
+
+		match.allMoves = append(match.allMoves, currentSquareName)
+		delete(match.pieces, pieceToDelete.Name)
+		match.selectedPiece.Tile = currentSquareName
+		match.pieces[match.selectedPiece.Name] = match.selectedPiece
+		currentSquare.Piece = match.selectedPiece
+		squareToDelete.Piece = components.Piece{}
+		match.board[currentSquareName] = currentSquare
+		match.board[squareToDeleteName] = squareToDelete
+		saveSelected := match.selectedPiece
+		match.selectedPiece = components.Piece{}
+		match.possibleEnPessant = ""
+		match.movesSinceLastCapture = 0
+		cfg.Matches[currentGame] = match
+		err = cfg.showMoves(match, currentSquareName, saveSelected.Name, w, r)
+		if err != nil {
+			respondWithAnError(w, http.StatusInternalServerError, "show moves error: ", err)
+			return
+		}
+
+		noCheck, err := handleIfCheck(w, cfg, saveSelected, currentGame)
+		if err != nil {
+			respondWithAnError(w, http.StatusInternalServerError, "handle check error: ", err)
+			return
+		}
+		if noCheck {
+			var kingName string
+			if match.isWhiteUnderCheck {
+				kingName = "white_king"
+			} else if match.isBlackUnderCheck {
+				kingName = "black_king"
+			} else {
+				cfg.endTurn(currentGame, r, w)
+				return
+			}
+			match.isWhiteUnderCheck = false
+			match.isBlackUnderCheck = false
+			match.tilesUnderAttack = []string{}
+			getKing := match.pieces[kingName]
+			getKingSquare := match.board[getKing.Tile]
+
+			message = fmt.Sprintf(`
+			<span id="%v" hx-post="/move" hx-swap-oob="true" hx-swap="outerHTML" class="tile tile-md hover:cursor-grab absolute transition-all" style="bottom: %vpx; left: %vpx">
+				<img src="/assets/pieces/%v.svg" />
+			</span>
+		`,
+				getKing.Name,
+				getKingSquare.Coordinates[0],
+				getKingSquare.Coordinates[1],
+				getKing.Image,
+			)
+			if found {
+				for playerColor, onlinePlayer := range onlineGame {
+					err := onlinePlayer.Conn.WriteMessage(websocket.TextMessage, []byte(message))
+					if err != nil {
+						respondWithAnError(w, http.StatusInternalServerError, fmt.Sprintf("WebSocket write error to: %v", playerColor), err)
+						return
+					}
+				}
+			} else {
+				_, err := fmt.Fprint(w, message)
+				if err != nil {
+					respondWithAnError(w, http.StatusInternalServerError, "couldn't write to page", err)
+					return
+				}
+			}
+		}
+		cfg.endTurn(currentGame, r, w)
 		return
 	}
 
@@ -376,7 +502,7 @@ func (cfg *appConfig) moveToHandler(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 		}
-		match = cfg.checkForEnPessant(selectedSquare, currentSquare, match)
+		match = checkForEnPessant(selectedSquare, currentSquare, match)
 		saveSelected := match.selectedPiece
 		match.allMoves = append(match.allMoves, currentSquareName)
 		bigCleanup(currentSquareName, &match)
