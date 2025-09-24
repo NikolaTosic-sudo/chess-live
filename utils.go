@@ -150,21 +150,13 @@ func (cfg *appConfig) checkLegalMoves(currentGame string, currentMatch Match) []
 	return possibleMoves
 }
 
-// TODO: IMPLEMENT EN PESSANT
 func (cfg *appConfig) getPawnMoves(possible *[]string, startingPosition [2]int, piece components.Piece, currentGame string) {
 	match := cfg.Matches[currentGame]
 	var moveIndex int
-	var possibleEnPessant bool
 	if piece.IsWhite {
 		moveIndex = -1
-		if strings.Contains(match.possibleEnPessant, "white") {
-			possibleEnPessant = true
-		}
 	} else {
 		moveIndex = 1
-		if strings.Contains(match.possibleEnPessant, "black") {
-			possibleEnPessant = true
-		}
 	}
 	currentPosition := [2]int{startingPosition[0] + moveIndex, startingPosition[1]}
 
@@ -176,17 +168,13 @@ func (cfg *appConfig) getPawnMoves(possible *[]string, startingPosition [2]int, 
 		return
 	}
 
-	// TODO: This works for left white only, update for black and right :)
-	if strings.Contains(match.possibleEnPessant, mockBoard[currentPosition[0]][currentPosition[1]+moveIndex]) && possibleEnPessant {
-		currentTile := mockBoard[currentPosition[0]+moveIndex][currentPosition[1]+moveIndex]
-		*possible = append(*possible, fmt.Sprintf("enpessant_%v", currentTile))
-	}
-
 	if startingPosition[1]+1 < len(mockBoard[startingPosition[0]]) {
 		currentTile := mockBoard[currentPosition[0]][startingPosition[1]+1]
 		pieceOnCurrentTile := match.board[currentTile].Piece
 		if pieceOnCurrentTile.Name != "" {
 			*possible = append(*possible, currentTile)
+		} else if strings.Contains(match.possibleEnPessant, currentTile) {
+			*possible = append(*possible, fmt.Sprintf("enpessant_%v", currentTile))
 		}
 	}
 
@@ -195,6 +183,8 @@ func (cfg *appConfig) getPawnMoves(possible *[]string, startingPosition [2]int, 
 		pieceOnCurrentTile := match.board[currentTile].Piece
 		if pieceOnCurrentTile.Name != "" {
 			*possible = append(*possible, currentTile)
+		} else if strings.Contains(match.possibleEnPessant, currentTile) {
+			*possible = append(*possible, fmt.Sprintf("enpessant_%v", currentTile))
 		}
 	}
 
@@ -1200,7 +1190,7 @@ func (cfg *appConfig) endGameCleaner(w http.ResponseWriter, r *http.Request, cur
 	return nil
 }
 
-func (cfg *appConfig) checkForEnPessant(selectedSquare string, currentSquare components.Square, match Match) Match {
+func checkForEnPessant(selectedSquare string, currentSquare components.Square, match Match) Match {
 	if match.selectedPiece.IsPawn && !match.selectedPiece.Moved {
 		if match.board[selectedSquare].CoordinatePosition[0]-currentSquare.CoordinatePosition[0] == 2 {
 			freeTile := mockBoard[currentSquare.CoordinatePosition[0]-2][currentSquare.CoordinatePosition[1]]
