@@ -1061,6 +1061,9 @@ func (cfg *appConfig) checkForPawnPromotion(pawnName, currentGame string, w http
 	match := cfg.Matches[currentGame]
 	onlineGame, found := cfg.connections[currentGame]
 	pawn := match.pieces[pawnName]
+	if !pawn.IsPawn {
+		return false, nil
+	}
 	square := match.board[pawn.Tile]
 	var pieceColor string
 	var firstPosition string
