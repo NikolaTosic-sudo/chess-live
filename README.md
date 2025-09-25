@@ -48,6 +48,7 @@ my new-found knowledge of backend, and my love for chess.
 - [x] Add **Docker support** for easy local hosting  
 - [x] Better error handling
 - [x] Better use of Go routines
+- [x] Finished adding rules to the game
 - [ ] Tighting WebSocket implementation
 - [ ] Add more robust matchmaking features  
 - [ ] Add unit tests  
