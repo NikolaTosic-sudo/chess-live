@@ -1,9 +1,9 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"net/http"
-	"time"
 
 	"github.com/NikolaTosic-sudo/chess-live/containers/components"
 	layout "github.com/NikolaTosic-sudo/chess-live/containers/layouts"
@@ -39,40 +39,18 @@ func (cfg *appConfig) wsHandler(w http.ResponseWriter, r *http.Request) {
 			game[color] = player
 		}
 	}
-	err = conn.SetReadDeadline(time.Now().Add(30 * time.Second))
-	if err != nil {
-		log.Println(err, "error")
-		return
-	}
-	conn.SetPongHandler(func(appData string) error {
-		err = conn.SetReadDeadline(time.Now().Add(30 * time.Second))
-		if err != nil {
-			log.Println(err, "error")
-			return err
-		}
-		return nil
-	})
 	go func() {
 		defer func() {
 			err := conn.Close()
 
 			if err != nil {
-				log.Println(err, "error")
+				log.Println(err, "connection closed")
 				return
 			}
 
-			for color, connect := range game {
+			for _, connect := range game {
 				if conn != connect.Conn {
-					var result string
-					var text string
-					if color == "white" {
-						result = "1-0"
-						text = "white"
-					} else {
-						result = "0-1"
-						text = "black"
-					}
-					msg, err := TemplString(components.EndGameModal(result, text))
+					msg, err := TemplString(components.WaitForReconnectModal())
 					if err != nil {
 						log.Println(err, "error")
 						return
@@ -90,17 +68,16 @@ func (cfg *appConfig) wsHandler(w http.ResponseWriter, r *http.Request) {
 		for {
 			_, msg, err := conn.ReadMessage()
 			if e, ok := err.(*websocket.CloseError); ok && e.Code == websocket.CloseNormalClosure {
-				log.Println(err, "error")
+				log.Println(err, "normal close")
 				break
 			}
 			if err != nil {
-				log.Println(err, "error")
+				log.Println(err, "neki drugi error")
 				break
 			}
 
 			for _, connect := range game {
 				if conn != connect.Conn {
-					connect.Conn.SetWriteDeadline(time.Now().Add(30 * time.Second))
 					err = connect.Conn.WriteMessage(websocket.TextMessage, msg)
 					if err != nil {
 						logError("websocket write error", err)
@@ -145,6 +122,49 @@ func (cfg *appConfig) searchingOppHandler(w http.ResponseWriter, r *http.Request
 	err = layout.MainPageOnline(match.board, match.pieces, match.coordinateMultiplier, whitePlayer, blackPlayer, match.takenPiecesWhite, match.takenPiecesBlack, true).Render(r.Context(), w)
 	if err != nil {
 		respondWithAnError(w, http.StatusInternalServerError, "couldn't render template", err)
+		return
+	}
+}
+
+func (cfg *appConfig) waitingForReconnect(w http.ResponseWriter, r *http.Request) {
+	c, err := r.Cookie("current_game")
+	if err != nil {
+		respondWithAnError(w, http.StatusNotFound, "current game unavailable", err)
+		return
+	}
+	userC, err := r.Cookie("access_token")
+	if err != nil {
+		respondWithAnError(w, http.StatusNotFound, "access token unavailable", err)
+		return
+	}
+	userId, err := auth.ValidateJWT(userC.Value, cfg.secret)
+	if err != nil {
+		respondWithAnError(w, http.StatusNotFound, "couldn't validate jwt", err)
+		return
+	}
+	game := cfg.connections[c.Value]
+	var time int8
+	if userId == game["white"].ID {
+		gamePlayer := game["white"]
+		time = gamePlayer.ReconnectTimer
+		time = time - 1
+		gamePlayer.ReconnectTimer = time
+		game["white"] = gamePlayer
+	} else {
+		gamePlayer := game["black"]
+		time = gamePlayer.ReconnectTimer
+		time = time - 1
+		gamePlayer.ReconnectTimer = time
+		game["black"] = gamePlayer
+	}
+	if time < 0 {
+		log.Println("gotovo")
+		return
+	}
+
+	_, err = fmt.Fprintf(w, `<span id="waiting" hx-swap-oob="true">%v</span>`, time)
+	if err != nil {
+		respondWithAnError(w, http.StatusInternalServerError, "couldn't send time", err)
 		return
 	}
 }
