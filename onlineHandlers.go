@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 	"net/http"
+	"time"
 
 	"github.com/NikolaTosic-sudo/chess-live/containers/components"
 	layout "github.com/NikolaTosic-sudo/chess-live/containers/layouts"
@@ -38,26 +39,69 @@ func (cfg *appConfig) wsHandler(w http.ResponseWriter, r *http.Request) {
 			game[color] = player
 		}
 	}
-	match := cfg.Matches[c.Value]
+	err = conn.SetReadDeadline(time.Now().Add(30 * time.Second))
+	if err != nil {
+		log.Println(err, "error")
+		return
+	}
+	conn.SetPongHandler(func(appData string) error {
+		err = conn.SetReadDeadline(time.Now().Add(30 * time.Second))
+		if err != nil {
+			log.Println(err, "error")
+			return err
+		}
+		return nil
+	})
 	go func() {
+		defer func() {
+			err := conn.Close()
+
+			if err != nil {
+				log.Println(err, "error")
+				return
+			}
+
+			for color, connect := range game {
+				if conn != connect.Conn {
+					var result string
+					var text string
+					if color == "white" {
+						result = "1-0"
+						text = "white"
+					} else {
+						result = "0-1"
+						text = "black"
+					}
+					msg, err := TemplString(components.EndGameModal(result, text))
+					if err != nil {
+						log.Println(err, "error")
+						return
+					}
+					err = connect.Conn.WriteMessage(websocket.TextMessage, []byte(msg))
+					if err != nil {
+						log.Println(err, "error")
+						return
+					}
+				}
+
+			}
+
+		}()
 		for {
 			_, msg, err := conn.ReadMessage()
 			if e, ok := err.(*websocket.CloseError); ok && e.Code == websocket.CloseNormalClosure {
-				respondWithAnError(w, http.StatusTeapot, "websocket closed", err)
+				log.Println(err, "error")
 				break
 			}
 			if err != nil {
-				log.Println(match.disconnected, "neki tamo error")
-				match.disconnected <- "disconnected"
-				respondWithAnError(w, http.StatusInternalServerError, "couldn't read message", err)
+				log.Println(err, "error")
 				break
 			}
 
 			for _, connect := range game {
 				if conn != connect.Conn {
+					connect.Conn.SetWriteDeadline(time.Now().Add(30 * time.Second))
 					err = connect.Conn.WriteMessage(websocket.TextMessage, msg)
-					disconnected := <-match.disconnected
-					log.Println(disconnected, "dis bgm")
 					if err != nil {
 						logError("websocket write error", err)
 					}

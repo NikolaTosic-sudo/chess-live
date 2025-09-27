@@ -909,7 +909,6 @@ func (cfg *appConfig) checkUserPrivate(w http.ResponseWriter, r *http.Request) e
 			}
 			_, ok := cfg.users[userId]
 			if !ok {
-				logError("user not found", err)
 				http.Redirect(w, r, "/", http.StatusFound)
 			}
 		}
