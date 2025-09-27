@@ -189,11 +189,12 @@ func (cfg *appConfig) onlineBoardHandler(w http.ResponseWriter, r *http.Request)
 				if player == emptyPlayer {
 					connection := cfg.connections[gameName]
 					player = components.OnlinePlayerStruct{
-						ID:     userId,
-						Name:   userName,
-						Image:  "/assets/images/user-icon.png",
-						Timer:  formatTime(600),
-						Pieces: "black",
+						ID:             userId,
+						Name:           userName,
+						Image:          "/assets/images/user-icon.png",
+						Timer:          formatTime(600),
+						Pieces:         "black",
+						ReconnectTimer: 30,
 					}
 					connection[color] = player
 					cfg.connections[gameName] = connection
@@ -227,7 +228,6 @@ func (cfg *appConfig) onlineBoardHandler(w http.ResponseWriter, r *http.Request)
 					cfg.Matches[gameName] = Match{
 						board:                startingBoard,
 						pieces:               startingPieces,
-						disconnected:         make(chan string),
 						selectedPiece:        components.Piece{},
 						coordinateMultiplier: multiplier,
 						isWhiteTurn:          true,
@@ -285,11 +285,12 @@ func (cfg *appConfig) onlineBoardHandler(w http.ResponseWriter, r *http.Request)
 	http.SetCookie(w, &startGame)
 	cfg.connections[currentGame] = map[string]components.OnlinePlayerStruct{
 		"white": {
-			ID:     userId,
-			Name:   userName,
-			Image:  "/assets/images/user-icon.png",
-			Timer:  formatTime(600),
-			Pieces: "white",
+			ID:             userId,
+			Name:           userName,
+			Image:          "/assets/images/user-icon.png",
+			Timer:          formatTime(600),
+			Pieces:         "white",
+			ReconnectTimer: 30,
 		},
 		"black": {},
 	}
