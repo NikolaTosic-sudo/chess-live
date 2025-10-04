@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strings"
 
 	"github.com/NikolaTosic-sudo/chess-live/containers/components"
 	layout "github.com/NikolaTosic-sudo/chess-live/containers/layouts"
@@ -39,39 +40,51 @@ func (cfg *appConfig) wsHandler(w http.ResponseWriter, r *http.Request) {
 			game[color] = player
 		}
 	}
+	disconnect := make(chan string)
 	go func() {
-		defer func() {
-			err := conn.Close()
 
-			if err != nil {
-				log.Println(err, "connection closed")
-				return
-			}
+		d := <-disconnect
 
-			for _, connect := range game {
-				if conn != connect.Conn {
-					msg, err := TemplString(components.WaitForReconnectModal())
-					if err != nil {
-						log.Println(err, "error")
-						return
-					}
-					err = connect.Conn.WriteMessage(websocket.TextMessage, []byte(msg))
-					if err != nil {
-						log.Println(err, "error")
-						return
-					}
+		log.Println(d)
+
+		err := conn.Close()
+
+		if err != nil {
+			log.Println(err, "connection closed")
+			return
+		}
+
+		for _, connect := range game {
+			if conn != connect.Conn {
+				msg, err := TemplString(components.WaitForReconnectModal())
+				if err != nil {
+					log.Println(err, "error")
+					return
 				}
 
+				err = connect.Conn.WriteMessage(websocket.TextMessage, []byte(msg))
+				if err != nil {
+					log.Println(err, "error")
+					return
+				}
 			}
 
-		}()
+		}
+
+	}()
+
+	go func() {
 		for {
 			_, msg, err := conn.ReadMessage()
 			if e, ok := err.(*websocket.CloseError); ok && e.Code == websocket.CloseNormalClosure {
 				log.Println(err, "normal close")
 				break
 			}
+			if strings.Contains(err.Error(), "websocket: RSV1 set, bad opcode 7, bad MASK") {
+				disconnect <- "disconnected"
+			}
 			if err != nil {
+				disconnect <- "game done"
 				log.Println(err, "neki drugi error")
 				break
 			}
@@ -167,4 +180,20 @@ func (cfg *appConfig) waitingForReconnect(w http.ResponseWriter, r *http.Request
 		respondWithAnError(w, http.StatusInternalServerError, "couldn't send time", err)
 		return
 	}
+}
+
+func (cfg *appConfig) checkOnlineHandler(w http.ResponseWriter, r *http.Request) {
+	c, err := r.Cookie("current_game")
+	if err != nil {
+		return
+	}
+
+	if strings.Contains(c.Value, "online:") {
+		err := components.ReconnectModal().Render(r.Context(), w)
+		if err != nil {
+			respondWithAnError(w, http.StatusInternalServerError, "Couldn't render template", err)
+			return
+		}
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
