@@ -90,6 +90,7 @@ func main() {
 	http.HandleFunc("/end-game", cfg.endGameHandler)
 	http.HandleFunc("/surrender", cfg.surrenderHandler)
 	http.HandleFunc("/wait-reconnect", cfg.waitingForReconnect)
+	http.HandleFunc("/check-online", cfg.checkOnlineHandler)
 
 	fmt.Printf("Listening on :%v\n", port)
 	err = http.ListenAndServe(fmt.Sprintf(":%v", port), nil)
