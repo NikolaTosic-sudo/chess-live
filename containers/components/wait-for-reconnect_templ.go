@@ -29,7 +29,7 @@ func WaitForReconnectModal() templ.Component {
 			templ_7745c5c3_Var1 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div hx-swap-oob=\"afterbegin:#body\"><div class=\"fixed inset-0 bg-black/60 flex items-center justify-center z-30\"><div hx-get=\"/wait-reconnect\" hx-trigger=\"every 1s delay:0.4s\"></div><div id=\"modal-content\" class=\"w-full max-w-md bg-[#3e3a36] rounded-lg shadow-xl p-6 z-40\" onclick=\"event.stopPropagation()\"><div class=\"text-center text-white text-2xl\">Opponent disconnected, they have <span id=\"waiting\">30</span> seconds to reconnect...</div></div></div></div><div id=\"timer-update\" hx-swap-oob=\"outerHTML\"></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div hx-swap-oob=\"afterbegin:#body\"><div class=\"fixed inset-0 bg-black/60 flex items-center justify-center z-30\" id=\"wait\"><div hx-get=\"/wait-reconnect\" hx-trigger=\"every 1s delay:0.4s\"></div><div id=\"modal-content\" class=\"w-full max-w-md bg-[#3e3a36] rounded-lg shadow-xl p-6 z-40\" onclick=\"event.stopPropagation()\"><div class=\"text-center text-white text-2xl\">Opponent disconnected, they have <span id=\"waiting\">30</span> seconds to reconnect...</div></div></div></div><div id=\"timer-update\" hx-swap-oob=\"outerHTML\"></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
