@@ -9,6 +9,7 @@ import (
 	"github.com/NikolaTosic-sudo/chess-live/containers/components"
 	layout "github.com/NikolaTosic-sudo/chess-live/containers/layouts"
 	"github.com/NikolaTosic-sudo/chess-live/internal/auth"
+	"github.com/NikolaTosic-sudo/chess-live/internal/database"
 	"github.com/gorilla/websocket"
 )
 
@@ -157,21 +158,37 @@ func (cfg *appConfig) waitingForReconnect(w http.ResponseWriter, r *http.Request
 	}
 	game := cfg.connections[c.Value]
 	var time int8
+	var result string
+	var winner string
 	if userId == game["white"].ID {
-		gamePlayer := game["white"]
-		time = gamePlayer.ReconnectTimer
-		time = time - 1
-		gamePlayer.ReconnectTimer = time
-		game["white"] = gamePlayer
-	} else {
 		gamePlayer := game["black"]
 		time = gamePlayer.ReconnectTimer
 		time = time - 1
 		gamePlayer.ReconnectTimer = time
 		game["black"] = gamePlayer
+		result = "1-0"
+		winner = "white"
+	} else {
+		gamePlayer := game["white"]
+		time = gamePlayer.ReconnectTimer
+		time = time - 1
+		gamePlayer.ReconnectTimer = time
+		game["white"] = gamePlayer
+		result = "0-1"
+		winner = "black"
 	}
 	if time < 0 {
-		log.Println("gotovo")
+		_, err = fmt.Fprintf(w, `<div id="wait" hx-swap-oob="outerHTML"></div>`)
+		if err != nil {
+			respondWithAnError(w, http.StatusInternalServerError, "couldn't render template", err)
+			return
+		}
+
+		err := components.EndGameModal(result, winner).Render(r.Context(), w)
+		if err != nil {
+			respondWithAnError(w, http.StatusInternalServerError, "couldn't render template", err)
+			return
+		}
 		return
 	}
 
@@ -196,4 +213,109 @@ func (cfg *appConfig) checkOnlineHandler(w http.ResponseWriter, r *http.Request)
 		}
 	}
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func (cfg *appConfig) cancelOnlineHandler(w http.ResponseWriter, r *http.Request) {
+	currentGame, err := r.Cookie("current_game")
+	if err != nil {
+		respondWithAnError(w, http.StatusNotFound, "game not found", err)
+		return
+	}
+
+	userToken, err := r.Cookie("access_token")
+	if err != nil {
+		respondWithAnError(w, http.StatusNotFound, "user not found", err)
+		return
+	}
+
+	userId, err := auth.ValidateJWT(userToken.Value, cfg.secret)
+	if err != nil {
+		respondWithAnError(w, http.StatusNotFound, "invalid token", err)
+		return
+	}
+
+	saveGame := cfg.Matches[currentGame.Value]
+
+	onlineGame := cfg.connections[currentGame.Value]
+
+	var result string
+	if onlineGame["white"].ID == userId {
+		result = "0-1"
+	} else {
+		result = "1-0"
+	}
+
+	err = cfg.database.UpdateMatchOnEnd(r.Context(), database.UpdateMatchOnEndParams{
+		Result: result,
+		ID:     saveGame.matchId,
+	})
+	if err != nil {
+		respondWithAnError(w, http.StatusInternalServerError, "error updating match", err)
+		return
+	}
+
+	cGC := http.Cookie{
+		Name:     "current_game",
+		Value:    "",
+		Path:     "/",
+		MaxAge:   -1,
+		HttpOnly: true,
+		Secure:   true,
+		SameSite: http.SameSiteLaxMode,
+	}
+	http.SetCookie(w, &cGC)
+
+	_, err = fmt.Fprintf(w, `<div id="rec" hx-swap-oob="outerHTML"></div>`)
+
+	if err != nil {
+		respondWithAnError(w, http.StatusInternalServerError, "error sending message", err)
+		return
+	}
+}
+
+func (cfg *appConfig) continueOnlineHandler(w http.ResponseWriter, r *http.Request) {
+	currentGame, err := r.Cookie("current_game")
+	if err != nil {
+		respondWithAnError(w, http.StatusNotFound, "game not found", err)
+		return
+	}
+
+	match, ok := cfg.Matches[currentGame.Value]
+	if !ok {
+		// TODO:NOtify the user here that the match ended before he reconnected
+	}
+
+	onlineGame, ok := cfg.connections[currentGame.Value]
+	if !ok {
+		// TODO:NOtify the user here that the match ended before he reconnected
+	}
+
+	var blackPlayer components.OnlinePlayerStruct
+	var whitePlayer components.OnlinePlayerStruct
+
+	for color, player := range onlineGame {
+		if color == "white" {
+			whitePlayer = player
+		}
+
+		if color == "black" {
+			blackPlayer = player
+		}
+	}
+
+	err = layout.MainPageOnline(
+		match.board,
+		match.pieces,
+		match.coordinateMultiplier,
+		whitePlayer,
+		blackPlayer,
+		match.takenPiecesWhite,
+		match.takenPiecesBlack,
+		true,
+	).Render(r.Context(), w)
+
+	if err != nil {
+		respondWithAnError(w, http.StatusInternalServerError, "websocket upgrade failed", err)
+		return
+	}
 }

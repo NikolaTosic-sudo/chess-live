@@ -91,6 +91,8 @@ func main() {
 	http.HandleFunc("/surrender", cfg.surrenderHandler)
 	http.HandleFunc("/wait-reconnect", cfg.waitingForReconnect)
 	http.HandleFunc("/check-online", cfg.checkOnlineHandler)
+	http.HandleFunc("/cancel-online", cfg.cancelOnlineHandler)
+	http.HandleFunc("/continue-online", cfg.continueOnlineHandler)
 
 	fmt.Printf("Listening on :%v\n", port)
 	err = http.ListenAndServe(fmt.Sprintf(":%v", port), nil)
