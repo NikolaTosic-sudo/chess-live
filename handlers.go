@@ -181,6 +181,21 @@ func (cfg *appConfig) onlineBoardHandler(w http.ResponseWriter, r *http.Request)
 			for color, player := range players {
 				if player == emptyPlayer {
 					connection := cfg.connections[gameName]
+
+					mC, noMc := r.Cookie("multiplier")
+
+					var multiplier int
+					if noMc != nil {
+						multiplier = 80
+					} else {
+						mcInt, err := strconv.Atoi(mC.Value)
+						if err != nil {
+							respondWithAnError(w, http.StatusInternalServerError, "couldn't convert value", err)
+							return
+						}
+						multiplier = mcInt
+					}
+
 					player = components.OnlinePlayerStruct{
 						ID:             userId,
 						Name:           userName,
@@ -188,6 +203,7 @@ func (cfg *appConfig) onlineBoardHandler(w http.ResponseWriter, r *http.Request)
 						Timer:          formatTime(600),
 						Pieces:         "black",
 						ReconnectTimer: 30,
+						Multiplier:     multiplier,
 					}
 					connection[color] = player
 					cfg.connections[gameName] = connection
@@ -203,20 +219,6 @@ func (cfg *appConfig) onlineBoardHandler(w http.ResponseWriter, r *http.Request)
 
 					startingBoard := MakeBoard()
 					startingPieces := MakePieces()
-
-					mC, noMc := r.Cookie("multiplier")
-
-					var multiplier int
-					if noMc != nil {
-						multiplier = 80
-					} else {
-						mcInt, err := strconv.Atoi(mC.Value)
-						if err != nil {
-							respondWithAnError(w, http.StatusInternalServerError, "couldn't convert value", err)
-							return
-						}
-						multiplier = mcInt
-					}
 
 					cfg.Matches[gameName] = Match{
 						board:                startingBoard,
@@ -244,10 +246,10 @@ func (cfg *appConfig) onlineBoardHandler(w http.ResponseWriter, r *http.Request)
 
 					match := cfg.Matches[gameName]
 					cfg.fillBoard(gameName)
-					UpdateCoordinates(&match)
+					UpdateCoordinates(&match, whitePlayer.Multiplier)
 					http.SetCookie(w, &startGame)
 
-					err = layout.MainPageOnline(match.board, match.pieces, match.coordinateMultiplier, whitePlayer, player, match.takenPiecesWhite, match.takenPiecesBlack, false).Render(r.Context(), w)
+					err = layout.MainPageOnline(match.board, match.pieces, whitePlayer.Multiplier, whitePlayer, player, match.takenPiecesWhite, match.takenPiecesBlack, false).Render(r.Context(), w)
 					if err != nil {
 						respondWithAnErrorPage(w, r, http.StatusInternalServerError, "Couldn't render template")
 					}
@@ -276,6 +278,21 @@ func (cfg *appConfig) onlineBoardHandler(w http.ResponseWriter, r *http.Request)
 	}
 
 	http.SetCookie(w, &startGame)
+
+	mC, noMc := r.Cookie("multiplier")
+
+	var multiplier int
+	if noMc != nil {
+		multiplier = 80
+	} else {
+		mcInt, err := strconv.Atoi(mC.Value)
+		if err != nil {
+			respondWithAnError(w, http.StatusInternalServerError, "couldn't convert value", err)
+			return
+		}
+		multiplier = mcInt
+	}
+
 	cfg.connections[currentGame] = map[string]components.OnlinePlayerStruct{
 		"white": {
 			ID:             userId,
@@ -284,6 +301,7 @@ func (cfg *appConfig) onlineBoardHandler(w http.ResponseWriter, r *http.Request)
 			Timer:          formatTime(600),
 			Pieces:         "white",
 			ReconnectTimer: 30,
+			Multiplier:     multiplier,
 		},
 		"black": {},
 	}
@@ -321,7 +339,8 @@ func (cfg *appConfig) updateMultiplerHandler(w http.ResponseWriter, r *http.Requ
 	match := cfg.Matches[currentGame]
 
 	match.coordinateMultiplier = multiplier
-	UpdateCoordinates(&match)
+	UpdateCoordinates(&match, multiplier)
+	// TODO: odje da vidim da updejtam multiplier za playere
 	cfg.Matches[currentGame] = match
 
 	multiplierCookie := http.Cookie{
@@ -456,7 +475,7 @@ func (cfg *appConfig) startGameHandler(w http.ResponseWriter, r *http.Request) {
 	cur := cfg.Matches[newGameName]
 
 	cfg.fillBoard(newGameName)
-	UpdateCoordinates(&cur)
+	UpdateCoordinates(&cur, cur.coordinateMultiplier)
 	http.SetCookie(w, &startGame)
 
 	whitePlayer := components.PlayerStruct{
@@ -497,7 +516,7 @@ func (cfg *appConfig) resumeGameHandler(w http.ResponseWriter, r *http.Request) 
 	}
 
 	cfg.fillBoard(c.Value)
-	UpdateCoordinates(&match)
+	UpdateCoordinates(&match, match.coordinateMultiplier)
 
 	err = components.StartGameRight().Render(r.Context(), w)
 	if err != nil {
@@ -862,7 +881,7 @@ func (cfg *appConfig) matchesHandler(w http.ResponseWriter, r *http.Request) {
 	cur := cfg.Matches[newGame]
 
 	cfg.fillBoard(newGame)
-	UpdateCoordinates(&cur)
+	UpdateCoordinates(&cur, cur.coordinateMultiplier)
 	http.SetCookie(w, &startGame)
 
 	whitePlayer := components.PlayerStruct{
@@ -948,4 +967,9 @@ func (cfg *appConfig) moveHistoryHandler(w http.ResponseWriter, r *http.Request)
 		respondWithAnError(w, http.StatusInternalServerError, "couldn't render template", err)
 		return
 	}
+}
+
+func (cfg *appConfig) endModalHandler(w http.ResponseWriter, r *http.Request) {
+
+	w.WriteHeader(http.StatusNoContent)
 }

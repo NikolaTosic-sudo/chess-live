@@ -312,8 +312,10 @@ func (cfg *appConfig) checkForCastle(b map[string]components.Square, selectedPie
 func (cfg *appConfig) handleCastle(w http.ResponseWriter, currentPiece components.Piece, currentGame string, r *http.Request) error {
 	match := cfg.Matches[currentGame]
 	onlineGame, found := cfg.connections[currentGame]
+
 	var king components.Piece
 	var rook components.Piece
+	var multiplier int
 
 	if match.selectedPiece.IsKing {
 		king = match.selectedPiece
@@ -321,6 +323,30 @@ func (cfg *appConfig) handleCastle(w http.ResponseWriter, currentPiece component
 	} else {
 		king = currentPiece
 		rook = match.selectedPiece
+	}
+
+	if found {
+		userC, err := r.Cookie("access_token")
+
+		if err != nil {
+			respondWithAnErrorPage(w, r, http.StatusUnauthorized, "user not found")
+			return err
+		}
+
+		userId, err := auth.ValidateJWT(userC.Value, cfg.secret)
+
+		if err != nil {
+			respondWithAnErrorPage(w, r, http.StatusUnauthorized, "user not found")
+			return err
+		}
+
+		for _, player := range onlineGame {
+			if player.ID == userId {
+				multiplier = player.Multiplier
+			}
+		}
+	} else {
+		multiplier = match.coordinateMultiplier
 	}
 
 	kTile := king.Tile
@@ -332,12 +358,12 @@ func (cfg *appConfig) handleCastle(w http.ResponseWriter, currentPiece component
 
 	if kingSquare.Coordinates[1] < rookSquare.Coordinates[1] {
 		kC := kingSquare.Coordinates[1]
-		rookSquare.Coordinates[1] = kC + match.coordinateMultiplier
-		kingSquare.Coordinates[1] = kC + match.coordinateMultiplier*2
+		rookSquare.Coordinates[1] = kC + multiplier
+		kingSquare.Coordinates[1] = kC + multiplier*2
 	} else {
 		kC := kingSquare.Coordinates[1]
-		rookSquare.Coordinates[1] = kC - match.coordinateMultiplier
-		kingSquare.Coordinates[1] = kC - match.coordinateMultiplier*2
+		rookSquare.Coordinates[1] = kC - multiplier
+		kingSquare.Coordinates[1] = kC - multiplier*2
 	}
 
 	message := fmt.Sprintf(`
@@ -375,8 +401,8 @@ func (cfg *appConfig) handleCastle(w http.ResponseWriter, currentPiece component
 	}
 
 	rowIdx := rowIdxMap[string(king.Tile[0])]
-	king.Tile = mockBoard[rowIdx][kingSquare.Coordinates[1]/match.coordinateMultiplier]
-	rook.Tile = mockBoard[rowIdx][rookSquare.Coordinates[1]/match.coordinateMultiplier]
+	king.Tile = mockBoard[rowIdx][kingSquare.Coordinates[1]/multiplier]
+	rook.Tile = mockBoard[rowIdx][rookSquare.Coordinates[1]/multiplier]
 	king.Moved = true
 	rook.Moved = true
 	newKingSquare := match.board[king.Tile]
@@ -1073,10 +1099,36 @@ func (cfg *appConfig) checkForPawnPromotion(pawnName, currentGame string, w http
 		pieceColor = "black"
 		firstPosition = "bottom: 0px"
 	}
-	endBoardCoordinates := 7 * match.coordinateMultiplier
-	dropdownPosition := square.Coordinates[1] + match.coordinateMultiplier
+
+	var multiplier int
+
+	if found {
+		userC, err := r.Cookie("access_token")
+
+		if err != nil {
+			respondWithAnErrorPage(w, r, http.StatusUnauthorized, "user not found")
+			return false, err
+		}
+
+		userId, err := auth.ValidateJWT(userC.Value, cfg.secret)
+
+		if err != nil {
+			respondWithAnErrorPage(w, r, http.StatusUnauthorized, "user not found")
+			return false, err
+		}
+
+		for _, player := range onlineGame {
+			if player.ID == userId {
+				multiplier = player.Multiplier
+			}
+		}
+	} else {
+		multiplier = match.coordinateMultiplier
+	}
+	endBoardCoordinates := 7 * multiplier
+	dropdownPosition := square.Coordinates[1] + multiplier
 	if square.Coordinates[1] == endBoardCoordinates {
-		dropdownPosition = square.Coordinates[1] - match.coordinateMultiplier
+		dropdownPosition = square.Coordinates[1] - multiplier
 	}
 
 	rowIdx := rowIdxMap[string(pawn.Tile[0])]
@@ -1150,46 +1202,6 @@ func TemplString(t templ.Component) (string, error) {
 		return "", err
 	}
 	return b.String(), nil
-}
-
-func (cfg *appConfig) endGameCleaner(w http.ResponseWriter, r *http.Request, currentGame string) error {
-	uC, err := r.Cookie("access_token")
-	if err != nil {
-		return err
-	}
-	userId, err := auth.ValidateJWT(uC.Value, cfg.secret)
-	if err != nil {
-		return err
-	}
-	var result string
-	conn := cfg.connections[currentGame]
-	if conn["white"].ID == userId {
-		result = "0-1"
-	} else if conn["black"].ID == userId {
-		result = "1-0"
-	} else {
-		result = "1-1"
-	}
-	saveGame := cfg.Matches[currentGame]
-	delete(cfg.Matches, currentGame)
-	err = cfg.database.UpdateMatchOnEnd(r.Context(), database.UpdateMatchOnEndParams{
-		Result: result,
-		ID:     saveGame.matchId,
-	})
-	if err != nil {
-		return err
-	}
-	cGC := http.Cookie{
-		Name:     "current_game",
-		Value:    "",
-		Path:     "/",
-		MaxAge:   -1,
-		HttpOnly: true,
-		Secure:   true,
-		SameSite: http.SameSiteLaxMode,
-	}
-	http.SetCookie(w, &cGC)
-	return nil
 }
 
 func checkForEnPessant(selectedSquare string, currentSquare components.Square, match Match) Match {
