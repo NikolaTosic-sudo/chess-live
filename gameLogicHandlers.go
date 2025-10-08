@@ -958,13 +958,11 @@ func (cfg *appConfig) endGameHandler(w http.ResponseWriter, r *http.Request) {
 		respondWithAnError(w, http.StatusNotFound, "game not found", err)
 		return
 	}
-	fmt.Println("dodje li odje uopste")
 	err = r.ParseForm()
 	if err != nil {
 		respondWithAnError(w, http.StatusInternalServerError, "error parsing form", err)
 		return
 	}
-	fmt.Println("dodje li odje uopste 2")
 	saveGame := cfg.Matches[currentGame.Value]
 	delete(cfg.Matches, currentGame.Value)
 	err = cfg.database.UpdateMatchOnEnd(r.Context(), database.UpdateMatchOnEndParams{
@@ -975,24 +973,11 @@ func (cfg *appConfig) endGameHandler(w http.ResponseWriter, r *http.Request) {
 		respondWithAnError(w, http.StatusInternalServerError, "error updating match", err)
 		return
 	}
-	fmt.Println("dodje li odje uopste 3")
 	if match, ok := cfg.connections[currentGame.Value]; ok {
-		fmt.Println("dodje li odje uopste 4")
-		err := match["white"].Conn.Close()
-		if err != nil {
-			respondWithAnError(w, http.StatusInternalServerError, "closing the connection error", err)
-			return
-		}
-		fmt.Println("dodje li odje uopste 5")
-		err = match["black"].Conn.Close()
-		if err != nil {
-			respondWithAnError(w, http.StatusInternalServerError, "closing the connection error", err)
-			return
-		}
+		match["white"].Conn.Close()
+		match["black"].Conn.Close()
 		delete(cfg.connections, currentGame.Value)
-		fmt.Println("dodje li odje uopste 6")
 	}
-	fmt.Println("dodje li odje uopste 7")
 	cGC := http.Cookie{
 		Name:     "current_game",
 		Value:    "",

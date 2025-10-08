@@ -1,7 +1,14 @@
 package components
 
 templ WaitingModal() {
-	<div id="waiting-modal" class="fixed inset-0 bg-black/60 flex items-center justify-center z-30">
+	<div
+		id="waiting-modal"
+		class="fixed inset-0 bg-black/60 flex items-center justify-center z-30"
+		hx-get="/cancel-online-search"
+		hx-target="this"
+		hx-trigger="click"
+		hx-swap="outerHTML"
+	>
 		<div id="searching-opponent" hx-get="/searching" hx-trigger="every 1s" hx-target="#body"></div>
 		<div
 			id="modal-content"
@@ -9,7 +16,17 @@ templ WaitingModal() {
 			onclick="event.stopPropagation()"
 		>
 			<div class="text-center text-white text-2xl">
-				Searching for opponent...
+				Searching for an opponent...
+			</div>
+			<div class="flex mt-4 justify-center">
+				<button
+					hx-get="/cancel-online-search"
+					hx-swap="outerHTML"
+					hx-target="#waiting-modal"
+					class="px-5 py-2 text-white bg-red-600 rounded-md hover:bg-red-700 transition"
+				>
+					Cancel
+				</button>
 			</div>
 		</div>
 	</div>
