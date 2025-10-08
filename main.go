@@ -56,7 +56,7 @@ func main() {
 	}
 
 	cur := cfg.Matches["initial"]
-	UpdateCoordinates(&cur)
+	UpdateCoordinates(&cur, cur.coordinateMultiplier)
 
 	http.Handle("/assets/", http.StripPrefix("/assets/", http.FileServer(http.Dir("assets"))))
 	http.HandleFunc("/", cfg.middleWareCheckForUser(cfg.boardHandler))
@@ -93,6 +93,8 @@ func main() {
 	http.HandleFunc("/check-online", cfg.checkOnlineHandler)
 	http.HandleFunc("/cancel-online", cfg.cancelOnlineHandler)
 	http.HandleFunc("/continue-online", cfg.continueOnlineHandler)
+	http.HandleFunc("/handle-end", cfg.endModalHandler)
+	http.HandleFunc("/cancel-online-search", cfg.cancelOnlineSearchHandler)
 
 	fmt.Printf("Listening on :%v\n", port)
 	err = http.ListenAndServe(fmt.Sprintf(":%v", port), nil)

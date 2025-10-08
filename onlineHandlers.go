@@ -44,9 +44,7 @@ func (cfg *appConfig) wsHandler(w http.ResponseWriter, r *http.Request) {
 	disconnect := make(chan string)
 	go func() {
 
-		d := <-disconnect
-
-		log.Println(d)
+		<-disconnect
 
 		err := conn.Close()
 
@@ -130,10 +128,10 @@ func (cfg *appConfig) searchingOppHandler(w http.ResponseWriter, r *http.Request
 
 	match := cfg.Matches[currentGame]
 	cfg.fillBoard(currentGame)
-	UpdateCoordinates(&match)
+	UpdateCoordinates(&match, whitePlayer.Multiplier)
 	http.SetCookie(w, &startGame)
 
-	err = layout.MainPageOnline(match.board, match.pieces, match.coordinateMultiplier, whitePlayer, blackPlayer, match.takenPiecesWhite, match.takenPiecesBlack, true).Render(r.Context(), w)
+	err = layout.MainPageOnline(match.board, match.pieces, whitePlayer.Multiplier, whitePlayer, blackPlayer, match.takenPiecesWhite, match.takenPiecesBlack, true).Render(r.Context(), w)
 	if err != nil {
 		respondWithAnError(w, http.StatusInternalServerError, "couldn't render template", err)
 		return
@@ -157,13 +155,25 @@ func (cfg *appConfig) waitingForReconnect(w http.ResponseWriter, r *http.Request
 		return
 	}
 	game := cfg.connections[c.Value]
+
+	err1 := game["white"].Conn.WriteMessage(websocket.TextMessage, []byte("test"))
+	err2 := game["black"].Conn.WriteMessage(websocket.TextMessage, []byte("test"))
+
+	if err1 == nil && err2 == nil {
+		_, err = fmt.Fprintf(w, `<div id="wait" hx-swap-oob="outerHTML"></div>`)
+		if err != nil {
+			respondWithAnError(w, http.StatusInternalServerError, "couldn't render template", err)
+			return
+		}
+	}
+
 	var time int8
 	var result string
 	var winner string
 	if userId == game["white"].ID {
 		gamePlayer := game["black"]
 		time = gamePlayer.ReconnectTimer
-		time = time - 1
+		time -= 1
 		gamePlayer.ReconnectTimer = time
 		game["black"] = gamePlayer
 		result = "1-0"
@@ -171,7 +181,7 @@ func (cfg *appConfig) waitingForReconnect(w http.ResponseWriter, r *http.Request
 	} else {
 		gamePlayer := game["white"]
 		time = gamePlayer.ReconnectTimer
-		time = time - 1
+		time -= 1
 		gamePlayer.ReconnectTimer = time
 		game["white"] = gamePlayer
 		result = "0-1"
@@ -280,14 +290,70 @@ func (cfg *appConfig) continueOnlineHandler(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	match, ok := cfg.Matches[currentGame.Value]
-	if !ok {
-		// TODO:NOtify the user here that the match ended before he reconnected
+	userToken, err := r.Cookie("access_token")
+	if err != nil {
+		respondWithAnError(w, http.StatusNotFound, "user not found", err)
+		return
 	}
 
-	onlineGame, ok := cfg.connections[currentGame.Value]
-	if !ok {
-		// TODO:NOtify the user here that the match ended before he reconnected
+	userId, err := auth.ValidateJWT(userToken.Value, cfg.secret)
+	if err != nil {
+		respondWithAnError(w, http.StatusNotFound, "invalid token", err)
+		return
+	}
+
+	user, err := cfg.database.GetUserById(r.Context(), userId)
+	if err != nil {
+		respondWithAnError(w, http.StatusNotFound, "user not found", err)
+		return
+	}
+
+	r.Header.Add("Hx-Target", "body")
+
+	match, ok := cfg.Matches[currentGame.Value]
+
+	onlineGame, ok2 := cfg.connections[currentGame.Value]
+	if !ok || !ok2 {
+		cGC := http.Cookie{
+			Name:     "current_game",
+			Value:    "",
+			Path:     "/",
+			MaxAge:   -1,
+			HttpOnly: true,
+			Secure:   true,
+			SameSite: http.SameSiteLaxMode,
+		}
+
+		http.SetCookie(w, &cGC)
+		match := cfg.Matches["initial"]
+		cfg.fillBoard("initial")
+
+		whitePlayer := components.PlayerStruct{
+			Image:  "/assets/images/user-icon.png",
+			Name:   user.Name,
+			Timer:  formatTime(match.whiteTimer),
+			Pieces: "white",
+		}
+		blackPlayer := components.PlayerStruct{
+			Image:  "/assets/images/user-icon.png",
+			Name:   "Opponent",
+			Timer:  formatTime(match.blackTimer),
+			Pieces: "black",
+		}
+
+		err = layout.MainPagePrivate(match.board, match.pieces, match.coordinateMultiplier, whitePlayer, blackPlayer, match.takenPiecesWhite, match.takenPiecesBlack).Render(r.Context(), w)
+
+		if err != nil {
+			respondWithAnErrorPage(w, r, http.StatusInternalServerError, "Couldn't render template")
+			return
+		}
+
+		err = components.GameEndedModal().Render(r.Context(), w)
+		if err != nil {
+			respondWithAnErrorPage(w, r, http.StatusInternalServerError, "Couldn't render template")
+			return
+		}
+		return
 	}
 
 	var blackPlayer components.OnlinePlayerStruct
@@ -303,10 +369,18 @@ func (cfg *appConfig) continueOnlineHandler(w http.ResponseWriter, r *http.Reque
 		}
 	}
 
+	var multiplier int
+
+	if blackPlayer.ID == userId {
+		multiplier = blackPlayer.Multiplier
+	} else {
+		multiplier = whitePlayer.Multiplier
+	}
+
 	err = layout.MainPageOnline(
 		match.board,
 		match.pieces,
-		match.coordinateMultiplier,
+		multiplier,
 		whitePlayer,
 		blackPlayer,
 		match.takenPiecesWhite,
@@ -316,6 +390,36 @@ func (cfg *appConfig) continueOnlineHandler(w http.ResponseWriter, r *http.Reque
 
 	if err != nil {
 		respondWithAnError(w, http.StatusInternalServerError, "websocket upgrade failed", err)
+		return
+	}
+}
+
+func (cfg *appConfig) cancelOnlineSearchHandler(w http.ResponseWriter, r *http.Request) {
+
+	currentGame, err := r.Cookie("current_game")
+
+	if err != nil {
+		respondWithAnError(w, http.StatusInternalServerError, "failed getting the cookie", err)
+		return
+	}
+
+	cGC := http.Cookie{
+		Name:     "current_game",
+		Value:    "",
+		Path:     "/",
+		MaxAge:   -1,
+		HttpOnly: true,
+		Secure:   true,
+		SameSite: http.SameSiteLaxMode,
+	}
+
+	http.SetCookie(w, &cGC)
+
+	delete(cfg.connections, currentGame.Value)
+
+	_, err = w.Write([]byte{})
+	if err != nil {
+		respondWithAnError(w, http.StatusInternalServerError, "failed closing the modal", err)
 		return
 	}
 }
