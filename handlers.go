@@ -340,7 +340,6 @@ func (cfg *appConfig) updateMultiplerHandler(w http.ResponseWriter, r *http.Requ
 
 	match.coordinateMultiplier = multiplier
 	UpdateCoordinates(&match, multiplier)
-	// TODO: odje da vidim da updejtam multiplier za playere
 	cfg.Matches[currentGame] = match
 
 	multiplierCookie := http.Cookie{

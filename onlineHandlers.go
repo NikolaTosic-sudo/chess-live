@@ -83,8 +83,6 @@ func (cfg *appConfig) wsHandler(w http.ResponseWriter, r *http.Request) {
 				disconnect <- "disconnected"
 			}
 			if err != nil {
-				disconnect <- "game done"
-				log.Println(err, "neki drugi error")
 				break
 			}
 
@@ -308,8 +306,6 @@ func (cfg *appConfig) continueOnlineHandler(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	r.Header.Add("Hx-Target", "body")
-
 	match, ok := cfg.Matches[currentGame.Value]
 
 	onlineGame, ok2 := cfg.connections[currentGame.Value]
@@ -348,6 +344,7 @@ func (cfg *appConfig) continueOnlineHandler(w http.ResponseWriter, r *http.Reque
 			return
 		}
 
+		// TODO: I dalje ne radi, nervira me, kad ovo zavrsis, vidji sta se desava sa bazom, puca nesto kod online-a
 		err = components.GameEndedModal().Render(r.Context(), w)
 		if err != nil {
 			respondWithAnErrorPage(w, r, http.StatusInternalServerError, "Couldn't render template")
