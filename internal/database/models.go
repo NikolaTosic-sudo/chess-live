@@ -20,8 +20,12 @@ type Match struct {
 	IsOnline  bool
 	Result    string
 	Ended     bool
-	UserID    uuid.UUID
 	CreatedAt time.Time
+}
+
+type MatchesUser struct {
+	MatchID int32
+	UserID  uuid.UUID
 }
 
 type Move struct {
