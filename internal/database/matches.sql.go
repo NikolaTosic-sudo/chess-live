@@ -12,14 +12,13 @@ import (
 )
 
 const createMatch = `-- name: CreateMatch :one
-INSERT INTO matches(white, black, full_time, user_id, is_online, result, created_at)
+INSERT INTO matches(white, black, full_time, is_online, result, created_at)
 VALUES(
   $1,
   $2,
   $3,
   $4,
   $5,
-  $6,
   NOW()
 ) RETURNING id
 `
@@ -28,7 +27,6 @@ type CreateMatchParams struct {
 	White    string
 	Black    string
 	FullTime int32
-	UserID   uuid.UUID
 	IsOnline bool
 	Result   string
 }
@@ -38,7 +36,6 @@ func (q *Queries) CreateMatch(ctx context.Context, arg CreateMatchParams) (int32
 		arg.White,
 		arg.Black,
 		arg.FullTime,
-		arg.UserID,
 		arg.IsOnline,
 		arg.Result,
 	)
@@ -48,8 +45,9 @@ func (q *Queries) CreateMatch(ctx context.Context, arg CreateMatchParams) (int32
 }
 
 const getAllMatchesForUser = `-- name: GetAllMatchesForUser :many
-SELECT id, white, black, full_time, is_online, result, ended, user_id, created_at FROM matches WHERE user_id = $1
-ORDER BY created_at DESC
+SELECT id, white, black, full_time, is_online, result, ended, created_at FROM matches WHERE id IN (
+ SELECT match_id FROM matches_users WHERE user_id = $1
+) ORDER BY created_at DESC LIMIT 30
 `
 
 func (q *Queries) GetAllMatchesForUser(ctx context.Context, userID uuid.UUID) ([]Match, error) {
@@ -69,7 +67,6 @@ func (q *Queries) GetAllMatchesForUser(ctx context.Context, userID uuid.UUID) ([
 			&i.IsOnline,
 			&i.Result,
 			&i.Ended,
-			&i.UserID,
 			&i.CreatedAt,
 		); err != nil {
 			return nil, err
@@ -86,7 +83,7 @@ func (q *Queries) GetAllMatchesForUser(ctx context.Context, userID uuid.UUID) ([
 }
 
 const getMatchById = `-- name: GetMatchById :one
-SELECT id, white, black, full_time, is_online, result, ended, user_id, created_at FROM matches WHERE id = $1
+SELECT id, white, black, full_time, is_online, result, ended, created_at FROM matches WHERE id = $1
 `
 
 func (q *Queries) GetMatchById(ctx context.Context, id int32) (Match, error) {
@@ -100,7 +97,6 @@ func (q *Queries) GetMatchById(ctx context.Context, id int32) (Match, error) {
 		&i.IsOnline,
 		&i.Result,
 		&i.Ended,
-		&i.UserID,
 		&i.CreatedAt,
 	)
 	return i, err

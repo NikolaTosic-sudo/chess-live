@@ -7,10 +7,6 @@ CREATE TABLE matches(
   is_online BOOLEAN DEFAULT FALSE NOT NULL,
   result TEXT NOT NULL,
   ended BOOLEAN DEFAULT FALSE NOT NULL,
-  user_id UUID NOT NULL,
-  FOREIGN KEY (user_id)
-  REFERENCES users(ID)
-  ON DELETE CASCADE,
   created_at TIMESTAMP NOT NULL
 );
 
