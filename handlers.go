@@ -35,7 +35,7 @@ func (cfg *appConfig) boardHandler(w http.ResponseWriter, r *http.Request) {
 		game = "initial"
 		match = cfg.Matches["initial"]
 	}
-	cfg.fillBoard(game)
+	match = fillBoard(match)
 	whitePlayer := components.PlayerStruct{
 		Image:  "/assets/images/user-icon.png",
 		Name:   "Guest",
@@ -124,7 +124,7 @@ func (cfg *appConfig) privateBoardHandler(w http.ResponseWriter, r *http.Request
 	}
 
 	match := cfg.Matches[game]
-	cfg.fillBoard(game)
+	match = fillBoard(match)
 
 	whitePlayer := components.PlayerStruct{
 		Image:  "/assets/images/user-icon.png",
@@ -249,7 +249,7 @@ func (cfg *appConfig) onlineBoardHandler(w http.ResponseWriter, r *http.Request)
 					}
 
 					match := cfg.Matches[gameName]
-					cfg.fillBoard(gameName)
+					match = fillBoard(match)
 					UpdateCoordinates(&match, whitePlayer.Multiplier)
 					http.SetCookie(w, &startGame)
 
@@ -486,7 +486,7 @@ func (cfg *appConfig) startGameHandler(w http.ResponseWriter, r *http.Request) {
 
 	cur := cfg.Matches[newGameName]
 
-	cfg.fillBoard(newGameName)
+	cur = fillBoard(cur)
 	UpdateCoordinates(&cur, cur.coordinateMultiplier)
 	http.SetCookie(w, &startGame)
 
@@ -527,7 +527,7 @@ func (cfg *appConfig) resumeGameHandler(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	cfg.fillBoard(c.Value)
+	match = fillBoard(match)
 	UpdateCoordinates(&match, match.coordinateMultiplier)
 
 	err = components.StartGameRight().Render(r.Context(), w)
@@ -792,7 +792,7 @@ func (cfg *appConfig) playHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	match := cfg.Matches[game]
-	cfg.fillBoard(game)
+	match = fillBoard(match)
 
 	whitePlayer := components.PlayerStruct{
 		Image:  "/assets/images/user-icon.png",
@@ -891,7 +891,7 @@ func (cfg *appConfig) matchesHandler(w http.ResponseWriter, r *http.Request) {
 
 	cur := cfg.Matches[newGame]
 
-	cfg.fillBoard(newGame)
+	cur = fillBoard(cur)
 	UpdateCoordinates(&cur, cur.coordinateMultiplier)
 	http.SetCookie(w, &startGame)
 

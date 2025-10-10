@@ -42,19 +42,11 @@ var rowIdxMap = map[string]int{
 	"1": 7,
 }
 
-func (cfg *appConfig) canPlay(piece components.Piece, currentGame string, onlineGame map[string]components.OnlinePlayerStruct, r *http.Request) (bool, error) {
-	match := cfg.Matches[currentGame]
+func canPlay(piece components.Piece, match Match, onlineGame map[string]components.OnlinePlayerStruct, userId uuid.UUID) (bool, error) {
 	if onlineGame != nil {
-		userC, err := r.Cookie("access_token")
 
-		if err != nil {
-			return false, err
-		}
-
-		userId, err := auth.ValidateJWT(userC.Value, cfg.secret)
-
-		if err != nil {
-			return false, err
+		if userId == uuid.Nil {
+			return false, nil
 		}
 
 		if piece.IsWhite && match.isWhiteTurn && onlineGame["white"].ID == userId {
@@ -97,14 +89,14 @@ func canEat(selectedPiece, currentPiece components.Piece) bool {
 	return false
 }
 
-func (cfg *appConfig) fillBoard(currentGame string) {
-	match := cfg.Matches[currentGame]
+func fillBoard(match Match) Match {
 	for _, v := range match.pieces {
 		getTile := match.board[v.Tile]
 		getTile.Piece = v
 		match.board[v.Tile] = getTile
 	}
-	cfg.Matches[currentGame] = match
+
+	return match
 }
 
 func (cfg *appConfig) checkLegalMoves(currentGame string, currentMatch Match) []string {
@@ -141,19 +133,19 @@ func (cfg *appConfig) checkLegalMoves(currentGame string, currentMatch Match) []
 	}
 
 	if match.selectedPiece.IsPawn {
-		cfg.getPawnMoves(&possibleMoves, startingPosition, match.selectedPiece, currentGame)
+		getPawnMoves(&possibleMoves, startingPosition, match)
 	} else {
 		for _, move := range match.selectedPiece.LegalMoves {
-			cfg.getMoves(&possibleMoves, startingPosition, move, match.selectedPiece.MovesOnce, pieceColor, match)
+			getMoves(&possibleMoves, startingPosition, move, match.selectedPiece.MovesOnce, pieceColor, match)
 		}
 	}
 
 	return possibleMoves
 }
 
-func (cfg *appConfig) getPawnMoves(possible *[]string, startingPosition [2]int, piece components.Piece, currentGame string) {
-	match := cfg.Matches[currentGame]
+func getPawnMoves(possible *[]string, startingPosition [2]int, match Match) {
 	var moveIndex int
+	piece := match.selectedPiece
 	if piece.IsWhite {
 		moveIndex = -1
 	} else {
@@ -207,7 +199,7 @@ func (cfg *appConfig) getPawnMoves(possible *[]string, startingPosition [2]int, 
 	}
 }
 
-func (cfg *appConfig) getMoves(possible *[]string, startingPosition [2]int, move []int, checkOnce bool, pieceColor string, match Match) {
+func getMoves(possible *[]string, startingPosition [2]int, move []int, checkOnce bool, pieceColor string, match Match) {
 	currentPosition := [2]int{startingPosition[0] + move[0], startingPosition[1] + move[1]}
 
 	if currentPosition[0] < 0 || currentPosition[1] < 0 {
@@ -236,7 +228,7 @@ func (cfg *appConfig) getMoves(possible *[]string, startingPosition [2]int, move
 		return
 	}
 
-	cfg.getMoves(possible, currentPosition, move, checkOnce, pieceColor, match)
+	getMoves(possible, currentPosition, move, checkOnce, pieceColor, match)
 }
 
 func samePiece(selectedPiece, currentPiece components.Piece) bool {
@@ -249,7 +241,9 @@ func samePiece(selectedPiece, currentPiece components.Piece) bool {
 	return false
 }
 
-func (cfg *appConfig) checkForCastle(b map[string]components.Square, selectedPiece, currentPiece components.Piece, currentGame string) (bool, bool) {
+func checkForCastle(match Match, currentPiece components.Piece) (bool, bool) {
+	selectedPiece := match.selectedPiece
+	b := match.board
 	if (selectedPiece.IsKing &&
 		strings.Contains(currentPiece.Name, "rook") ||
 		(strings.Contains(selectedPiece.Name, "rook") &&
@@ -295,7 +289,7 @@ func (cfg *appConfig) checkForCastle(b map[string]components.Square, selectedPie
 
 		var kingCheck bool
 		if slices.ContainsFunc(tilesForCastle, func(tile string) bool {
-			return cfg.handleChecksWhenKingMoves(tile, currentGame, Match{})
+			return handleChecksWhenKingMoves(tile, match)
 		}) {
 			kingCheck = true
 		}
@@ -308,149 +302,6 @@ func (cfg *appConfig) checkForCastle(b map[string]components.Square, selectedPie
 	}
 
 	return false, false
-}
-
-func (cfg *appConfig) handleCastle(w http.ResponseWriter, currentPiece components.Piece, currentGame string, r *http.Request) error {
-	match := cfg.Matches[currentGame]
-	onlineGame, found := cfg.connections[currentGame]
-
-	var king components.Piece
-	var rook components.Piece
-	var multiplier int
-
-	if match.selectedPiece.IsKing {
-		king = match.selectedPiece
-		rook = currentPiece
-	} else {
-		king = currentPiece
-		rook = match.selectedPiece
-	}
-
-	if found {
-		userC, err := r.Cookie("access_token")
-
-		if err != nil {
-			respondWithAnErrorPage(w, r, http.StatusUnauthorized, "user not found")
-			return err
-		}
-
-		userId, err := auth.ValidateJWT(userC.Value, cfg.secret)
-
-		if err != nil {
-			respondWithAnErrorPage(w, r, http.StatusUnauthorized, "user not found")
-			return err
-		}
-
-		for _, player := range onlineGame {
-			if player.ID == userId {
-				multiplier = player.Multiplier
-			}
-		}
-	} else {
-		multiplier = match.coordinateMultiplier
-	}
-
-	kTile := king.Tile
-	rTile := rook.Tile
-	savedKingTile := match.board[king.Tile]
-	savedRookTile := match.board[rook.Tile]
-	kingSquare := match.board[king.Tile]
-	rookSquare := match.board[rook.Tile]
-
-	if kingSquare.Coordinates[1] < rookSquare.Coordinates[1] {
-		kC := kingSquare.Coordinates[1]
-		rookSquare.Coordinates[1] = kC + multiplier
-		kingSquare.Coordinates[1] = kC + multiplier*2
-	} else {
-		kC := kingSquare.Coordinates[1]
-		rookSquare.Coordinates[1] = kC - multiplier
-		kingSquare.Coordinates[1] = kC - multiplier*2
-	}
-
-	message := fmt.Sprintf(`
-			<span id="%v" hx-post="/move" hx-swap-oob="true" hx-swap="outerHTML" class="tile tile-md hover:cursor-grab absolute transition-all" style="bottom: %vpx; left: %vpx">
-				<img src="/assets/pieces/%v.svg" />
-			</span>
-
-			<span id="%v" hx-post="/move" hx-swap-oob="true" hx-swap="outerHTML" class="tile tile-md hover:cursor-grab absolute transition-all" style="bottom: %vpx; left: %vpx">
-				<img src="/assets/pieces/%v.svg" />
-			</span>
-		`,
-		king.Name,
-		kingSquare.Coordinates[0],
-		kingSquare.Coordinates[1],
-		king.Image,
-		rook.Name,
-		rookSquare.Coordinates[0],
-		rookSquare.Coordinates[1],
-		rook.Image,
-	)
-
-	if found {
-		for playerColor, onlinePlayer := range onlineGame {
-			newMessage := replaceStyles(
-				message,
-				[]int{
-					kingSquare.CoordinatePosition[0] * onlinePlayer.Multiplier,
-					rookSquare.CoordinatePosition[0] * onlinePlayer.Multiplier,
-				},
-				[]int{
-					kingSquare.CoordinatePosition[1] * onlinePlayer.Multiplier,
-					rookSquare.CoordinatePosition[1] * onlinePlayer.Multiplier,
-				})
-			err := onlinePlayer.Conn.WriteMessage(websocket.TextMessage, []byte(newMessage))
-			if err != nil {
-				log.Println("WebSocket write error to", playerColor, ":", err)
-				return err
-			}
-		}
-	} else {
-		_, err := fmt.Fprint(w, message)
-		if err != nil {
-			return err
-		}
-	}
-
-	rowIdx := rowIdxMap[string(king.Tile[0])]
-	king.Tile = mockBoard[rowIdx][kingSquare.Coordinates[1]/multiplier]
-	rook.Tile = mockBoard[rowIdx][rookSquare.Coordinates[1]/multiplier]
-	king.Moved = true
-	rook.Moved = true
-	newKingSquare := match.board[king.Tile]
-	newRookSquare := match.board[rook.Tile]
-	newKingSquare.Piece = king
-	newRookSquare.Piece = rook
-	match.board[king.Tile] = newKingSquare
-	match.board[rook.Tile] = newRookSquare
-	match.pieces[king.Name] = king
-	match.pieces[rook.Name] = rook
-	savedKingTile.Piece = components.Piece{}
-	savedRookTile.Piece = components.Piece{}
-	match.board[kTile] = savedKingTile
-	match.board[rTile] = savedRookTile
-	match.selectedPiece = components.Piece{}
-	match.isWhiteTurn = !match.isWhiteTurn
-	match.possibleEnPessant = ""
-	match.movesSinceLastCapture++
-	cfg.Matches[currentGame] = match
-
-	if kingSquare.CoordinatePosition[1]-rookSquare.CoordinatePosition[1] == -3 {
-		match.allMoves = append(match.allMoves, "O-O")
-		err := cfg.showMoves(match, "O-O", "king", w, r)
-		if err != nil {
-			return err
-		}
-	} else {
-		match.allMoves = append(match.allMoves, "O-O-O")
-		err := cfg.showMoves(match, "O-O-O", "king", w, r)
-		if err != nil {
-			return err
-		}
-	}
-
-	cfg.gameDone(match, currentGame, r, w)
-
-	return nil
 }
 
 func (cfg *appConfig) handleCheckForCheck(currentSquareName, currentGame string, selectedPiece components.Piece) (bool, components.Piece, []string) {
@@ -512,7 +363,7 @@ func (cfg *appConfig) handleCheckForCheck(currentSquareName, currentGame string,
 
 	for _, move := range kingLegalMoves {
 		var tilesUnderCheck []string
-		checkInFor := cfg.checkCheck(&tilesUnderCheck, startingPosition, startingPosition, move, pieceColor, match)
+		checkInFor := checkCheck(&tilesUnderCheck, startingPosition, startingPosition, move, pieceColor, match)
 		if checkInFor {
 			check = true
 			if len(tilesComb) == 0 {
@@ -541,7 +392,7 @@ func (cfg *appConfig) handleCheckForCheck(currentSquareName, currentGame string,
 	return false, king, []string{}
 }
 
-func (cfg *appConfig) checkCheck(tilesUnderCheck *[]string, startingPosition, startPosCompare [2]int, move []int, pieceColor string, match Match) bool {
+func checkCheck(tilesUnderCheck *[]string, startingPosition, startPosCompare [2]int, move []int, pieceColor string, match Match) bool {
 	currentPosition := [2]int{startingPosition[0] + move[0], startingPosition[1] + move[1]}
 
 	if currentPosition[0] < 0 || currentPosition[1] < 0 {
@@ -597,7 +448,7 @@ func (cfg *appConfig) checkCheck(tilesUnderCheck *[]string, startingPosition, st
 		}
 	}
 
-	check := cfg.checkCheck(tilesUnderCheck, currentPosition, startPosCompare, move, pieceColor, match)
+	check := checkCheck(tilesUnderCheck, currentPosition, startPosCompare, move, pieceColor, match)
 	if check {
 		*tilesUnderCheck = append(*tilesUnderCheck, currentTile)
 	}
@@ -605,13 +456,7 @@ func (cfg *appConfig) checkCheck(tilesUnderCheck *[]string, startingPosition, st
 	return check
 }
 
-func (cfg *appConfig) handleChecksWhenKingMoves(currentSquareName, currentGame string, currentMatch Match) bool {
-	var match Match
-	if currentGame != "" {
-		match = cfg.Matches[currentGame]
-	} else {
-		match = currentMatch
-	}
+func handleChecksWhenKingMoves(currentSquareName string, match Match) bool {
 	var kingPosition [2]int
 	var king components.Piece
 	var pieceColor string
@@ -649,7 +494,7 @@ func (cfg *appConfig) handleChecksWhenKingMoves(currentSquareName, currentGame s
 
 	for _, move := range kingLegalMoves {
 		var tilesUnderCheck []string
-		if cfg.checkCheck(&tilesUnderCheck, kingPosition, kingPosition, move, pieceColor, match) {
+		if checkCheck(&tilesUnderCheck, kingPosition, kingPosition, move, pieceColor, match) {
 			match.board[savedStartingTile] = savedStartSqua
 			match.board[currentSquareName] = saved
 			king.Tile = savedStartingTile
@@ -688,7 +533,7 @@ func (cfg *appConfig) gameDone(match Match, currentGame string, r *http.Request,
 	match.selectedPiece = savePiece
 	var checkCount []bool
 	for _, move := range legalMoves {
-		if cfg.handleChecksWhenKingMoves(move, "", match) {
+		if handleChecksWhenKingMoves(move, match) {
 			checkCount = append(checkCount, true)
 		}
 	}

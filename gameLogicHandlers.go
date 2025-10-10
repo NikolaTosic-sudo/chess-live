@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"slices"
 	"strconv"
@@ -39,7 +40,14 @@ func (cfg *appConfig) moveHandler(w http.ResponseWriter, r *http.Request) {
 	onlineGame, found := cfg.connections[currentGame]
 	match := cfg.Matches[currentGame]
 	currentPiece := match.pieces[currentPieceName]
-	canPlay, err := cfg.canPlay(currentPiece, currentGame, onlineGame, r)
+	userC, err := r.Cookie("access_token")
+
+	var userId uuid.UUID
+	if userC.Value != "" && err == nil {
+		userId, _ = auth.ValidateJWT(userC.Value, cfg.secret)
+	}
+
+	canPlay, err := canPlay(currentPiece, match, onlineGame, userId)
 	if err != nil {
 		respondWithAnErrorPage(w, r, http.StatusUnauthorized, "user not found")
 		return
@@ -74,7 +82,7 @@ func (cfg *appConfig) moveHandler(w http.ResponseWriter, r *http.Request) {
 		}
 		var kingCheck bool
 		if match.selectedPiece.IsKing {
-			kingCheck = cfg.handleChecksWhenKingMoves(currentSquareName, currentGame, Match{})
+			kingCheck = handleChecksWhenKingMoves(currentSquareName, match)
 		} else if match.isWhiteTurn && match.isWhiteUnderCheck && !slices.Contains(match.tilesUnderAttack, currentSquareName) {
 			w.WriteHeader(http.StatusNoContent)
 			return
@@ -228,7 +236,7 @@ func (cfg *appConfig) moveHandler(w http.ResponseWriter, r *http.Request) {
 
 	if selectedSquare != "" && selectedSquare != currentSquareName && samePiece(match.selectedPiece, currentPiece) {
 
-		isCastle, kingCheck := cfg.checkForCastle(match.board, match.selectedPiece, currentPiece, currentGame)
+		isCastle, kingCheck := checkForCastle(match, currentPiece)
 
 		if isCastle && !match.isBlackUnderCheck && !match.isWhiteUnderCheck && !kingCheck {
 
@@ -350,7 +358,7 @@ func (cfg *appConfig) moveToHandler(w http.ResponseWriter, r *http.Request) {
 
 	var kingCheck bool
 	if match.selectedPiece.IsKing && slices.Contains(legalMoves, currentSquareName) {
-		kingCheck = cfg.handleChecksWhenKingMoves(currentSquareName, currentGame, Match{})
+		kingCheck = handleChecksWhenKingMoves(currentSquareName, match)
 	} else if !slices.Contains(legalMoves, currentSquareName) && !slices.Contains(legalMoves, fmt.Sprintf("enpessant_%v", currentSquareName)) {
 		w.WriteHeader(http.StatusNoContent)
 		return
@@ -575,7 +583,7 @@ func (cfg *appConfig) coverCheckHandler(w http.ResponseWriter, r *http.Request) 
 	var check bool
 	var kingCheck bool
 	if match.selectedPiece.IsKing {
-		kingCheck = cfg.handleChecksWhenKingMoves(currentSquareName, currentGame, Match{})
+		kingCheck = handleChecksWhenKingMoves(currentSquareName, match)
 	} else {
 		check, _, _ = cfg.handleCheckForCheck(currentSquareName, currentGame, match.selectedPiece)
 	}
@@ -1076,4 +1084,147 @@ func (cfg *appConfig) surrenderHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+}
+
+func (cfg *appConfig) handleCastle(w http.ResponseWriter, currentPiece components.Piece, currentGame string, r *http.Request) error {
+	match := cfg.Matches[currentGame]
+	onlineGame, found := cfg.connections[currentGame]
+
+	var king components.Piece
+	var rook components.Piece
+	var multiplier int
+
+	if match.selectedPiece.IsKing {
+		king = match.selectedPiece
+		rook = currentPiece
+	} else {
+		king = currentPiece
+		rook = match.selectedPiece
+	}
+
+	if found {
+		userC, err := r.Cookie("access_token")
+
+		if err != nil {
+			respondWithAnErrorPage(w, r, http.StatusUnauthorized, "user not found")
+			return err
+		}
+
+		userId, err := auth.ValidateJWT(userC.Value, cfg.secret)
+
+		if err != nil {
+			respondWithAnErrorPage(w, r, http.StatusUnauthorized, "user not found")
+			return err
+		}
+
+		for _, player := range onlineGame {
+			if player.ID == userId {
+				multiplier = player.Multiplier
+			}
+		}
+	} else {
+		multiplier = match.coordinateMultiplier
+	}
+
+	kTile := king.Tile
+	rTile := rook.Tile
+	savedKingTile := match.board[king.Tile]
+	savedRookTile := match.board[rook.Tile]
+	kingSquare := match.board[king.Tile]
+	rookSquare := match.board[rook.Tile]
+
+	if kingSquare.Coordinates[1] < rookSquare.Coordinates[1] {
+		kC := kingSquare.Coordinates[1]
+		rookSquare.Coordinates[1] = kC + multiplier
+		kingSquare.Coordinates[1] = kC + multiplier*2
+	} else {
+		kC := kingSquare.Coordinates[1]
+		rookSquare.Coordinates[1] = kC - multiplier
+		kingSquare.Coordinates[1] = kC - multiplier*2
+	}
+
+	message := fmt.Sprintf(`
+			<span id="%v" hx-post="/move" hx-swap-oob="true" hx-swap="outerHTML" class="tile tile-md hover:cursor-grab absolute transition-all" style="bottom: %vpx; left: %vpx">
+				<img src="/assets/pieces/%v.svg" />
+			</span>
+
+			<span id="%v" hx-post="/move" hx-swap-oob="true" hx-swap="outerHTML" class="tile tile-md hover:cursor-grab absolute transition-all" style="bottom: %vpx; left: %vpx">
+				<img src="/assets/pieces/%v.svg" />
+			</span>
+		`,
+		king.Name,
+		kingSquare.Coordinates[0],
+		kingSquare.Coordinates[1],
+		king.Image,
+		rook.Name,
+		rookSquare.Coordinates[0],
+		rookSquare.Coordinates[1],
+		rook.Image,
+	)
+
+	if found {
+		for playerColor, onlinePlayer := range onlineGame {
+			newMessage := replaceStyles(
+				message,
+				[]int{
+					kingSquare.CoordinatePosition[0] * onlinePlayer.Multiplier,
+					rookSquare.CoordinatePosition[0] * onlinePlayer.Multiplier,
+				},
+				[]int{
+					kingSquare.CoordinatePosition[1] * onlinePlayer.Multiplier,
+					rookSquare.CoordinatePosition[1] * onlinePlayer.Multiplier,
+				})
+			err := onlinePlayer.Conn.WriteMessage(websocket.TextMessage, []byte(newMessage))
+			if err != nil {
+				log.Println("WebSocket write error to", playerColor, ":", err)
+				return err
+			}
+		}
+	} else {
+		_, err := fmt.Fprint(w, message)
+		if err != nil {
+			return err
+		}
+	}
+
+	rowIdx := rowIdxMap[string(king.Tile[0])]
+	king.Tile = mockBoard[rowIdx][kingSquare.Coordinates[1]/multiplier]
+	rook.Tile = mockBoard[rowIdx][rookSquare.Coordinates[1]/multiplier]
+	king.Moved = true
+	rook.Moved = true
+	newKingSquare := match.board[king.Tile]
+	newRookSquare := match.board[rook.Tile]
+	newKingSquare.Piece = king
+	newRookSquare.Piece = rook
+	match.board[king.Tile] = newKingSquare
+	match.board[rook.Tile] = newRookSquare
+	match.pieces[king.Name] = king
+	match.pieces[rook.Name] = rook
+	savedKingTile.Piece = components.Piece{}
+	savedRookTile.Piece = components.Piece{}
+	match.board[kTile] = savedKingTile
+	match.board[rTile] = savedRookTile
+	match.selectedPiece = components.Piece{}
+	match.isWhiteTurn = !match.isWhiteTurn
+	match.possibleEnPessant = ""
+	match.movesSinceLastCapture++
+	cfg.Matches[currentGame] = match
+
+	if kingSquare.CoordinatePosition[1]-rookSquare.CoordinatePosition[1] == -3 {
+		match.allMoves = append(match.allMoves, "O-O")
+		err := cfg.showMoves(match, "O-O", "king", w, r)
+		if err != nil {
+			return err
+		}
+	} else {
+		match.allMoves = append(match.allMoves, "O-O-O")
+		err := cfg.showMoves(match, "O-O-O", "king", w, r)
+		if err != nil {
+			return err
+		}
+	}
+
+	cfg.gameDone(match, currentGame, r, w)
+
+	return nil
 }
