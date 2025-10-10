@@ -21,7 +21,6 @@ func (cfg *appConfig) wsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	c, err := r.Cookie("current_game")
 	if err != nil {
-		respondWithAnError(w, http.StatusNotFound, "no game found", err)
 		return
 	}
 	userC, err := r.Cookie("access_token")
@@ -128,6 +127,11 @@ func (cfg *appConfig) searchingOppHandler(w http.ResponseWriter, r *http.Request
 	cfg.fillBoard(currentGame)
 	UpdateCoordinates(&match, whitePlayer.Multiplier)
 	http.SetCookie(w, &startGame)
+
+	_ = cfg.database.CreateMatchUser(r.Context(), database.CreateMatchUserParams{
+		UserID:  whitePlayer.ID,
+		MatchID: match.matchId,
+	})
 
 	err = layout.MainPageOnline(match.board, match.pieces, whitePlayer.Multiplier, whitePlayer, blackPlayer, match.takenPiecesWhite, match.takenPiecesBlack, true).Render(r.Context(), w)
 	if err != nil {
@@ -337,19 +341,13 @@ func (cfg *appConfig) continueOnlineHandler(w http.ResponseWriter, r *http.Reque
 			Pieces: "black",
 		}
 
-		err = layout.MainPagePrivate(match.board, match.pieces, match.coordinateMultiplier, whitePlayer, blackPlayer, match.takenPiecesWhite, match.takenPiecesBlack).Render(r.Context(), w)
+		err = layout.MainPagePrivate(match.board, match.pieces, match.coordinateMultiplier, whitePlayer, blackPlayer, match.takenPiecesWhite, match.takenPiecesBlack, true).Render(r.Context(), w)
 
 		if err != nil {
 			respondWithAnErrorPage(w, r, http.StatusInternalServerError, "Couldn't render template")
 			return
 		}
 
-		// TODO: I dalje ne radi, nervira me, kad ovo zavrsis, vidji sta se desava sa bazom, puca nesto kod online-a
-		err = components.GameEndedModal().Render(r.Context(), w)
-		if err != nil {
-			respondWithAnErrorPage(w, r, http.StatusInternalServerError, "Couldn't render template")
-			return
-		}
 		return
 	}
 
