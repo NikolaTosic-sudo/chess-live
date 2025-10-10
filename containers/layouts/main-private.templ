@@ -3,8 +3,11 @@ package layout
 import "github.com/NikolaTosic-sudo/chess-live/containers/components"
 
 templ MainPagePrivate(chessBoard map[string]components.Square, pieces map[string]components.Piece, multiplier int,
-	whitePlayer, blackPlayer components.PlayerStruct, whiteLostPieces, blackLostPieces []string) {
+	whitePlayer, blackPlayer components.PlayerStruct, whiteLostPieces, blackLostPieces []string, gameAlreadyEnded bool) {
 	@Layout() {
+		if gameAlreadyEnded {
+			@components.GameEndedModal()
+		}
 		<div id="main-private" class="flex">
 			<div hx-get="/api/refresh" hx-trigger="every 30m" hx-swap="none"></div>
 			<div hx-get="/check-online" hx-trigger="load"></div>
