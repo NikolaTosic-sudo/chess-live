@@ -384,19 +384,10 @@ func (cfg *appConfig) moveToHandler(w http.ResponseWriter, r *http.Request) {
 		pieceToDelete := squareToDelete.Piece
 		currentSquare := match.board[currentSquareName]
 		message := fmt.Sprintf(`
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> 1660c61 (feature: finally implemented en)
 			<span id="%v" hx-post="/move" hx-swap-oob="true" class="tile tile-md hover:cursor-grab absolute transition-all" style="display: none">
 				<img src="/assets/pieces/%v.svg" />
 			</span>
 
-<<<<<<< HEAD
-=======
->>>>>>> b549cb9 (feature: En Pessant implementation WIP)
-=======
->>>>>>> 1660c61 (feature: finally implemented en)
 			<span id="%v" hx-post="/move" hx-swap-oob="true" class="tile tile-md hover:cursor-grab absolute transition-all" style="bottom: %vpx; left: %vpx">
 				<img src="/assets/pieces/%v.svg" />
 			</span>
