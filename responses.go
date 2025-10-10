@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"runtime"
+	"strconv"
 	"strings"
 
 	"github.com/NikolaTosic-sudo/chess-live/containers/components"
@@ -41,15 +42,28 @@ func logError(message string, err error) {
 	log.Printf("%v -> %v:%v\n", caller, message, err)
 }
 
-func respondWithNewPiece(w http.ResponseWriter, square components.Square) error {
-	_, err := fmt.Fprintf(w, `
+func respondWithNewPiece(w http.ResponseWriter, r *http.Request, square components.Square) error {
+	err := r.ParseForm()
+
+	if err != nil {
+		respondWithAnError(w, http.StatusInternalServerError, "couldn't decode request", err)
+		return err
+	}
+
+	multiplier, err := strconv.Atoi(r.FormValue("multiplier"))
+
+	if err != nil {
+		respondWithAnError(w, http.StatusInternalServerError, "couldn't convert multiplier", err)
+		return err
+	}
+	_, err = fmt.Fprintf(w, `
 					<span id="%v" hx-post="/move" hx-swap-oob="true" hx-swap="outerHTML" class="tile tile-md hover:cursor-grab absolute transition-all" style="bottom: %vpx; left: %vpx">
 						<img src="/assets/pieces/%v.svg" />
 					</span>
 				`,
 		square.Piece.Name,
-		square.Coordinates[0],
-		square.Coordinates[1],
+		square.CoordinatePosition[0]*multiplier,
+		square.CoordinatePosition[1]*multiplier,
 		square.Piece.Image,
 	)
 
@@ -75,7 +89,8 @@ func (cfg *appConfig) respondWithCheck(w http.ResponseWriter, square components.
 
 	if found {
 		for playerColor, onlinePlayer := range onlineGame {
-			err := onlinePlayer.Conn.WriteMessage(websocket.TextMessage, []byte(message))
+			newMessage := replaceStyles(message, []int{square.CoordinatePosition[0] * onlinePlayer.Multiplier}, []int{square.CoordinatePosition[1] * onlinePlayer.Multiplier})
+			err := onlinePlayer.Conn.WriteMessage(websocket.TextMessage, []byte(newMessage))
 			if err != nil {
 				log.Println("WebSocket write error to", playerColor, ":", err)
 				return err

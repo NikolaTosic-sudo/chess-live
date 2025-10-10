@@ -1,0 +1,23 @@
+package components
+
+templ GameEndedModal() {
+	<div
+		class="fixed inset-0 bg-black/60 flex items-center justify-center z-30"
+		id="game-ended"
+		hx-get="/close-modal"
+		hx-target="this"
+		hx-trigger="click"
+		hx-swap="outerHTML"
+	>
+		<div
+			class="w-full max-w-md bg-[#3e3a36] rounded-lg shadow-xl p-6 z-40"
+			onclick="event.stopPropagation()"
+			hx-get="/handle-end"
+			hx-trigger="load"
+		>
+			<p class="mb-6 text-center text-white text-lg font-lg">
+				Game you tried to reconnect to already ended.
+			</p>
+		</div>
+	</div>
+}

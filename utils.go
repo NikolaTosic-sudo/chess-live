@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"regexp"
 	"slices"
 	"strings"
 	"time"
@@ -312,8 +313,10 @@ func (cfg *appConfig) checkForCastle(b map[string]components.Square, selectedPie
 func (cfg *appConfig) handleCastle(w http.ResponseWriter, currentPiece components.Piece, currentGame string, r *http.Request) error {
 	match := cfg.Matches[currentGame]
 	onlineGame, found := cfg.connections[currentGame]
+
 	var king components.Piece
 	var rook components.Piece
+	var multiplier int
 
 	if match.selectedPiece.IsKing {
 		king = match.selectedPiece
@@ -321,6 +324,30 @@ func (cfg *appConfig) handleCastle(w http.ResponseWriter, currentPiece component
 	} else {
 		king = currentPiece
 		rook = match.selectedPiece
+	}
+
+	if found {
+		userC, err := r.Cookie("access_token")
+
+		if err != nil {
+			respondWithAnErrorPage(w, r, http.StatusUnauthorized, "user not found")
+			return err
+		}
+
+		userId, err := auth.ValidateJWT(userC.Value, cfg.secret)
+
+		if err != nil {
+			respondWithAnErrorPage(w, r, http.StatusUnauthorized, "user not found")
+			return err
+		}
+
+		for _, player := range onlineGame {
+			if player.ID == userId {
+				multiplier = player.Multiplier
+			}
+		}
+	} else {
+		multiplier = match.coordinateMultiplier
 	}
 
 	kTile := king.Tile
@@ -332,12 +359,12 @@ func (cfg *appConfig) handleCastle(w http.ResponseWriter, currentPiece component
 
 	if kingSquare.Coordinates[1] < rookSquare.Coordinates[1] {
 		kC := kingSquare.Coordinates[1]
-		rookSquare.Coordinates[1] = kC + match.coordinateMultiplier
-		kingSquare.Coordinates[1] = kC + match.coordinateMultiplier*2
+		rookSquare.Coordinates[1] = kC + multiplier
+		kingSquare.Coordinates[1] = kC + multiplier*2
 	} else {
 		kC := kingSquare.Coordinates[1]
-		rookSquare.Coordinates[1] = kC - match.coordinateMultiplier
-		kingSquare.Coordinates[1] = kC - match.coordinateMultiplier*2
+		rookSquare.Coordinates[1] = kC - multiplier
+		kingSquare.Coordinates[1] = kC - multiplier*2
 	}
 
 	message := fmt.Sprintf(`
@@ -361,7 +388,17 @@ func (cfg *appConfig) handleCastle(w http.ResponseWriter, currentPiece component
 
 	if found {
 		for playerColor, onlinePlayer := range onlineGame {
-			err := onlinePlayer.Conn.WriteMessage(websocket.TextMessage, []byte(message))
+			newMessage := replaceStyles(
+				message,
+				[]int{
+					kingSquare.CoordinatePosition[0] * onlinePlayer.Multiplier,
+					rookSquare.CoordinatePosition[0] * onlinePlayer.Multiplier,
+				},
+				[]int{
+					kingSquare.CoordinatePosition[1] * onlinePlayer.Multiplier,
+					rookSquare.CoordinatePosition[1] * onlinePlayer.Multiplier,
+				})
+			err := onlinePlayer.Conn.WriteMessage(websocket.TextMessage, []byte(newMessage))
 			if err != nil {
 				log.Println("WebSocket write error to", playerColor, ":", err)
 				return err
@@ -375,8 +412,8 @@ func (cfg *appConfig) handleCastle(w http.ResponseWriter, currentPiece component
 	}
 
 	rowIdx := rowIdxMap[string(king.Tile[0])]
-	king.Tile = mockBoard[rowIdx][kingSquare.Coordinates[1]/match.coordinateMultiplier]
-	rook.Tile = mockBoard[rowIdx][rookSquare.Coordinates[1]/match.coordinateMultiplier]
+	king.Tile = mockBoard[rowIdx][kingSquare.Coordinates[1]/multiplier]
+	rook.Tile = mockBoard[rowIdx][rookSquare.Coordinates[1]/multiplier]
 	king.Moved = true
 	rook.Moved = true
 	newKingSquare := match.board[king.Tile]
@@ -411,7 +448,7 @@ func (cfg *appConfig) handleCastle(w http.ResponseWriter, currentPiece component
 		}
 	}
 
-	cfg.gameDone(match, r, w)
+	cfg.gameDone(match, currentGame, r, w)
 
 	return nil
 }
@@ -627,7 +664,7 @@ func (cfg *appConfig) handleChecksWhenKingMoves(currentSquareName, currentGame s
 	return false
 }
 
-func (cfg *appConfig) gameDone(match Match, r *http.Request, w http.ResponseWriter) {
+func (cfg *appConfig) gameDone(match Match, currentGame string, r *http.Request, w http.ResponseWriter) {
 	if match.movesSinceLastCapture == 50 {
 		err := components.EndGameModal("1-1", "").Render(r.Context(), w)
 		if err != nil {
@@ -642,6 +679,8 @@ func (cfg *appConfig) gameDone(match Match, r *http.Request, w http.ResponseWrit
 	} else {
 		king = match.pieces["black_king"]
 	}
+
+	onlineGame, found := cfg.connections[currentGame]
 
 	savePiece := match.selectedPiece
 	match.selectedPiece = king
@@ -669,10 +708,25 @@ func (cfg *appConfig) gameDone(match Match, r *http.Request, w http.ResponseWrit
 					}
 				}
 			}
-			err := components.EndGameModal("0-1", "black").Render(r.Context(), w)
+			msg, err := TemplString(components.EndGameModal("0-1", "black"))
 			if err != nil {
-				logError("couldn't render end game modal", err)
+				logError("couldn't convert component to string", err)
 				return
+			}
+			if found {
+				for _, player := range onlineGame {
+					err := player.Conn.WriteMessage(websocket.TextMessage, []byte(msg))
+					if err != nil {
+						logError("couldn't write to conn", err)
+						return
+					}
+				}
+			} else {
+				_, err := fmt.Fprint(w, msg)
+				if err != nil {
+					logError("couldn't render end game modal", err)
+					return
+				}
 			}
 		} else if !match.isWhiteTurn && match.isBlackUnderCheck {
 			for _, piece := range match.pieces {
@@ -689,10 +743,25 @@ func (cfg *appConfig) gameDone(match Match, r *http.Request, w http.ResponseWrit
 					}
 				}
 			}
-			err := components.EndGameModal("1-0", "white").Render(r.Context(), w)
+			msg, err := TemplString(components.EndGameModal("1-0", "white"))
 			if err != nil {
-				logError("couldn't render end game modal", err)
+				logError("couldn't convert component to string", err)
 				return
+			}
+			if found {
+				for _, player := range onlineGame {
+					err := player.Conn.WriteMessage(websocket.TextMessage, []byte(msg))
+					if err != nil {
+						logError("couldn't write to conn", err)
+						return
+					}
+				}
+			} else {
+				_, err := fmt.Fprint(w, msg)
+				if err != nil {
+					logError("couldn't render end game modal", err)
+					return
+				}
 			}
 		} else if match.isWhiteTurn {
 			for _, piece := range match.pieces {
@@ -707,10 +776,25 @@ func (cfg *appConfig) gameDone(match Match, r *http.Request, w http.ResponseWrit
 					}
 				}
 			}
-			err := components.EndGameModal("1-1", "").Render(r.Context(), w)
+			msg, err := TemplString(components.EndGameModal("1-1", ""))
 			if err != nil {
-				logError("couldn't render end game modal", err)
+				logError("couldn't convert component to string", err)
 				return
+			}
+			if found {
+				for _, player := range onlineGame {
+					err := player.Conn.WriteMessage(websocket.TextMessage, []byte(msg))
+					if err != nil {
+						logError("couldn't write to conn", err)
+						return
+					}
+				}
+			} else {
+				_, err := fmt.Fprint(w, msg)
+				if err != nil {
+					logError("couldn't render end game modal", err)
+					return
+				}
 			}
 		} else if !match.isWhiteTurn {
 			for _, piece := range match.pieces {
@@ -725,10 +809,25 @@ func (cfg *appConfig) gameDone(match Match, r *http.Request, w http.ResponseWrit
 					}
 				}
 			}
-			err := components.EndGameModal("1-1", "").Render(r.Context(), w)
+			msg, err := TemplString(components.EndGameModal("1-1", ""))
 			if err != nil {
-				logError("couldn't render end game modal", err)
+				logError("couldn't convert component to string", err)
 				return
+			}
+			if found {
+				for _, player := range onlineGame {
+					err := player.Conn.WriteMessage(websocket.TextMessage, []byte(msg))
+					if err != nil {
+						logError("couldn't write to conn", err)
+						return
+					}
+				}
+			} else {
+				_, err := fmt.Fprint(w, msg)
+				if err != nil {
+					logError("couldn't render end game modal", err)
+					return
+				}
 			}
 		}
 	} else {
@@ -744,7 +843,7 @@ func setUserCheck(king components.Piece, currentMatch *Match) {
 	}
 }
 
-func handleIfCheck(w http.ResponseWriter, cfg *appConfig, selected components.Piece, currentGame string) (bool, error) {
+func handleIfCheck(w http.ResponseWriter, r *http.Request, cfg *appConfig, selected components.Piece, currentGame string) (bool, error) {
 	match := cfg.Matches[currentGame]
 	check, king, tilesUnderAttack := cfg.handleCheckForCheck("", currentGame, selected)
 	kingSquare := match.board[king.Tile]
@@ -760,7 +859,7 @@ func handleIfCheck(w http.ResponseWriter, cfg *appConfig, selected components.Pi
 			t := match.board[tile]
 
 			if t.Piece.Name != "" {
-				err := respondWithNewPiece(w, t)
+				err := respondWithNewPiece(w, r, t)
 
 				if err != nil {
 					return false, err
@@ -808,7 +907,7 @@ func (cfg *appConfig) endTurn(currentGame string, r *http.Request, w http.Respon
 	}
 	match.isWhiteTurn = !match.isWhiteTurn
 	cfg.Matches[currentGame] = match
-	cfg.gameDone(match, r, w)
+	cfg.gameDone(match, currentGame, r, w)
 }
 
 func (cfg *appConfig) refreshToken(w http.ResponseWriter, r *http.Request) {
@@ -909,7 +1008,6 @@ func (cfg *appConfig) checkUserPrivate(w http.ResponseWriter, r *http.Request) e
 			}
 			_, ok := cfg.users[userId]
 			if !ok {
-				logError("user not found", err)
 				http.Redirect(w, r, "/", http.StatusFound)
 			}
 		}
@@ -1074,10 +1172,36 @@ func (cfg *appConfig) checkForPawnPromotion(pawnName, currentGame string, w http
 		pieceColor = "black"
 		firstPosition = "bottom: 0px"
 	}
-	endBoardCoordinates := 7 * match.coordinateMultiplier
-	dropdownPosition := square.Coordinates[1] + match.coordinateMultiplier
+
+	var multiplier int
+
+	if found {
+		userC, err := r.Cookie("access_token")
+
+		if err != nil {
+			respondWithAnErrorPage(w, r, http.StatusUnauthorized, "user not found")
+			return false, err
+		}
+
+		userId, err := auth.ValidateJWT(userC.Value, cfg.secret)
+
+		if err != nil {
+			respondWithAnErrorPage(w, r, http.StatusUnauthorized, "user not found")
+			return false, err
+		}
+
+		for _, player := range onlineGame {
+			if player.ID == userId {
+				multiplier = player.Multiplier
+			}
+		}
+	} else {
+		multiplier = match.coordinateMultiplier
+	}
+	endBoardCoordinates := 7 * multiplier
+	dropdownPosition := square.Coordinates[1] + multiplier
 	if square.Coordinates[1] == endBoardCoordinates {
-		dropdownPosition = square.Coordinates[1] - match.coordinateMultiplier
+		dropdownPosition = square.Coordinates[1] - multiplier
 	}
 
 	rowIdx := rowIdxMap[string(pawn.Tile[0])]
@@ -1153,46 +1277,6 @@ func TemplString(t templ.Component) (string, error) {
 	return b.String(), nil
 }
 
-func (cfg *appConfig) endGameCleaner(w http.ResponseWriter, r *http.Request, currentGame string) error {
-	uC, err := r.Cookie("access_token")
-	if err != nil {
-		return err
-	}
-	userId, err := auth.ValidateJWT(uC.Value, cfg.secret)
-	if err != nil {
-		return err
-	}
-	var result string
-	conn := cfg.connections[currentGame]
-	if conn["white"].ID == userId {
-		result = "0-1"
-	} else if conn["black"].ID == userId {
-		result = "1-0"
-	} else {
-		result = "1-1"
-	}
-	saveGame := cfg.Matches[currentGame]
-	delete(cfg.Matches, currentGame)
-	err = cfg.database.UpdateMatchOnEnd(r.Context(), database.UpdateMatchOnEndParams{
-		Result: result,
-		ID:     saveGame.matchId,
-	})
-	if err != nil {
-		return err
-	}
-	cGC := http.Cookie{
-		Name:     "current_game",
-		Value:    "",
-		Path:     "/",
-		MaxAge:   -1,
-		HttpOnly: true,
-		Secure:   true,
-		SameSite: http.SameSiteLaxMode,
-	}
-	http.SetCookie(w, &cGC)
-	return nil
-}
-
 func checkForEnPessant(selectedSquare string, currentSquare components.Square, match Match) Match {
 	if match.selectedPiece.IsPawn && !match.selectedPiece.Moved {
 		if match.board[selectedSquare].CoordinatePosition[0]-currentSquare.CoordinatePosition[0] == 2 {
@@ -1204,4 +1288,39 @@ func checkForEnPessant(selectedSquare string, currentSquare components.Square, m
 		}
 	}
 	return match
+}
+
+func replaceStyles(text string, bottom, left []int) string {
+	re := regexp.MustCompile(`style="bottom:\s*[\d.]+px;\s*left:\s*[\d.]+px"`)
+
+	replacements := []string{}
+
+	for i := range bottom {
+		replacements = append(replacements, fmt.Sprintf(`style="bottom: %vpx; left: %vpx"`, bottom[i], left[i]))
+	}
+
+	matches := re.FindAllStringIndex(text, -1)
+
+	var builder strings.Builder
+	lastIndex := 0
+
+	for i, match := range matches {
+		start, end := match[0], match[1]
+
+		builder.WriteString(text[lastIndex:start])
+
+		if i < len(replacements) {
+			builder.WriteString(replacements[i])
+		} else {
+			builder.WriteString(text[start:end])
+		}
+
+		lastIndex = end
+	}
+
+	builder.WriteString(text[lastIndex:])
+
+	output := builder.String()
+
+	return output
 }
