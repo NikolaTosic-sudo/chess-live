@@ -11,7 +11,7 @@ import templruntime "github.com/a-h/templ/runtime"
 import "github.com/NikolaTosic-sudo/chess-live/containers/components"
 
 func MainPagePrivate(chessBoard map[string]components.Square, pieces map[string]components.Piece, multiplier int,
-	whitePlayer, blackPlayer components.PlayerStruct, whiteLostPieces, blackLostPieces []string) templ.Component {
+	whitePlayer, blackPlayer components.PlayerStruct, whiteLostPieces, blackLostPieces []string, gameAlreadyEnded bool) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -44,7 +44,13 @@ func MainPagePrivate(chessBoard map[string]components.Square, pieces map[string]
 				}()
 			}
 			ctx = templ.InitializeContext(ctx)
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div id=\"main-private\" class=\"flex\"><div hx-get=\"/api/refresh\" hx-trigger=\"every 30m\" hx-swap=\"none\"></div><div hx-get=\"/check-online\" hx-trigger=\"load\"></div>")
+			if gameAlreadyEnded {
+				templ_7745c5c3_Err = components.GameEndedModal().Render(ctx, templ_7745c5c3_Buffer)
+				if templ_7745c5c3_Err != nil {
+					return templ_7745c5c3_Err
+				}
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, " <div id=\"main-private\" class=\"flex\"><div hx-get=\"/api/refresh\" hx-trigger=\"every 30m\" hx-swap=\"none\"></div><div hx-get=\"/check-online\" hx-trigger=\"load\"></div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

@@ -29,7 +29,7 @@ func GameEndedModal() templ.Component {
 			templ_7745c5c3_Var1 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div hx-swap-oob=\"afterbegin:#body\"><div class=\"fixed inset-0 bg-black/60 flex items-center justify-center z-30\" id=\"game-ended\" hx-get=\"/close-modal\" hx-target=\"this\" hx-trigger=\"click\" hx-swap=\"outerHTML\"><div class=\"w-full max-w-md bg-[#3e3a36] rounded-lg shadow-xl p-6 z-40\" onclick=\"event.stopPropagation()\" hx-get=\"/handle-end\" hx-trigger=\"load\"><p class=\"mb-6 text-center text-white text-lg font-lg\">Game you tried to reconnect to already ended.</p></div></div></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div class=\"fixed inset-0 bg-black/60 flex items-center justify-center z-30\" id=\"game-ended\" hx-get=\"/close-modal\" hx-target=\"this\" hx-trigger=\"click\" hx-swap=\"outerHTML\"><div class=\"w-full max-w-md bg-[#3e3a36] rounded-lg shadow-xl p-6 z-40\" onclick=\"event.stopPropagation()\" hx-get=\"/handle-end\" hx-trigger=\"load\"><p class=\"mb-6 text-center text-white text-lg font-lg\">Game you tried to reconnect to already ended.</p></div></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
