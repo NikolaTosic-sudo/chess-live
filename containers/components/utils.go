@@ -38,12 +38,14 @@ type PlayerStruct struct {
 }
 
 type OnlinePlayerStruct struct {
-	ID     uuid.UUID
-	Name   string
-	Image  string
-	Timer  string
-	Pieces string
-	Conn   *websocket.Conn
+	ID             uuid.UUID
+	Name           string
+	Image          string
+	Timer          string
+	Pieces         string
+	Conn           *websocket.Conn
+	ReconnectTimer int8
+	Multiplier     int
 }
 
 type MatchStruct struct {

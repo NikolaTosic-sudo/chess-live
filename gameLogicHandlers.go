@@ -22,6 +22,19 @@ func (cfg *appConfig) moveHandler(w http.ResponseWriter, r *http.Request) {
 		respondWithAnError(w, http.StatusNotFound, "no game found", err)
 		return
 	}
+	err = r.ParseForm()
+
+	if err != nil {
+		respondWithAnError(w, http.StatusInternalServerError, "couldn't decode request", err)
+		return
+	}
+
+	multiplier, err := strconv.Atoi(r.FormValue("multiplier"))
+
+	if err != nil {
+		respondWithAnError(w, http.StatusInternalServerError, "couldn't convert multiplier", err)
+		return
+	}
 	currentGame := c.Value
 	onlineGame, found := cfg.connections[currentGame]
 	match := cfg.Matches[currentGame]
@@ -112,7 +125,8 @@ func (cfg *appConfig) moveHandler(w http.ResponseWriter, r *http.Request) {
 		)
 		if found {
 			for playerColor, onlinePlayer := range onlineGame {
-				err := onlinePlayer.Conn.WriteMessage(websocket.TextMessage, []byte(message))
+				newMessage := replaceStyles(message, []int{currentSquare.CoordinatePosition[0] * onlinePlayer.Multiplier}, []int{currentSquare.CoordinatePosition[1] * onlinePlayer.Multiplier})
+				err := onlinePlayer.Conn.WriteMessage(websocket.TextMessage, []byte(newMessage))
 				if err != nil {
 					respondWithAnError(w, http.StatusInternalServerError, fmt.Sprintf("WebSocket write error to: %v", playerColor), err)
 					return
@@ -155,7 +169,7 @@ func (cfg *appConfig) moveHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		noCheck, err := handleIfCheck(w, cfg, saveSelected, currentGame)
+		noCheck, err := handleIfCheck(w, r, cfg, saveSelected, currentGame)
 		if err != nil {
 			respondWithAnError(w, http.StatusInternalServerError, "handle check error: ", err)
 			return
@@ -188,7 +202,8 @@ func (cfg *appConfig) moveHandler(w http.ResponseWriter, r *http.Request) {
 			)
 			if found {
 				for playerColor, onlinePlayer := range onlineGame {
-					err := onlinePlayer.Conn.WriteMessage(websocket.TextMessage, []byte(message))
+					newMessage := replaceStyles(message, []int{getKingSquare.CoordinatePosition[0] * onlinePlayer.Multiplier}, []int{getKingSquare.CoordinatePosition[1] * onlinePlayer.Multiplier})
+					err := onlinePlayer.Conn.WriteMessage(websocket.TextMessage, []byte(newMessage))
 					if err != nil {
 						respondWithAnError(w, http.StatusInternalServerError, fmt.Sprintf("WebSocket write error to: %v", playerColor), err)
 						return
@@ -246,12 +261,12 @@ func (cfg *appConfig) moveHandler(w http.ResponseWriter, r *http.Request) {
 				</span>
 			`,
 			currentPieceName,
-			currentSquare.Coordinates[0],
-			currentSquare.Coordinates[1],
+			currentSquare.CoordinatePosition[0]*multiplier,
+			currentSquare.CoordinatePosition[1]*multiplier,
 			currentPiece.Image,
 			match.selectedPiece.Name,
-			selSq.Coordinates[0],
-			selSq.Coordinates[1],
+			selSq.CoordinatePosition[0]*multiplier,
+			selSq.CoordinatePosition[1]*multiplier,
 			match.selectedPiece.Image,
 			className,
 		)
@@ -286,8 +301,8 @@ func (cfg *appConfig) moveHandler(w http.ResponseWriter, r *http.Request) {
 				</span>
 			`,
 			currentPieceName,
-			currentSquare.Coordinates[0],
-			currentSquare.Coordinates[1],
+			currentSquare.CoordinatePosition[0]*multiplier,
+			currentSquare.CoordinatePosition[1]*multiplier,
 			currentPiece.Image,
 			className,
 		)
@@ -307,7 +322,7 @@ func (cfg *appConfig) moveHandler(w http.ResponseWriter, r *http.Request) {
 			<span id="%v" hx-post="/move" hx-swap-oob="true" hx-swap="outerHTML" class="tile tile-md hover:cursor-grab absolute transition-all" style="bottom: %vpx; left: %vpx">
 				<img src="/assets/pieces/%v.svg" class="bg-sky-300 " />
 			</span>
-		`, currentPieceName, currentSquare.Coordinates[0], currentSquare.Coordinates[1], currentPiece.Image)
+		`, currentPieceName, currentSquare.CoordinatePosition[0]*multiplier, currentSquare.CoordinatePosition[1]*multiplier, currentPiece.Image)
 
 		if err != nil {
 			respondWithAnError(w, http.StatusInternalServerError, "couldn't write to page", err)
@@ -392,7 +407,8 @@ func (cfg *appConfig) moveToHandler(w http.ResponseWriter, r *http.Request) {
 		)
 		if found {
 			for playerColor, onlinePlayer := range onlineGame {
-				err := onlinePlayer.Conn.WriteMessage(websocket.TextMessage, []byte(message))
+				newMessage := replaceStyles(message, []int{currentSquare.CoordinatePosition[0] * onlinePlayer.Multiplier}, []int{currentSquare.CoordinatePosition[1] * onlinePlayer.Multiplier})
+				err := onlinePlayer.Conn.WriteMessage(websocket.TextMessage, []byte(newMessage))
 				if err != nil {
 					respondWithAnError(w, http.StatusInternalServerError, fmt.Sprintf("WebSocket write error to: %v", playerColor), err)
 					return
@@ -425,7 +441,7 @@ func (cfg *appConfig) moveToHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		noCheck, err := handleIfCheck(w, cfg, saveSelected, currentGame)
+		noCheck, err := handleIfCheck(w, r, cfg, saveSelected, currentGame)
 		if err != nil {
 			respondWithAnError(w, http.StatusInternalServerError, "handle check error: ", err)
 			return
@@ -458,7 +474,8 @@ func (cfg *appConfig) moveToHandler(w http.ResponseWriter, r *http.Request) {
 			)
 			if found {
 				for playerColor, onlinePlayer := range onlineGame {
-					err := onlinePlayer.Conn.WriteMessage(websocket.TextMessage, []byte(message))
+					newMessage := replaceStyles(message, []int{getKingSquare.CoordinatePosition[0] * onlinePlayer.Multiplier}, []int{getKingSquare.CoordinatePosition[1] * onlinePlayer.Multiplier})
+					err := onlinePlayer.Conn.WriteMessage(websocket.TextMessage, []byte(newMessage))
 					if err != nil {
 						respondWithAnError(w, http.StatusInternalServerError, fmt.Sprintf("WebSocket write error to: %v", playerColor), err)
 						return
@@ -489,7 +506,8 @@ func (cfg *appConfig) moveToHandler(w http.ResponseWriter, r *http.Request) {
 		)
 		if found {
 			for playerColor, onlinePlayer := range onlineGame {
-				err := onlinePlayer.Conn.WriteMessage(websocket.TextMessage, []byte(message))
+				newMessage := replaceStyles(message, []int{currentSquare.CoordinatePosition[0] * onlinePlayer.Multiplier}, []int{currentSquare.CoordinatePosition[1] * onlinePlayer.Multiplier})
+				err := onlinePlayer.Conn.WriteMessage(websocket.TextMessage, []byte(newMessage))
 				if err != nil {
 					respondWithAnError(w, http.StatusInternalServerError, fmt.Sprintf("WebSocket write error to: %v", playerColor), err)
 				}
@@ -512,7 +530,7 @@ func (cfg *appConfig) moveToHandler(w http.ResponseWriter, r *http.Request) {
 		}
 		match.movesSinceLastCapture++
 		cfg.Matches[currentGame] = match
-		noCheck, err := handleIfCheck(w, cfg, saveSelected, currentGame)
+		noCheck, err := handleIfCheck(w, r, cfg, saveSelected, currentGame)
 		if err != nil {
 			respondWithAnError(w, http.StatusInternalServerError, "couldn't write to page", err)
 		}
@@ -602,7 +620,18 @@ func (cfg *appConfig) coverCheckHandler(w http.ResponseWriter, r *http.Request) 
 		)
 		if found {
 			for playerColor, onlinePlayer := range onlineGame {
-				err := onlinePlayer.Conn.WriteMessage(websocket.TextMessage, []byte(message))
+				newMessage := replaceStyles(
+					message,
+					[]int{
+						kingSquare.CoordinatePosition[0] * onlinePlayer.Multiplier,
+						currentSquare.CoordinatePosition[0] * onlinePlayer.Multiplier,
+					},
+					[]int{
+						currentSquare.CoordinatePosition[1] * onlinePlayer.Multiplier,
+						kingSquare.CoordinatePosition[1] * onlinePlayer.Multiplier,
+					},
+				)
+				err := onlinePlayer.Conn.WriteMessage(websocket.TextMessage, []byte(newMessage))
 				if err != nil {
 					respondWithAnError(w, http.StatusInternalServerError, fmt.Sprintf("WebSocket write error to: %v", playerColor), err)
 					return
@@ -627,7 +656,7 @@ func (cfg *appConfig) coverCheckHandler(w http.ResponseWriter, r *http.Request) 
 		for _, tile := range match.tilesUnderAttack {
 			t := match.board[tile]
 			if t.Piece.Name != "" {
-				err := respondWithNewPiece(w, t)
+				err := respondWithNewPiece(w, r, t)
 
 				if err != nil {
 					respondWithAnError(w, http.StatusInternalServerError, "error with new piece", err)
@@ -665,7 +694,7 @@ func (cfg *appConfig) coverCheckHandler(w http.ResponseWriter, r *http.Request) 
 			return
 		}
 
-		noCheck, err := handleIfCheck(w, cfg, saveSelected, currentGame)
+		noCheck, err := handleIfCheck(w, r, cfg, saveSelected, currentGame)
 		if err != nil {
 			respondWithAnError(w, http.StatusInternalServerError, "handle check error", err)
 		}
@@ -728,19 +757,6 @@ func (cfg *appConfig) timerHandler(w http.ResponseWriter, r *http.Request) {
 		for playerColor, onlinePlayer := range onlineGame {
 			err := onlinePlayer.Conn.WriteMessage(websocket.TextMessage, []byte(message))
 			if err != nil {
-				if strings.Contains(err.Error(), "websocket: close sent") {
-					msg, err := TemplString(components.EndGameModal("1-0", "white"))
-					if err != nil {
-						respondWithAnError(w, http.StatusInternalServerError, "error converting component to string", err)
-						return
-					}
-					err = onlineGame["white"].Conn.WriteMessage(websocket.TextMessage, []byte(msg))
-					if err != nil {
-						respondWithAnError(w, http.StatusInternalServerError, "writing online message error: ", err)
-						return
-					}
-					break
-				}
 				respondWithAnError(w, http.StatusInternalServerError, fmt.Sprintf("WebSocket write error to: %v", playerColor), err)
 			}
 		}
@@ -858,7 +874,8 @@ func (cfg *appConfig) handlePromotion(w http.ResponseWriter, r *http.Request) {
 	)
 	if found {
 		for playerColor, onlinePlayer := range onlineGame {
-			err := onlinePlayer.Conn.WriteMessage(websocket.TextMessage, []byte(message))
+			newMessage := replaceStyles(message, []int{currentSquare.CoordinatePosition[0] * onlinePlayer.Multiplier}, []int{currentSquare.CoordinatePosition[1] * onlinePlayer.Multiplier})
+			err := onlinePlayer.Conn.WriteMessage(websocket.TextMessage, []byte(newMessage))
 			if err != nil {
 				respondWithAnError(w, http.StatusInternalServerError, fmt.Sprintf("WebSocket write error to: %v", playerColor), err)
 				return
@@ -910,7 +927,7 @@ func (cfg *appConfig) handlePromotion(w http.ResponseWriter, r *http.Request) {
 		}(w, r)
 	}
 
-	noCheck, err := handleIfCheck(w, cfg, newPiece, c.Value)
+	noCheck, err := handleIfCheck(w, r, cfg, newPiece, c.Value)
 	if err != nil {
 		respondWithAnError(w, http.StatusInternalServerError, "error with handle check", err)
 		return
@@ -944,7 +961,8 @@ func (cfg *appConfig) handlePromotion(w http.ResponseWriter, r *http.Request) {
 		)
 		if found {
 			for playerColor, onlinePlayer := range onlineGame {
-				err := onlinePlayer.Conn.WriteMessage(websocket.TextMessage, []byte(message))
+				newMessage := replaceStyles(message, []int{getKingSquare.CoordinatePosition[0] * onlinePlayer.Multiplier}, []int{getKingSquare.CoordinatePosition[1] * onlinePlayer.Multiplier})
+				err := onlinePlayer.Conn.WriteMessage(websocket.TextMessage, []byte(newMessage))
 				if err != nil {
 					respondWithAnError(w, http.StatusInternalServerError, fmt.Sprintf("WebSocket write error to: %v", playerColor), err)
 					return
@@ -987,16 +1005,8 @@ func (cfg *appConfig) endGameHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if match, ok := cfg.connections[currentGame.Value]; ok {
-		err := match["white"].Conn.Close()
-		if err != nil {
-			respondWithAnError(w, http.StatusInternalServerError, "closing the connection error", err)
-			return
-		}
-		err = match["black"].Conn.Close()
-		if err != nil {
-			respondWithAnError(w, http.StatusInternalServerError, "closing the connection error", err)
-			return
-		}
+		_ = match["white"].Conn.Close()
+		_ = match["black"].Conn.Close()
 		delete(cfg.connections, currentGame.Value)
 	}
 	cGC := http.Cookie{

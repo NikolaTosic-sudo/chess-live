@@ -29,7 +29,7 @@ func WaitingModal() templ.Component {
 			templ_7745c5c3_Var1 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div id=\"waiting-modal\" class=\"fixed inset-0 bg-black/60 flex items-center justify-center z-30\"><div id=\"searching-opponent\" hx-get=\"/searching\" hx-trigger=\"every 1s\" hx-target=\"#body\"></div><div id=\"modal-content\" class=\"w-full max-w-md bg-[#3e3a36] rounded-lg shadow-xl p-6 z-40\" onclick=\"event.stopPropagation()\"><div class=\"text-center text-white text-2xl\">Searching for opponent...</div></div></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div id=\"waiting-modal\" class=\"fixed inset-0 bg-black/60 flex items-center justify-center z-30\" hx-get=\"/cancel-online-search\" hx-target=\"this\" hx-trigger=\"click\" hx-swap=\"outerHTML\"><div id=\"searching-opponent\" hx-get=\"/searching\" hx-trigger=\"every 1s\" hx-target=\"#body\"></div><div id=\"modal-content\" class=\"w-full max-w-md bg-[#3e3a36] rounded-lg shadow-xl p-6 z-40\" onclick=\"event.stopPropagation()\"><div class=\"text-center text-white text-2xl\">Searching for an opponent...</div><div class=\"flex mt-4 justify-center\"><button hx-get=\"/cancel-online-search\" hx-swap=\"outerHTML\" hx-target=\"#waiting-modal\" class=\"px-5 py-2 text-white bg-red-600 rounded-md hover:bg-red-700 transition\">Cancel</button></div></div></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
