@@ -55,8 +55,8 @@ my new-found knowledge of backend, and my love for chess.
 - [x] Better error handling
 - [x] Better use of Go routines
 - [x] Finished adding rules to the game
-- [ ] Tighting WebSocket implementation
-- [ ] Add more robust matchmaking features  
+- [x] Tighting WebSocket implementation
+- [ ] BIG REFACTOR
 - [ ] Add unit tests  
 - [ ] Improve playability & testing environment  
 - [ ] Deploy to a public domain  
