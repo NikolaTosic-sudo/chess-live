@@ -139,7 +139,7 @@ func (cfg *appConfig) privateBoardHandler(w http.ResponseWriter, r *http.Request
 		Pieces: "black",
 	}
 
-	err = layout.MainPagePrivate(match.board, match.pieces, match.coordinateMultiplier, whitePlayer, blackPlayer, match.takenPiecesWhite, match.takenPiecesBlack).Render(r.Context(), w)
+	err = layout.MainPagePrivate(match.board, match.pieces, match.coordinateMultiplier, whitePlayer, blackPlayer, match.takenPiecesWhite, match.takenPiecesBlack, false).Render(r.Context(), w)
 
 	if err != nil {
 		respondWithAnErrorPage(w, r, http.StatusInternalServerError, "Couldn't render template")
@@ -213,8 +213,12 @@ func (cfg *appConfig) onlineBoardHandler(w http.ResponseWriter, r *http.Request)
 						White:    whitePlayer.Name,
 						Black:    player.Name,
 						FullTime: 600,
-						UserID:   userId,
 						IsOnline: true,
+					})
+
+					_ = cfg.database.CreateMatchUser(r.Context(), database.CreateMatchUserParams{
+						UserID:  userId,
+						MatchID: matchId,
 					})
 
 					startingBoard := MakeBoard()
@@ -398,9 +402,18 @@ func (cfg *appConfig) startGameHandler(w http.ResponseWriter, r *http.Request) {
 				White:    fullUser.Name,
 				Black:    "Opponent",
 				FullTime: 600,
-				UserID:   user,
 				IsOnline: false,
 				Result:   "0-0",
+			})
+
+			if err != nil {
+				respondWithAnError(w, http.StatusInternalServerError, "couldn't create match", err)
+				return
+			}
+
+			err = cfg.database.CreateMatchUser(r.Context(), database.CreateMatchUserParams{
+				MatchID: matchId,
+				UserID:  fullUser.ID,
 			})
 
 			if err != nil {
@@ -730,7 +743,6 @@ func (cfg *appConfig) playHandler(w http.ResponseWriter, r *http.Request) {
 	c, err := r.Cookie("current_game")
 
 	if err != nil {
-		logError("no game found", err)
 		game = "initial"
 	} else if strings.Contains(c.Value, "database:") {
 		cGC := http.Cookie{
@@ -795,7 +807,7 @@ func (cfg *appConfig) playHandler(w http.ResponseWriter, r *http.Request) {
 		Pieces: "black",
 	}
 
-	err = layout.MainPagePrivate(match.board, match.pieces, match.coordinateMultiplier, whitePlayer, blackPlayer, match.takenPiecesWhite, match.takenPiecesBlack).Render(r.Context(), w)
+	err = layout.MainPagePrivate(match.board, match.pieces, match.coordinateMultiplier, whitePlayer, blackPlayer, match.takenPiecesWhite, match.takenPiecesBlack, false).Render(r.Context(), w)
 
 	if err != nil {
 		respondWithAnErrorPage(w, r, http.StatusInternalServerError, "Couldn't render template")
