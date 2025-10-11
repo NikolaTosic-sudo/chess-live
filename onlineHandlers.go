@@ -34,13 +34,33 @@ func (cfg *appConfig) wsHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	game := cfg.connections[c.Value]
-	for color, player := range game {
+	for color, player := range game.players {
 		if player.ID == userId {
 			player.Conn = conn
-			game[color] = player
+			game.players[color] = player
 		}
 	}
 	disconnect := make(chan string)
+
+	go func() {
+		for {
+			select {
+			case msg := <-game.message:
+				for playerColor, onlinePlayer := range game.players {
+					err := onlinePlayer.Conn.WriteMessage(websocket.TextMessage, []byte(msg))
+					if err != nil {
+						respondWithAnError(w, http.StatusInternalServerError, fmt.Sprintf("WebSocket write error to: %v", playerColor), err)
+					}
+				}
+			case playerMsg := <-game.playerMsg:
+				err := game.players[playerMsg[1]].Conn.WriteMessage(websocket.TextMessage, []byte(playerMsg[0]))
+				if err != nil {
+					respondWithAnError(w, http.StatusInternalServerError, fmt.Sprintf("WebSocket write error to: %v", playerMsg[0]), err)
+				}
+			}
+		}
+	}()
+
 	go func() {
 
 		<-disconnect
@@ -52,7 +72,7 @@ func (cfg *appConfig) wsHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		for _, connect := range game {
+		for _, connect := range game.players {
 			if conn != connect.Conn {
 				msg, err := TemplString(components.WaitForReconnectModal())
 				if err != nil {
@@ -73,7 +93,7 @@ func (cfg *appConfig) wsHandler(w http.ResponseWriter, r *http.Request) {
 
 	go func() {
 		for {
-			_, msg, err := conn.ReadMessage()
+			_, _, err := conn.ReadMessage()
 			if e, ok := err.(*websocket.CloseError); ok && e.Code == websocket.CloseNormalClosure {
 				log.Println(err, "normal close")
 				break
@@ -83,15 +103,6 @@ func (cfg *appConfig) wsHandler(w http.ResponseWriter, r *http.Request) {
 			}
 			if err != nil {
 				break
-			}
-
-			for _, connect := range game {
-				if conn != connect.Conn {
-					err = connect.Conn.WriteMessage(websocket.TextMessage, msg)
-					if err != nil {
-						logError("websocket write error", err)
-					}
-				}
 			}
 		}
 	}()
@@ -106,13 +117,13 @@ func (cfg *appConfig) searchingOppHandler(w http.ResponseWriter, r *http.Request
 	currentGame := c.Value
 	game := cfg.connections[currentGame]
 	var emptyPlayer components.OnlinePlayerStruct
-	if game["black"] == emptyPlayer {
+	if game.players["black"] == emptyPlayer {
 		w.WriteHeader(http.StatusNoContent)
 		return
 	}
 
-	whitePlayer := game["white"]
-	blackPlayer := game["black"]
+	whitePlayer := game.players["white"]
+	blackPlayer := game.players["black"]
 	startGame := http.Cookie{
 		Name:     "current_game",
 		Value:    currentGame,
@@ -158,8 +169,8 @@ func (cfg *appConfig) waitingForReconnect(w http.ResponseWriter, r *http.Request
 	}
 	game := cfg.connections[c.Value]
 
-	err1 := game["white"].Conn.WriteMessage(websocket.TextMessage, []byte("test"))
-	err2 := game["black"].Conn.WriteMessage(websocket.TextMessage, []byte("test"))
+	err1 := game.players["white"].Conn.WriteMessage(websocket.TextMessage, []byte("test"))
+	err2 := game.players["black"].Conn.WriteMessage(websocket.TextMessage, []byte("test"))
 
 	if err1 == nil && err2 == nil {
 		_, err = fmt.Fprintf(w, `<div id="wait" hx-swap-oob="outerHTML"></div>`)
@@ -172,20 +183,20 @@ func (cfg *appConfig) waitingForReconnect(w http.ResponseWriter, r *http.Request
 	var time int8
 	var result string
 	var winner string
-	if userId == game["white"].ID {
-		gamePlayer := game["black"]
+	if userId == game.players["white"].ID {
+		gamePlayer := game.players["black"]
 		time = gamePlayer.ReconnectTimer
 		time -= 1
 		gamePlayer.ReconnectTimer = time
-		game["black"] = gamePlayer
+		game.players["black"] = gamePlayer
 		result = "1-0"
 		winner = "white"
 	} else {
-		gamePlayer := game["white"]
+		gamePlayer := game.players["white"]
 		time = gamePlayer.ReconnectTimer
 		time -= 1
 		gamePlayer.ReconnectTimer = time
-		game["white"] = gamePlayer
+		game.players["white"] = gamePlayer
 		result = "0-1"
 		winner = "black"
 	}
@@ -251,7 +262,7 @@ func (cfg *appConfig) cancelOnlineHandler(w http.ResponseWriter, r *http.Request
 	onlineGame := cfg.connections[currentGame.Value]
 
 	var result string
-	if onlineGame["white"].ID == userId {
+	if onlineGame.players["white"].ID == userId {
 		result = "0-1"
 	} else {
 		result = "1-0"
@@ -354,7 +365,7 @@ func (cfg *appConfig) continueOnlineHandler(w http.ResponseWriter, r *http.Reque
 	var blackPlayer components.OnlinePlayerStruct
 	var whitePlayer components.OnlinePlayerStruct
 
-	for color, player := range onlineGame {
+	for color, player := range onlineGame.players {
 		if color == "white" {
 			whitePlayer = player
 		}
