@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"slices"
 	"strconv"
@@ -43,11 +42,11 @@ func (cfg *appConfig) moveHandler(w http.ResponseWriter, r *http.Request) {
 	userC, err := r.Cookie("access_token")
 
 	var userId uuid.UUID
-	if userC.Value != "" && err == nil {
+	if err == nil && userC.Value != "" {
 		userId, _ = auth.ValidateJWT(userC.Value, cfg.secret)
 	}
 
-	canPlay, err := canPlay(currentPiece, match, onlineGame, userId)
+	canPlay, err := canPlay(currentPiece, match, onlineGame.players, userId)
 	if err != nil {
 		respondWithAnErrorPage(w, r, http.StatusUnauthorized, "user not found")
 		return
@@ -56,10 +55,10 @@ func (cfg *appConfig) moveHandler(w http.ResponseWriter, r *http.Request) {
 	currentSquare := match.board[currentSquareName]
 	selectedSquare := match.selectedPiece.Tile
 	selSq := match.board[selectedSquare]
-	legalMoves := cfg.checkLegalMoves(currentGame, Match{})
+	legalMoves := checkLegalMoves(match)
 
 	if canEat(match.selectedPiece, currentPiece) && slices.Contains(legalMoves, currentSquareName) {
-		if onlineGame != nil {
+		if found {
 			userC, err := r.Cookie("access_token")
 
 			if err != nil {
@@ -74,9 +73,9 @@ func (cfg *appConfig) moveHandler(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 
-			if match.isWhiteTurn && onlineGame["white"].ID != userId {
+			if match.isWhiteTurn && onlineGame.players["white"].ID != userId {
 				return
-			} else if !match.isWhiteTurn && onlineGame["black"].ID != userId {
+			} else if !match.isWhiteTurn && onlineGame.players["black"].ID != userId {
 				return
 			}
 		}
@@ -109,19 +108,8 @@ func (cfg *appConfig) moveHandler(w http.ResponseWriter, r *http.Request) {
 			userColor = "black"
 		}
 
-		message := fmt.Sprintf(`
-			<span id="%v" hx-post="/move" hx-swap-oob="true" class="tile tile-md hover:cursor-grab absolute transition-all" style="display: none">
-				<img src="/assets/pieces/%v.svg" />
-			</span>
-
-			<span id="%v" hx-post="/move" hx-swap-oob="true" class="tile tile-md hover:cursor-grab absolute transition-all" style="bottom: %vpx; left: %vpx">
-				<img src="/assets/pieces/%v.svg" />
-			</span>
-
-			<div id="lost-pieces-%v" hx-swap-oob="afterbegin">
-				<img src="/assets/pieces/%v.svg" class="w-[18px] h-[18px]" />
-			</div>
-		`,
+		message := fmt.Sprintf(
+			getEatPiecesMessage(),
 			currentPiece.Name,
 			currentPiece.Image,
 			match.selectedPiece.Name,
@@ -131,35 +119,18 @@ func (cfg *appConfig) moveHandler(w http.ResponseWriter, r *http.Request) {
 			userColor,
 			currentPiece.Image,
 		)
-		if found {
-			for playerColor, onlinePlayer := range onlineGame {
-				newMessage := replaceStyles(message, []int{currentSquare.CoordinatePosition[0] * onlinePlayer.Multiplier}, []int{currentSquare.CoordinatePosition[1] * onlinePlayer.Multiplier})
-				err := onlinePlayer.Conn.WriteMessage(websocket.TextMessage, []byte(newMessage))
-				if err != nil {
-					respondWithAnError(w, http.StatusInternalServerError, fmt.Sprintf("WebSocket write error to: %v", playerColor), err)
-					return
-				}
-			}
-		} else {
-			_, err := fmt.Fprint(w, message)
-			if err != nil {
-				respondWithAnError(w, http.StatusInternalServerError, "couldn't print to page", err)
-				return
-			}
+
+		err = sendMessage(onlineGame, found, w, message, [2][]int{
+			{currentSquare.CoordinatePosition[0]},
+			{currentSquare.CoordinatePosition[1]},
+		})
+
+		if err != nil {
+			respondWithAnError(w, http.StatusInternalServerError, "couldn't print to page", err)
+			return
 		}
-		match.allMoves = append(match.allMoves, currentSquareName)
-		delete(match.pieces, currentPieceName)
-		match.selectedPiece.Tile = currentSquareName
-		match.selectedPiece.Moved = true
-		match.pieces[match.selectedPiece.Name] = match.selectedPiece
-		currentSquare.Piece = match.selectedPiece
-		selSq.Piece = components.Piece{}
-		match.board[currentSquareName] = currentSquare
-		match.board[selectedSquare] = selSq
-		saveSelected := match.selectedPiece
-		match.selectedPiece = components.Piece{}
-		match.possibleEnPessant = ""
-		match.movesSinceLastCapture = 0
+
+		match, _, saveSelected := eatCleanup(match, currentPiece, selectedSquare, currentSquareName)
 
 		cfg.Matches[currentGame] = match
 		err = cfg.showMoves(match, currentSquareName, saveSelected.Name, w, r)
@@ -189,7 +160,7 @@ func (cfg *appConfig) moveHandler(w http.ResponseWriter, r *http.Request) {
 			} else if match.isBlackUnderCheck {
 				kingName = "black_king"
 			} else {
-				cfg.endTurn(currentGame, r, w)
+				cfg.endTurn(currentGame, w)
 				return
 			}
 			match.isWhiteUnderCheck = false
@@ -198,34 +169,26 @@ func (cfg *appConfig) moveHandler(w http.ResponseWriter, r *http.Request) {
 			getKing := match.pieces[kingName]
 			getKingSquare := match.board[getKing.Tile]
 
-			message = fmt.Sprintf(`
-			<span id="%v" hx-post="/move" hx-swap-oob="true" hx-swap="outerHTML" class="tile tile-md hover:cursor-grab absolute transition-all" style="bottom: %vpx; left: %vpx">
-				<img src="/assets/pieces/%v.svg" />
-			</span>
-		`,
+			message = fmt.Sprintf(
+				getSinglePieceMessage(),
 				getKing.Name,
 				getKingSquare.Coordinates[0],
 				getKingSquare.Coordinates[1],
 				getKing.Image,
+				"",
 			)
-			if found {
-				for playerColor, onlinePlayer := range onlineGame {
-					newMessage := replaceStyles(message, []int{getKingSquare.CoordinatePosition[0] * onlinePlayer.Multiplier}, []int{getKingSquare.CoordinatePosition[1] * onlinePlayer.Multiplier})
-					err := onlinePlayer.Conn.WriteMessage(websocket.TextMessage, []byte(newMessage))
-					if err != nil {
-						respondWithAnError(w, http.StatusInternalServerError, fmt.Sprintf("WebSocket write error to: %v", playerColor), err)
-						return
-					}
-				}
-			} else {
-				_, err := fmt.Fprint(w, message)
-				if err != nil {
-					respondWithAnError(w, http.StatusInternalServerError, "couldn't write to page", err)
-					return
-				}
+
+			err = sendMessage(onlineGame, found, w, message, [2][]int{
+				{getKingSquare.CoordinatePosition[0]},
+				{getKingSquare.CoordinatePosition[1]},
+			})
+
+			if err != nil {
+				respondWithAnError(w, http.StatusInternalServerError, "couldn't write to page", err)
+				return
 			}
 		}
-		cfg.endTurn(currentGame, r, w)
+		cfg.endTurn(currentGame, w)
 		return
 	}
 
@@ -259,15 +222,9 @@ func (cfg *appConfig) moveHandler(w http.ResponseWriter, r *http.Request) {
 			className = `class="bg-red-400"`
 		}
 
-		_, err := fmt.Fprintf(w, `
-				<span id="%v" hx-post="/move" hx-swap-oob="true" hx-swap="outerHTML" class="tile tile-md hover:cursor-grab absolute transition-all" style="bottom: %vpx; left: %vpx">
-					<img src="/assets/pieces/%v.svg" class="bg-sky-300" />
-				</span>
-	
-				<span id="%v" hx-post="/move" hx-swap-oob="true" hx-swap="outerHTML" class="tile tile-md hover:cursor-grab absolute transition-all" style="bottom: %vpx; left: %vpx">
-					<img src="/assets/pieces/%v.svg" %v  />
-				</span>
-			`,
+		_, err := fmt.Fprintf(
+			w,
+			getReselectPieceMessage(),
 			currentPieceName,
 			currentSquare.CoordinatePosition[0]*multiplier,
 			currentSquare.CoordinatePosition[1]*multiplier,
@@ -303,11 +260,9 @@ func (cfg *appConfig) moveHandler(w http.ResponseWriter, r *http.Request) {
 		if kingsName != "" && isKing {
 			className = `class="bg-red-400"`
 		}
-		_, err := fmt.Fprintf(w, `
-				<span id="%v" hx-post="/move" hx-swap-oob="true" hx-swap="outerHTML" class="tile tile-md hover:cursor-grab absolute transition-all" style="bottom: %vpx; left: %vpx">
-					<img src="/assets/pieces/%v.svg" %v />
-				</span>
-			`,
+		_, err := fmt.Fprintf(
+			w,
+			getSinglePieceMessage(),
 			currentPieceName,
 			currentSquare.CoordinatePosition[0]*multiplier,
 			currentSquare.CoordinatePosition[1]*multiplier,
@@ -326,11 +281,16 @@ func (cfg *appConfig) moveHandler(w http.ResponseWriter, r *http.Request) {
 		currentSquare.Selected = true
 		match.selectedPiece = currentPiece
 		match.board[currentSquareName] = currentSquare
-		_, err := fmt.Fprintf(w, `
-			<span id="%v" hx-post="/move" hx-swap-oob="true" hx-swap="outerHTML" class="tile tile-md hover:cursor-grab absolute transition-all" style="bottom: %vpx; left: %vpx">
-				<img src="/assets/pieces/%v.svg" class="bg-sky-300 " />
-			</span>
-		`, currentPieceName, currentSquare.CoordinatePosition[0]*multiplier, currentSquare.CoordinatePosition[1]*multiplier, currentPiece.Image)
+		className := `class="bg-sky-300"`
+		_, err := fmt.Fprintf(
+			w,
+			getSinglePieceMessage(),
+			currentPieceName,
+			currentSquare.CoordinatePosition[0]*multiplier,
+			currentSquare.CoordinatePosition[1]*multiplier,
+			currentPiece.Image,
+			className,
+		)
 
 		if err != nil {
 			respondWithAnError(w, http.StatusInternalServerError, "couldn't write to page", err)
@@ -354,7 +314,7 @@ func (cfg *appConfig) moveToHandler(w http.ResponseWriter, r *http.Request) {
 	currentSquare := match.board[currentSquareName]
 	selectedSquare := match.selectedPiece.Tile
 
-	legalMoves := cfg.checkLegalMoves(currentGame, Match{})
+	legalMoves := checkLegalMoves(match)
 
 	var kingCheck bool
 	if match.selectedPiece.IsKing && slices.Contains(legalMoves, currentSquareName) {
@@ -391,19 +351,8 @@ func (cfg *appConfig) moveToHandler(w http.ResponseWriter, r *http.Request) {
 		squareToDelete := match.board[squareToDeleteName]
 		pieceToDelete := squareToDelete.Piece
 		currentSquare := match.board[currentSquareName]
-		message := fmt.Sprintf(`
-			<span id="%v" hx-post="/move" hx-swap-oob="true" class="tile tile-md hover:cursor-grab absolute transition-all" style="display: none">
-				<img src="/assets/pieces/%v.svg" />
-			</span>
-
-			<span id="%v" hx-post="/move" hx-swap-oob="true" class="tile tile-md hover:cursor-grab absolute transition-all" style="bottom: %vpx; left: %vpx">
-				<img src="/assets/pieces/%v.svg" />
-			</span>
-
-			<div id="lost-pieces-%v" hx-swap-oob="afterbegin">
-				<img src="/assets/pieces/%v.svg" class="w-[18px] h-[18px]" />
-			</div>
-		`,
+		message := fmt.Sprintf(
+			getEatPiecesMessage(),
 			pieceToDelete.Name,
 			pieceToDelete.Image,
 			match.selectedPiece.Name,
@@ -413,35 +362,19 @@ func (cfg *appConfig) moveToHandler(w http.ResponseWriter, r *http.Request) {
 			userColor,
 			pieceToDelete.Image,
 		)
-		if found {
-			for playerColor, onlinePlayer := range onlineGame {
-				newMessage := replaceStyles(message, []int{currentSquare.CoordinatePosition[0] * onlinePlayer.Multiplier}, []int{currentSquare.CoordinatePosition[1] * onlinePlayer.Multiplier})
-				err := onlinePlayer.Conn.WriteMessage(websocket.TextMessage, []byte(newMessage))
-				if err != nil {
-					respondWithAnError(w, http.StatusInternalServerError, fmt.Sprintf("WebSocket write error to: %v", playerColor), err)
-					return
-				}
-			}
-		} else {
-			_, err := fmt.Fprint(w, message)
-			if err != nil {
-				respondWithAnError(w, http.StatusInternalServerError, "couldn't print to page", err)
-				return
-			}
+
+		err = sendMessage(onlineGame, found, w, message, [2][]int{
+			{currentSquare.CoordinatePosition[0]},
+			{currentSquare.CoordinatePosition[1]},
+		})
+
+		if err != nil {
+			respondWithAnError(w, http.StatusInternalServerError, "couldn't print to page", err)
+			return
 		}
 
-		match.allMoves = append(match.allMoves, currentSquareName)
-		delete(match.pieces, pieceToDelete.Name)
-		match.selectedPiece.Tile = currentSquareName
-		match.pieces[match.selectedPiece.Name] = match.selectedPiece
-		currentSquare.Piece = match.selectedPiece
-		squareToDelete.Piece = components.Piece{}
-		match.board[currentSquareName] = currentSquare
-		match.board[squareToDeleteName] = squareToDelete
-		saveSelected := match.selectedPiece
-		match.selectedPiece = components.Piece{}
-		match.possibleEnPessant = ""
-		match.movesSinceLastCapture = 0
+		match, squareToDelete, saveSelected := eatCleanup(match, pieceToDelete, squareToDeleteName, currentSquareName)
+
 		cfg.Matches[currentGame] = match
 		err = cfg.showMoves(match, currentSquareName, saveSelected.Name, w, r)
 		if err != nil {
@@ -461,7 +394,7 @@ func (cfg *appConfig) moveToHandler(w http.ResponseWriter, r *http.Request) {
 			} else if match.isBlackUnderCheck {
 				kingName = "black_king"
 			} else {
-				cfg.endTurn(currentGame, r, w)
+				cfg.endTurn(currentGame, w)
 				return
 			}
 			match.isWhiteUnderCheck = false
@@ -470,62 +403,47 @@ func (cfg *appConfig) moveToHandler(w http.ResponseWriter, r *http.Request) {
 			getKing := match.pieces[kingName]
 			getKingSquare := match.board[getKing.Tile]
 
-			message = fmt.Sprintf(`
-			<span id="%v" hx-post="/move" hx-swap-oob="true" hx-swap="outerHTML" class="tile tile-md hover:cursor-grab absolute transition-all" style="bottom: %vpx; left: %vpx">
-				<img src="/assets/pieces/%v.svg" />
-			</span>
-		`,
+			message = fmt.Sprintf(
+				getSinglePieceMessage(),
 				getKing.Name,
 				getKingSquare.Coordinates[0],
 				getKingSquare.Coordinates[1],
 				getKing.Image,
+				"",
 			)
-			if found {
-				for playerColor, onlinePlayer := range onlineGame {
-					newMessage := replaceStyles(message, []int{getKingSquare.CoordinatePosition[0] * onlinePlayer.Multiplier}, []int{getKingSquare.CoordinatePosition[1] * onlinePlayer.Multiplier})
-					err := onlinePlayer.Conn.WriteMessage(websocket.TextMessage, []byte(newMessage))
-					if err != nil {
-						respondWithAnError(w, http.StatusInternalServerError, fmt.Sprintf("WebSocket write error to: %v", playerColor), err)
-						return
-					}
-				}
-			} else {
-				_, err := fmt.Fprint(w, message)
-				if err != nil {
-					respondWithAnError(w, http.StatusInternalServerError, "couldn't write to page", err)
-					return
-				}
-			}
-		}
-		cfg.endTurn(currentGame, r, w)
-		return
-	}
 
-	if selectedSquare != "" && selectedSquare != currentSquareName {
-		message := fmt.Sprintf(`
-			<span id="%v" hx-post="/move" hx-swap-oob="true" class="tile tile-md hover:cursor-grab absolute transition-all" style="bottom: %vpx; left: %vpx">
-				<img src="/assets/pieces/%v.svg" />
-			</span>
-		`,
-			match.selectedPiece.Name,
-			currentSquare.Coordinates[0],
-			currentSquare.Coordinates[1],
-			match.selectedPiece.Image,
-		)
-		if found {
-			for playerColor, onlinePlayer := range onlineGame {
-				newMessage := replaceStyles(message, []int{currentSquare.CoordinatePosition[0] * onlinePlayer.Multiplier}, []int{currentSquare.CoordinatePosition[1] * onlinePlayer.Multiplier})
-				err := onlinePlayer.Conn.WriteMessage(websocket.TextMessage, []byte(newMessage))
-				if err != nil {
-					respondWithAnError(w, http.StatusInternalServerError, fmt.Sprintf("WebSocket write error to: %v", playerColor), err)
-				}
-			}
-		} else {
-			_, err := fmt.Fprint(w, message)
+			err = sendMessage(onlineGame, found, w, message, [2][]int{
+				{getKingSquare.CoordinatePosition[0]},
+				{getKingSquare.CoordinatePosition[1]},
+			})
+
 			if err != nil {
 				respondWithAnError(w, http.StatusInternalServerError, "couldn't write to page", err)
 				return
 			}
+		}
+		cfg.endTurn(currentGame, w)
+		return
+	}
+
+	if selectedSquare != "" && selectedSquare != currentSquareName {
+		message := fmt.Sprintf(
+			getSinglePieceMessage(),
+			match.selectedPiece.Name,
+			currentSquare.Coordinates[0],
+			currentSquare.Coordinates[1],
+			match.selectedPiece.Image,
+			"",
+		)
+
+		err = sendMessage(onlineGame, found, w, message, [2][]int{
+			{currentSquare.CoordinatePosition[0]},
+			{currentSquare.CoordinatePosition[1]},
+		})
+
+		if err != nil {
+			respondWithAnError(w, http.StatusInternalServerError, "couldn't write to page", err)
+			return
 		}
 		match = checkForEnPessant(selectedSquare, currentSquare, match)
 		saveSelected := match.selectedPiece
@@ -554,7 +472,7 @@ func (cfg *appConfig) moveToHandler(w http.ResponseWriter, r *http.Request) {
 		if saveSelected.IsPawn && pawnPromotion {
 			return
 		}
-		cfg.endTurn(currentGame, r, w)
+		cfg.endTurn(currentGame, w)
 		return
 	}
 
@@ -574,7 +492,7 @@ func (cfg *appConfig) coverCheckHandler(w http.ResponseWriter, r *http.Request) 
 	currentSquare := match.board[currentSquareName]
 	selectedSquare := match.selectedPiece.Tile
 
-	legalMoves := cfg.checkLegalMoves(currentGame, Match{})
+	legalMoves := checkLegalMoves(match)
 
 	if !slices.Contains(legalMoves, currentSquareName) {
 		w.WriteHeader(http.StatusNoContent)
@@ -604,17 +522,8 @@ func (cfg *appConfig) coverCheckHandler(w http.ResponseWriter, r *http.Request) 
 	kingSquare := match.board[king.Tile]
 
 	if selectedSquare != "" && selectedSquare != currentSquareName {
-		message := fmt.Sprintf(`
-			<div id="%v" hx-post="/move-to" hx-swap-oob="true" class="tile tile-md h-full w-full" style="background-color: %v"></div>
-
-			<span id="%v" hx-post="/move" hx-swap-oob="true" hx-swap="outerHTML" class="tile tile-md hover:cursor-grab absolute transition-all" style="bottom: %vpx; left: %vpx">
-				<img src="/assets/pieces/%v.svg" />
-			</span>
-
-			<span id="%v" hx-post="/move" hx-swap-oob="true" hx-swap="outerHTML" class="tile tile-md hover:cursor-grab absolute transition-all" style="bottom: %vpx; left: %vpx">
-				<img src="/assets/pieces/%v.svg" />
-			</span>
-		`,
+		message := fmt.Sprintf(
+			getCoverCheckMessage(),
 			currentSquareName,
 			currentSquare.Color,
 			king.Name,
@@ -626,31 +535,21 @@ func (cfg *appConfig) coverCheckHandler(w http.ResponseWriter, r *http.Request) 
 			currentSquare.Coordinates[1],
 			match.selectedPiece.Image,
 		)
-		if found {
-			for playerColor, onlinePlayer := range onlineGame {
-				newMessage := replaceStyles(
-					message,
-					[]int{
-						kingSquare.CoordinatePosition[0] * onlinePlayer.Multiplier,
-						currentSquare.CoordinatePosition[0] * onlinePlayer.Multiplier,
-					},
-					[]int{
-						currentSquare.CoordinatePosition[1] * onlinePlayer.Multiplier,
-						kingSquare.CoordinatePosition[1] * onlinePlayer.Multiplier,
-					},
-				)
-				err := onlinePlayer.Conn.WriteMessage(websocket.TextMessage, []byte(newMessage))
-				if err != nil {
-					respondWithAnError(w, http.StatusInternalServerError, fmt.Sprintf("WebSocket write error to: %v", playerColor), err)
-					return
-				}
-			}
-		} else {
-			_, err := fmt.Fprint(w, message)
-			if err != nil {
-				respondWithAnError(w, http.StatusInternalServerError, "couldn't write to page", err)
-				return
-			}
+
+		err = sendMessage(onlineGame, found, w, message, [2][]int{
+			{
+				kingSquare.CoordinatePosition[0],
+				currentSquare.CoordinatePosition[0],
+			},
+			{
+				currentSquare.CoordinatePosition[1],
+				kingSquare.CoordinatePosition[1],
+			},
+		})
+
+		if err != nil {
+			respondWithAnError(w, http.StatusInternalServerError, "couldn't write to page", err)
+			return
 		}
 		saveSelected := match.selectedPiece
 		match.allMoves = append(match.allMoves, currentSquareName)
@@ -671,26 +570,18 @@ func (cfg *appConfig) coverCheckHandler(w http.ResponseWriter, r *http.Request) 
 					return
 				}
 			} else {
-				message := fmt.Sprintf(`
-						<div id="%v" hx-post="/move-to" hx-swap-oob="true" class="tile tile-md" style="background-color: %v"></div>
-				`,
+				message := fmt.Sprintf(
+					getTileMessage(),
 					tile,
+					"move-to",
 					t.Color,
 				)
-				if found {
-					for playerColor, onlinePlayer := range onlineGame {
-						err := onlinePlayer.Conn.WriteMessage(websocket.TextMessage, []byte(message))
-						if err != nil {
-							respondWithAnError(w, http.StatusInternalServerError, fmt.Sprintf("WebSocket write error to: %v", playerColor), err)
-						}
-					}
-				} else {
-					_, err := fmt.Fprint(w, message)
-					if err != nil {
-						respondWithAnError(w, http.StatusInternalServerError, "Couldn't write to page", err)
-						return
-					}
+				err = sendMessage(onlineGame, found, w, message, [2][]int{})
+				if err != nil {
+					respondWithAnError(w, http.StatusInternalServerError, "Couldn't write to page", err)
+					return
 				}
+
 			}
 		}
 
@@ -714,7 +605,7 @@ func (cfg *appConfig) coverCheckHandler(w http.ResponseWriter, r *http.Request) 
 		match.possibleEnPessant = ""
 		match.movesSinceLastCapture++
 		cfg.Matches[currentGame] = match
-		cfg.endTurn(currentGame, r, w)
+		cfg.endTurn(currentGame, w)
 
 		return
 	}
@@ -754,26 +645,19 @@ func (cfg *appConfig) timerHandler(w http.ResponseWriter, r *http.Request) {
 		stayTheSameColor = "white"
 	}
 
-	message := fmt.Sprintf(`
-	<div id="%v" hx-swap-oob="true" class="px-7 py-3 bg-white">%v</div>
-	
-	<div id="%v" hx-swap-oob="true" class="px-7 py-3 bg-gray-500">%v</div>
-	
-	`, toChangeColor, formatTime(toChange), stayTheSameColor, formatTime(stayTheSame))
+	message := fmt.Sprintf(
+		getTimerMessage(),
+		toChangeColor,
+		formatTime(toChange),
+		stayTheSameColor,
+		formatTime(stayTheSame),
+	)
 
-	if found {
-		for playerColor, onlinePlayer := range onlineGame {
-			err := onlinePlayer.Conn.WriteMessage(websocket.TextMessage, []byte(message))
-			if err != nil {
-				respondWithAnError(w, http.StatusInternalServerError, fmt.Sprintf("WebSocket write error to: %v", playerColor), err)
-			}
-		}
-	} else {
-		_, err := fmt.Fprint(w, message)
-		if err != nil {
-			respondWithAnError(w, http.StatusInternalServerError, "couldn't write to page", err)
-			return
-		}
+	err = sendMessage(onlineGame, found, w, message, [2][]int{})
+
+	if err != nil {
+		respondWithAnError(w, http.StatusInternalServerError, "couldn't write to page", err)
+		return
 	}
 
 	cfg.Matches[currentGame] = match
@@ -784,24 +668,12 @@ func (cfg *appConfig) timerHandler(w http.ResponseWriter, r *http.Request) {
 			respondWithAnError(w, http.StatusInternalServerError, "error converting component to string", err)
 			return
 		}
-		if found {
-			err := onlineGame["white"].Conn.WriteMessage(websocket.TextMessage, []byte(msg))
-			if err != nil {
-				respondWithAnError(w, http.StatusInternalServerError, "writing online message error: ", err)
-				return
-			}
-			err = onlineGame["black"].Conn.WriteMessage(websocket.TextMessage, []byte(msg))
-			if err != nil {
-				respondWithAnError(w, http.StatusInternalServerError, "writing online message error: ", err)
-				return
-			}
+
+		err = sendMessage(onlineGame, found, w, msg, [2][]int{})
+
+		if err != nil {
+			respondWithAnError(w, http.StatusInternalServerError, "couldn't write to page", err)
 			return
-		} else {
-			_, err := fmt.Fprint(w, msg)
-			if err != nil {
-				respondWithAnError(w, http.StatusInternalServerError, "couldn't write to page", err)
-				return
-			}
 		}
 	} else if !match.isWhiteTurn && (match.blackTimer < 0 || match.blackTimer == 0) {
 		msg, err := TemplString(components.EndGameModal("1-0", "white"))
@@ -809,24 +681,12 @@ func (cfg *appConfig) timerHandler(w http.ResponseWriter, r *http.Request) {
 			respondWithAnError(w, http.StatusInternalServerError, "error converting component to string", err)
 			return
 		}
-		if found {
-			err := onlineGame["white"].Conn.WriteMessage(websocket.TextMessage, []byte(msg))
-			if err != nil {
-				respondWithAnError(w, http.StatusInternalServerError, "writing online message error: ", err)
-				return
-			}
-			err = onlineGame["black"].Conn.WriteMessage(websocket.TextMessage, []byte(msg))
-			if err != nil {
-				respondWithAnError(w, http.StatusInternalServerError, "writing online message error: ", err)
-				return
-			}
+
+		err = sendMessage(onlineGame, found, w, msg, [2][]int{})
+
+		if err != nil {
+			respondWithAnError(w, http.StatusInternalServerError, "couldn't write to page", err)
 			return
-		} else {
-			_, err := fmt.Fprint(w, msg)
-			if err != nil {
-				respondWithAnError(w, http.StatusInternalServerError, "couldn't write to page", err)
-				return
-			}
 		}
 	}
 }
@@ -866,35 +726,22 @@ func (cfg *appConfig) handlePromotion(w http.ResponseWriter, r *http.Request) {
 
 	cfg.Matches[c.Value] = currentGame
 
-	message := fmt.Sprintf(`
-					<span id="%v" hx-post="/move" hx-swap-oob="true" hx-swap="outerHTML" class="tile tile-md hover:cursor-grab absolute transition-all" style="bottom: %vpx; left: %vpx">
-						<img src="/assets/pieces/%v.svg" />
-					</span>
-
-					<div id="overlay" hx-swap-oob="true" class="hidden w-board w-board-md h-board h-board-md absolute z-20 hover:cursor-default"></div>
-
-					<div id="promotion" hx-swap-oob="true" class="absolute"></div>
-				`,
+	message := fmt.Sprintf(
+		getPromotionDoneMessage(),
 		pawnName,
 		currentSquare.Coordinates[0],
 		currentSquare.Coordinates[1],
 		currentSquare.Piece.Image,
 	)
-	if found {
-		for playerColor, onlinePlayer := range onlineGame {
-			newMessage := replaceStyles(message, []int{currentSquare.CoordinatePosition[0] * onlinePlayer.Multiplier}, []int{currentSquare.CoordinatePosition[1] * onlinePlayer.Multiplier})
-			err := onlinePlayer.Conn.WriteMessage(websocket.TextMessage, []byte(newMessage))
-			if err != nil {
-				respondWithAnError(w, http.StatusInternalServerError, fmt.Sprintf("WebSocket write error to: %v", playerColor), err)
-				return
-			}
-		}
-	} else {
-		_, err := fmt.Fprint(w, message)
-		if err != nil {
-			respondWithAnError(w, http.StatusInternalServerError, "couldn't write to page", err)
-			return
-		}
+
+	err = sendMessage(onlineGame, found, w, message, [2][]int{
+		{currentSquare.CoordinatePosition[0]},
+		{currentSquare.CoordinatePosition[1]},
+	})
+
+	if err != nil {
+		respondWithAnError(w, http.StatusInternalServerError, "couldn't write to page", err)
+		return
 	}
 
 	userId, err := cfg.isUserLoggedIn(r)
@@ -947,7 +794,7 @@ func (cfg *appConfig) handlePromotion(w http.ResponseWriter, r *http.Request) {
 		} else if currentGame.isBlackUnderCheck {
 			kingName = "black_king"
 		} else {
-			cfg.endTurn(c.Value, r, w)
+			cfg.endTurn(c.Value, w)
 			return
 		}
 
@@ -957,38 +804,30 @@ func (cfg *appConfig) handlePromotion(w http.ResponseWriter, r *http.Request) {
 		getKing := currentGame.pieces[kingName]
 		getKingSquare := currentGame.board[getKing.Tile]
 
-		message := fmt.Sprintf(`
-			<span id="%v" hx-post="/move" hx-swap-oob="true" hx-swap="outerHTML" class="tile tile-md hover:cursor-grab absolute transition-all" style="bottom: %vpx; left: %vpx">
-				<img src="/assets/pieces/%v.svg" />
-			</span>
-		`,
+		message := fmt.Sprintf(
+			getSinglePieceMessage(),
 			getKing.Name,
 			getKingSquare.Coordinates[0],
 			getKingSquare.Coordinates[1],
 			getKing.Image,
+			"",
 		)
-		if found {
-			for playerColor, onlinePlayer := range onlineGame {
-				newMessage := replaceStyles(message, []int{getKingSquare.CoordinatePosition[0] * onlinePlayer.Multiplier}, []int{getKingSquare.CoordinatePosition[1] * onlinePlayer.Multiplier})
-				err := onlinePlayer.Conn.WriteMessage(websocket.TextMessage, []byte(newMessage))
-				if err != nil {
-					respondWithAnError(w, http.StatusInternalServerError, fmt.Sprintf("WebSocket write error to: %v", playerColor), err)
-					return
-				}
-			}
-		} else {
-			_, err := fmt.Fprint(w, message)
-			if err != nil {
-				respondWithAnError(w, http.StatusInternalServerError, "couldn't write to page", err)
-				return
-			}
+
+		err = sendMessage(onlineGame, found, w, message, [2][]int{
+			{getKingSquare.CoordinatePosition[0]},
+			{getKingSquare.CoordinatePosition[1]},
+		})
+
+		if err != nil {
+			respondWithAnError(w, http.StatusInternalServerError, "couldn't write to page", err)
+			return
 		}
 	}
 
 	currentGame.possibleEnPessant = ""
 	currentGame.movesSinceLastCapture++
 	cfg.Matches[c.Value] = currentGame
-	cfg.endTurn(c.Value, r, w)
+	cfg.endTurn(c.Value, w)
 }
 
 func (cfg *appConfig) endGameHandler(w http.ResponseWriter, r *http.Request) {
@@ -1013,8 +852,8 @@ func (cfg *appConfig) endGameHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if match, ok := cfg.connections[currentGame.Value]; ok {
-		_ = match["white"].Conn.Close()
-		_ = match["black"].Conn.Close()
+		_ = match.players["white"].Conn.Close()
+		_ = match.players["black"].Conn.Close()
 		delete(cfg.connections, currentGame.Value)
 	}
 	cGC := http.Cookie{
@@ -1045,25 +884,25 @@ func (cfg *appConfig) surrenderHandler(w http.ResponseWriter, r *http.Request) {
 			respondWithAnError(w, http.StatusUnauthorized, "user not found", err)
 			return
 		}
-		if connection["white"].ID == userId {
+		if connection.players["white"].ID == userId {
 			msg, err = TemplString(components.EndGameModal("0-1", "black"))
 			if err != nil {
 				respondWithAnError(w, http.StatusInternalServerError, "error converting component to string", err)
 				return
 			}
-		} else if connection["black"].ID == userId {
+		} else if connection.players["black"].ID == userId {
 			msg, err = TemplString(components.EndGameModal("1-0", "white"))
 			if err != nil {
 				respondWithAnError(w, http.StatusInternalServerError, "error converting component to string", err)
 				return
 			}
 		}
-		err = connection["white"].Conn.WriteMessage(websocket.TextMessage, []byte(msg))
+		err = connection.players["white"].Conn.WriteMessage(websocket.TextMessage, []byte(msg))
 		if err != nil {
 			respondWithAnError(w, http.StatusInternalServerError, "writing online message error", err)
 			return
 		}
-		err = connection["black"].Conn.WriteMessage(websocket.TextMessage, []byte(msg))
+		err = connection.players["black"].Conn.WriteMessage(websocket.TextMessage, []byte(msg))
 		if err != nil {
 			respondWithAnError(w, http.StatusInternalServerError, "writing online message error", err)
 			return
@@ -1117,7 +956,7 @@ func (cfg *appConfig) handleCastle(w http.ResponseWriter, currentPiece component
 			return err
 		}
 
-		for _, player := range onlineGame {
+		for _, player := range onlineGame.players {
 			if player.ID == userId {
 				multiplier = player.Multiplier
 			}
@@ -1143,15 +982,8 @@ func (cfg *appConfig) handleCastle(w http.ResponseWriter, currentPiece component
 		kingSquare.Coordinates[1] = kC - multiplier*2
 	}
 
-	message := fmt.Sprintf(`
-			<span id="%v" hx-post="/move" hx-swap-oob="true" hx-swap="outerHTML" class="tile tile-md hover:cursor-grab absolute transition-all" style="bottom: %vpx; left: %vpx">
-				<img src="/assets/pieces/%v.svg" />
-			</span>
-
-			<span id="%v" hx-post="/move" hx-swap-oob="true" hx-swap="outerHTML" class="tile tile-md hover:cursor-grab absolute transition-all" style="bottom: %vpx; left: %vpx">
-				<img src="/assets/pieces/%v.svg" />
-			</span>
-		`,
+	message := fmt.Sprintf(
+		getCastleMessage(),
 		king.Name,
 		kingSquare.Coordinates[0],
 		kingSquare.Coordinates[1],
@@ -1162,29 +994,19 @@ func (cfg *appConfig) handleCastle(w http.ResponseWriter, currentPiece component
 		rook.Image,
 	)
 
-	if found {
-		for playerColor, onlinePlayer := range onlineGame {
-			newMessage := replaceStyles(
-				message,
-				[]int{
-					kingSquare.CoordinatePosition[0] * onlinePlayer.Multiplier,
-					rookSquare.CoordinatePosition[0] * onlinePlayer.Multiplier,
-				},
-				[]int{
-					kingSquare.CoordinatePosition[1] * onlinePlayer.Multiplier,
-					rookSquare.CoordinatePosition[1] * onlinePlayer.Multiplier,
-				})
-			err := onlinePlayer.Conn.WriteMessage(websocket.TextMessage, []byte(newMessage))
-			if err != nil {
-				log.Println("WebSocket write error to", playerColor, ":", err)
-				return err
-			}
-		}
-	} else {
-		_, err := fmt.Fprint(w, message)
-		if err != nil {
-			return err
-		}
+	err := sendMessage(onlineGame, found, w, message, [2][]int{
+		{
+			kingSquare.CoordinatePosition[0],
+			rookSquare.CoordinatePosition[0],
+		},
+		{
+			kingSquare.CoordinatePosition[1],
+			rookSquare.CoordinatePosition[1],
+		},
+	})
+
+	if err != nil {
+		return err
 	}
 
 	rowIdx := rowIdxMap[string(king.Tile[0])]
@@ -1224,7 +1046,7 @@ func (cfg *appConfig) handleCastle(w http.ResponseWriter, currentPiece component
 		}
 	}
 
-	cfg.gameDone(match, currentGame, r, w)
+	cfg.gameDone(match, currentGame, w)
 
 	return nil
 }

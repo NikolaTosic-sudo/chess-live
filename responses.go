@@ -10,7 +10,6 @@ import (
 
 	"github.com/NikolaTosic-sudo/chess-live/containers/components"
 	"github.com/NikolaTosic-sudo/chess-live/containers/errorPage"
-	"github.com/gorilla/websocket"
 )
 
 func getCaller() string {
@@ -56,80 +55,49 @@ func respondWithNewPiece(w http.ResponseWriter, r *http.Request, square componen
 		respondWithAnError(w, http.StatusInternalServerError, "couldn't convert multiplier", err)
 		return err
 	}
-	_, err = fmt.Fprintf(w, `
-					<span id="%v" hx-post="/move" hx-swap-oob="true" hx-swap="outerHTML" class="tile tile-md hover:cursor-grab absolute transition-all" style="bottom: %vpx; left: %vpx">
-						<img src="/assets/pieces/%v.svg" />
-					</span>
-				`,
+	_, err = fmt.Fprintf(
+		w,
+		getSinglePieceMessage(),
 		square.Piece.Name,
 		square.CoordinatePosition[0]*multiplier,
 		square.CoordinatePosition[1]*multiplier,
 		square.Piece.Image,
+		"",
 	)
 
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return err
 }
 
 func (cfg *appConfig) respondWithCheck(w http.ResponseWriter, square components.Square, king components.Piece, currentGame string) error {
 	onlineGame, found := cfg.connections[currentGame]
-	message := fmt.Sprintf(`
-			<span id="%v" hx-post="/move" hx-swap-oob="true" hx-swap="outerHTML" class="tile tile-md hover:cursor-grab absolute transition-all" style="bottom: %vpx; left: %vpx">
-				<img src="/assets/pieces/%v.svg" class="bg-red-400 " />
-			</span>
-		`,
+	className := `class="bg-red-400"`
+	message := fmt.Sprintf(
+		getSinglePieceMessage(),
 		king.Name,
 		square.Coordinates[0],
 		square.Coordinates[1],
 		king.Image,
+		className,
 	)
 
-	if found {
-		for playerColor, onlinePlayer := range onlineGame {
-			newMessage := replaceStyles(message, []int{square.CoordinatePosition[0] * onlinePlayer.Multiplier}, []int{square.CoordinatePosition[1] * onlinePlayer.Multiplier})
-			err := onlinePlayer.Conn.WriteMessage(websocket.TextMessage, []byte(newMessage))
-			if err != nil {
-				log.Println("WebSocket write error to", playerColor, ":", err)
-				return err
-			}
-		}
-	} else {
-		_, err := fmt.Fprint(w, message)
-		if err != nil {
-			return err
-		}
+	err := sendMessage(onlineGame, found, w, message, [2][]int{
+		{square.CoordinatePosition[0]},
+		{square.CoordinatePosition[1]},
+	})
 
-	}
-
-	return nil
+	return err
 }
 
 func (cfg *appConfig) respondWithCoverCheck(w http.ResponseWriter, tile string, t components.Square, currentGame string) error {
 	onlineGame, found := cfg.connections[currentGame]
-	message := fmt.Sprintf(`
-			<div id="%v" hx-post="/cover-check" hx-swap-oob="true" class="tile tile-md" style="background-color: %v"></div>
-		`,
+	message := fmt.Sprintf(
+		getTileMessage(),
 		tile,
+		"cover-check",
 		t.Color,
 	)
 
-	if found {
-		for playerColor, onlinePlayer := range onlineGame {
-			err := onlinePlayer.Conn.WriteMessage(websocket.TextMessage, []byte(message))
-			if err != nil {
-				log.Println("WebSocket write error to", playerColor, ":", err)
-				return err
-			}
-		}
-	} else {
-		_, err := fmt.Fprint(w, message)
-		if err != nil {
-			return err
-		}
-	}
+	err := sendMessage(onlineGame, found, w, message, [2][]int{})
 
-	return nil
+	return err
 }
