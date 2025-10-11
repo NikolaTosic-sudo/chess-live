@@ -31,7 +31,7 @@ func main() {
 	dbQueries := database.New(db)
 	startingBoard := MakeBoard()
 	startingPieces := MakePieces()
-	gameRooms := make(map[string]map[string]components.OnlinePlayerStruct, 0)
+	gameRooms := make(map[string]OnlineGame, 0)
 
 	cfg := appConfig{
 		database:    dbQueries,

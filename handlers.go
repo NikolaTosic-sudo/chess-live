@@ -12,7 +12,6 @@ import (
 	"github.com/NikolaTosic-sudo/chess-live/internal/auth"
 	"github.com/NikolaTosic-sudo/chess-live/internal/database"
 	"github.com/google/uuid"
-	"github.com/gorilla/websocket"
 )
 
 func (cfg *appConfig) boardHandler(w http.ResponseWriter, r *http.Request) {
@@ -32,10 +31,9 @@ func (cfg *appConfig) boardHandler(w http.ResponseWriter, r *http.Request) {
 
 	match, ok := cfg.Matches[game]
 	if !ok {
-		game = "initial"
 		match = cfg.Matches["initial"]
 	}
-	cfg.fillBoard(game)
+	match = fillBoard(match)
 	whitePlayer := components.PlayerStruct{
 		Image:  "/assets/images/user-icon.png",
 		Name:   "Guest",
@@ -124,7 +122,7 @@ func (cfg *appConfig) privateBoardHandler(w http.ResponseWriter, r *http.Request
 	}
 
 	match := cfg.Matches[game]
-	cfg.fillBoard(game)
+	match = fillBoard(match)
 
 	whitePlayer := components.PlayerStruct{
 		Image:  "/assets/images/user-icon.png",
@@ -178,7 +176,7 @@ func (cfg *appConfig) onlineBoardHandler(w http.ResponseWriter, r *http.Request)
 	var emptyPlayer components.OnlinePlayerStruct
 	if len(cfg.connections) > 0 {
 		for gameName, players := range cfg.connections {
-			for color, player := range players {
+			for color, player := range players.players {
 				if player == emptyPlayer {
 					connection := cfg.connections[gameName]
 
@@ -205,9 +203,9 @@ func (cfg *appConfig) onlineBoardHandler(w http.ResponseWriter, r *http.Request)
 						ReconnectTimer: 30,
 						Multiplier:     multiplier,
 					}
-					connection[color] = player
+					connection.players[color] = player
 					cfg.connections[gameName] = connection
-					whitePlayer := connection["white"]
+					whitePlayer := connection.players["white"]
 
 					matchId, _ := cfg.database.CreateMatch(r.Context(), database.CreateMatchParams{
 						White:    whitePlayer.Name,
@@ -249,7 +247,7 @@ func (cfg *appConfig) onlineBoardHandler(w http.ResponseWriter, r *http.Request)
 					}
 
 					match := cfg.Matches[gameName]
-					cfg.fillBoard(gameName)
+					match = fillBoard(match)
 					UpdateCoordinates(&match, whitePlayer.Multiplier)
 					http.SetCookie(w, &startGame)
 
@@ -297,19 +295,22 @@ func (cfg *appConfig) onlineBoardHandler(w http.ResponseWriter, r *http.Request)
 		multiplier = mcInt
 	}
 
-	cfg.connections[currentGame] = map[string]components.OnlinePlayerStruct{
-		"white": {
-			ID:             userId,
-			Name:           userName,
-			Image:          "/assets/images/user-icon.png",
-			Timer:          formatTime(600),
-			Pieces:         "white",
-			ReconnectTimer: 30,
-			Multiplier:     multiplier,
+	cfg.connections[currentGame] = OnlineGame{
+		players: map[string]components.OnlinePlayerStruct{
+			"white": {
+				ID:             userId,
+				Name:           userName,
+				Image:          "/assets/images/user-icon.png",
+				Timer:          formatTime(600),
+				Pieces:         "white",
+				ReconnectTimer: 30,
+				Multiplier:     multiplier,
+			},
+			"black": {},
 		},
-		"black": {},
+		message:   make(chan string),
+		playerMsg: make(chan [2]string),
 	}
-
 	err = components.WaitingModal().Render(r.Context(), w)
 	if err != nil {
 		respondWithAnErrorPage(w, r, http.StatusInternalServerError, "couldn't render template")
@@ -360,12 +361,14 @@ func (cfg *appConfig) updateMultiplerHandler(w http.ResponseWriter, r *http.Requ
 	for k, piece := range match.pieces {
 		tile := match.board[piece.Tile]
 
-		_, err := fmt.Fprintf(w, `
-			<span id="%v" hx-post="/move" hx-swap-oob="true" hx-swap="outerHTML" class="tile-md tile hover:cursor-grab absolute transition-all" style="bottom: %vpx; left: %vpx">
-				<img src="/assets/pieces/%v.svg" />
-			</span>
-		`,
-			k, tile.Coordinates[0], tile.Coordinates[1], piece.Image)
+		_, err := fmt.Fprintf(
+			w,
+			getSinglePieceMessage(),
+			k,
+			tile.Coordinates[0],
+			tile.Coordinates[1],
+			piece.Image,
+		)
 		if err != nil {
 			respondWithAnError(w, http.StatusInternalServerError, "couldn't write to page", err)
 			return
@@ -486,7 +489,7 @@ func (cfg *appConfig) startGameHandler(w http.ResponseWriter, r *http.Request) {
 
 	cur := cfg.Matches[newGameName]
 
-	cfg.fillBoard(newGameName)
+	cur = fillBoard(cur)
 	UpdateCoordinates(&cur, cur.coordinateMultiplier)
 	http.SetCookie(w, &startGame)
 
@@ -527,7 +530,7 @@ func (cfg *appConfig) resumeGameHandler(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	cfg.fillBoard(c.Value)
+	match = fillBoard(match)
 	UpdateCoordinates(&match, match.coordinateMultiplier)
 
 	err = components.StartGameRight().Render(r.Context(), w)
@@ -556,53 +559,30 @@ func (cfg *appConfig) getAllMovesHandler(w http.ResponseWriter, r *http.Request)
 	for i := 1; i <= len(match.allMoves); i++ {
 		var message string
 		if i%2 == 0 {
-			message = fmt.Sprintf(`
-				<div id="moves" hx-swap-oob="beforeend" class="grid grid-cols-3 text-white h-moves mt-8">
-					<span>%v</span>
-				</div>
-			`,
+			message = fmt.Sprintf(
+				getMovesUpdateMessage(),
 				match.allMoves[i-1],
 			)
 		} else {
-			message = fmt.Sprintf(`
-				<div id="moves" hx-swap-oob="beforeend" class="grid grid-cols-3 text-white h-moves mt-8">
-					<span>%v.</span>
-					<span>%v</span>
-				</div>
-		`,
+			message = fmt.Sprintf(
+				getMovesNumberUpdateMessage(),
 				i/2+1,
 				match.allMoves[i-1],
 			)
 		}
-		if found {
-			for playerColor, onlinePlayer := range onlineGame {
-				err := onlinePlayer.Conn.WriteMessage(websocket.TextMessage, []byte(message))
-				if err != nil {
-					respondWithAnError(w, http.StatusInternalServerError, fmt.Sprintf("WebSocket write error to: %v", playerColor), err)
-				}
-			}
-		} else {
-			_, err := fmt.Fprint(w, message)
-			if err != nil {
-				respondWithAnError(w, http.StatusInternalServerError, "couldn't write to page", err)
-				return
-			}
+
+		err := sendMessage(onlineGame, found, w, message, [2][]int{})
+		if err != nil {
+			respondWithAnError(w, http.StatusInternalServerError, "couldn't write to page", err)
+			return
 		}
+
 	}
 }
 
 func (cfg *appConfig) timeOptionHandler(w http.ResponseWriter, r *http.Request) {
+	_, err := fmt.Fprint(w, getTimePicker())
 
-	_, err := fmt.Fprintf(w, `
-		<div class="absolute right-0 mt-2 w-48 bg-[#1e1c1a] border border-[#3a3733] text-white rounded-md shadow-lg z-50">
-			<div hx-post="/set-time" hx-vals='{"time": "15"}' hx-target="#timer" class="block px-4 py-2 hover:bg-emerald-600 hover:text-white transition cursor-pointer">15 Minutes</div>
-			<div hx-post="/set-time" hx-vals='{"time": "15", "addition": "3"}' hx-target="#timer" class="block px-4 py-2 hover:bg-emerald-600 hover:text-white transition cursor-pointer">15 + 3</div>
-			<div hx-post="/set-time" hx-vals='{"time": "10"}' hx-target="#timer" class="block px-4 py-2 hover:bg-emerald-600 hover:text-white transition cursor-pointer">10 Minutes</div>
-			<div hx-post="/set-time" hx-vals='{"time": "10", "addition": "3"}' hx-target="#timer" class="block px-4 py-2 hover:bg-emerald-600 hover:text-white transition cursor-pointer">10 + 3</div>
-			<div hx-post="/set-time" hx-vals='{"time": "3"}' hx-target="#timer" class="block px-4 py-2 hover:bg-emerald-600 hover:text-white transition cursor-pointer">3 Minutes</div>
-			<div hx-post="/set-time" hx-vals='{"time": "3", "addition": "1"}' hx-target="#timer" class="block px-4 py-2 hover:bg-emerald-600 hover:text-white transition cursor-pointer">3 + 1</div>
-		</div>
-	`)
 	if err != nil {
 		respondWithAnError(w, http.StatusInternalServerError, "couldn't write to page", err)
 		return
@@ -644,17 +624,15 @@ func (cfg *appConfig) setTimeOption(w http.ResponseWriter, r *http.Request) {
 
 	duration := fmt.Sprintf("%v+%v", t*60, a)
 
-	_, err = fmt.Fprintf(w, `
-		<div id="dropdown-menu" hx-swap-oob="true" class="relative mb-8"></div>
-
-		<div id="white" hx-swap-oob="true" class="px-7 py-3 bg-gray-500">%v</div>
-
-		<div id="black" hx-swap-oob="true" class="px-7 py-3 bg-gray-500">%v</div>
-
-		<input type="hidden" id="timer-value" name="duration" hx-swap-oob="true" value="%v" />
-
-		%v Min %v
-	`, formatTime(t*60), formatTime(t*60), duration, time, seconds)
+	_, err = fmt.Fprintf(
+		w,
+		getTimerSwitchMessage(),
+		formatTime(t*60),
+		formatTime(t*60),
+		duration,
+		time,
+		seconds,
+	)
 	if err != nil {
 		respondWithAnError(w, http.StatusInternalServerError, "couldn't write to page", err)
 		return
@@ -792,7 +770,7 @@ func (cfg *appConfig) playHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	match := cfg.Matches[game]
-	cfg.fillBoard(game)
+	match = fillBoard(match)
 
 	whitePlayer := components.PlayerStruct{
 		Image:  "/assets/images/user-icon.png",
@@ -891,7 +869,7 @@ func (cfg *appConfig) matchesHandler(w http.ResponseWriter, r *http.Request) {
 
 	cur := cfg.Matches[newGame]
 
-	cfg.fillBoard(newGame)
+	cur = fillBoard(cur)
 	UpdateCoordinates(&cur, cur.coordinateMultiplier)
 	http.SetCookie(w, &startGame)
 
@@ -968,10 +946,9 @@ func (cfg *appConfig) moveHistoryHandler(w http.ResponseWriter, r *http.Request)
 		curr.Tile = v
 		pieces[k] = curr
 	}
-
-	cfg.cleanFillBoard(c.Value, pieces)
-
 	curr := cfg.Matches[c.Value]
+
+	curr = cleanFillBoard(curr, pieces)
 
 	err = components.UpdateBoardHistory(curr.board, pieces, curr.coordinateMultiplier, formatTime(int(board.WhiteTime)), formatTime(int(board.BlackTime))).Render(r.Context(), w)
 	if err != nil {

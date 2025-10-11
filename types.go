@@ -11,13 +11,19 @@ type appConfig struct {
 	secret      string
 	users       map[uuid.UUID]User
 	Matches     map[string]Match
-	connections map[string]map[string]components.OnlinePlayerStruct
+	connections map[string]OnlineGame
 }
 
 type User struct {
 	Id    uuid.UUID
 	Name  string
 	Email string
+}
+
+type OnlineGame struct {
+	players   map[string]components.OnlinePlayerStruct
+	message   chan (string)
+	playerMsg chan ([2]string)
 }
 
 type Match struct {

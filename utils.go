@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"regexp"
 	"slices"
@@ -17,7 +16,6 @@ import (
 	"github.com/NikolaTosic-sudo/chess-live/internal/database"
 	"github.com/a-h/templ"
 	"github.com/google/uuid"
-	"github.com/gorilla/websocket"
 )
 
 var mockBoard = [][]string{
@@ -42,19 +40,11 @@ var rowIdxMap = map[string]int{
 	"1": 7,
 }
 
-func (cfg *appConfig) canPlay(piece components.Piece, currentGame string, onlineGame map[string]components.OnlinePlayerStruct, r *http.Request) (bool, error) {
-	match := cfg.Matches[currentGame]
+func canPlay(piece components.Piece, match Match, onlineGame map[string]components.OnlinePlayerStruct, userId uuid.UUID) (bool, error) {
 	if onlineGame != nil {
-		userC, err := r.Cookie("access_token")
 
-		if err != nil {
-			return false, err
-		}
-
-		userId, err := auth.ValidateJWT(userC.Value, cfg.secret)
-
-		if err != nil {
-			return false, err
+		if userId == uuid.Nil {
+			return false, nil
 		}
 
 		if piece.IsWhite && match.isWhiteTurn && onlineGame["white"].ID == userId {
@@ -97,24 +87,17 @@ func canEat(selectedPiece, currentPiece components.Piece) bool {
 	return false
 }
 
-func (cfg *appConfig) fillBoard(currentGame string) {
-	match := cfg.Matches[currentGame]
+func fillBoard(match Match) Match {
 	for _, v := range match.pieces {
 		getTile := match.board[v.Tile]
 		getTile.Piece = v
 		match.board[v.Tile] = getTile
 	}
-	cfg.Matches[currentGame] = match
+
+	return match
 }
 
-func (cfg *appConfig) checkLegalMoves(currentGame string, currentMatch Match) []string {
-	var match Match
-
-	if currentGame != "" {
-		match = cfg.Matches[currentGame]
-	} else {
-		match = currentMatch
-	}
+func checkLegalMoves(match Match) []string {
 	var startingPosition [2]int
 
 	var possibleMoves []string
@@ -141,19 +124,19 @@ func (cfg *appConfig) checkLegalMoves(currentGame string, currentMatch Match) []
 	}
 
 	if match.selectedPiece.IsPawn {
-		cfg.getPawnMoves(&possibleMoves, startingPosition, match.selectedPiece, currentGame)
+		getPawnMoves(&possibleMoves, startingPosition, match)
 	} else {
 		for _, move := range match.selectedPiece.LegalMoves {
-			cfg.getMoves(&possibleMoves, startingPosition, move, match.selectedPiece.MovesOnce, pieceColor, match)
+			getMoves(&possibleMoves, startingPosition, move, match.selectedPiece.MovesOnce, pieceColor, match)
 		}
 	}
 
 	return possibleMoves
 }
 
-func (cfg *appConfig) getPawnMoves(possible *[]string, startingPosition [2]int, piece components.Piece, currentGame string) {
-	match := cfg.Matches[currentGame]
+func getPawnMoves(possible *[]string, startingPosition [2]int, match Match) {
 	var moveIndex int
+	piece := match.selectedPiece
 	if piece.IsWhite {
 		moveIndex = -1
 	} else {
@@ -207,7 +190,7 @@ func (cfg *appConfig) getPawnMoves(possible *[]string, startingPosition [2]int, 
 	}
 }
 
-func (cfg *appConfig) getMoves(possible *[]string, startingPosition [2]int, move []int, checkOnce bool, pieceColor string, match Match) {
+func getMoves(possible *[]string, startingPosition [2]int, move []int, checkOnce bool, pieceColor string, match Match) {
 	currentPosition := [2]int{startingPosition[0] + move[0], startingPosition[1] + move[1]}
 
 	if currentPosition[0] < 0 || currentPosition[1] < 0 {
@@ -236,7 +219,7 @@ func (cfg *appConfig) getMoves(possible *[]string, startingPosition [2]int, move
 		return
 	}
 
-	cfg.getMoves(possible, currentPosition, move, checkOnce, pieceColor, match)
+	getMoves(possible, currentPosition, move, checkOnce, pieceColor, match)
 }
 
 func samePiece(selectedPiece, currentPiece components.Piece) bool {
@@ -249,7 +232,9 @@ func samePiece(selectedPiece, currentPiece components.Piece) bool {
 	return false
 }
 
-func (cfg *appConfig) checkForCastle(b map[string]components.Square, selectedPiece, currentPiece components.Piece, currentGame string) (bool, bool) {
+func checkForCastle(match Match, currentPiece components.Piece) (bool, bool) {
+	selectedPiece := match.selectedPiece
+	b := match.board
 	if (selectedPiece.IsKing &&
 		strings.Contains(currentPiece.Name, "rook") ||
 		(strings.Contains(selectedPiece.Name, "rook") &&
@@ -295,7 +280,7 @@ func (cfg *appConfig) checkForCastle(b map[string]components.Square, selectedPie
 
 		var kingCheck bool
 		if slices.ContainsFunc(tilesForCastle, func(tile string) bool {
-			return cfg.handleChecksWhenKingMoves(tile, currentGame, Match{})
+			return handleChecksWhenKingMoves(tile, match)
 		}) {
 			kingCheck = true
 		}
@@ -308,149 +293,6 @@ func (cfg *appConfig) checkForCastle(b map[string]components.Square, selectedPie
 	}
 
 	return false, false
-}
-
-func (cfg *appConfig) handleCastle(w http.ResponseWriter, currentPiece components.Piece, currentGame string, r *http.Request) error {
-	match := cfg.Matches[currentGame]
-	onlineGame, found := cfg.connections[currentGame]
-
-	var king components.Piece
-	var rook components.Piece
-	var multiplier int
-
-	if match.selectedPiece.IsKing {
-		king = match.selectedPiece
-		rook = currentPiece
-	} else {
-		king = currentPiece
-		rook = match.selectedPiece
-	}
-
-	if found {
-		userC, err := r.Cookie("access_token")
-
-		if err != nil {
-			respondWithAnErrorPage(w, r, http.StatusUnauthorized, "user not found")
-			return err
-		}
-
-		userId, err := auth.ValidateJWT(userC.Value, cfg.secret)
-
-		if err != nil {
-			respondWithAnErrorPage(w, r, http.StatusUnauthorized, "user not found")
-			return err
-		}
-
-		for _, player := range onlineGame {
-			if player.ID == userId {
-				multiplier = player.Multiplier
-			}
-		}
-	} else {
-		multiplier = match.coordinateMultiplier
-	}
-
-	kTile := king.Tile
-	rTile := rook.Tile
-	savedKingTile := match.board[king.Tile]
-	savedRookTile := match.board[rook.Tile]
-	kingSquare := match.board[king.Tile]
-	rookSquare := match.board[rook.Tile]
-
-	if kingSquare.Coordinates[1] < rookSquare.Coordinates[1] {
-		kC := kingSquare.Coordinates[1]
-		rookSquare.Coordinates[1] = kC + multiplier
-		kingSquare.Coordinates[1] = kC + multiplier*2
-	} else {
-		kC := kingSquare.Coordinates[1]
-		rookSquare.Coordinates[1] = kC - multiplier
-		kingSquare.Coordinates[1] = kC - multiplier*2
-	}
-
-	message := fmt.Sprintf(`
-			<span id="%v" hx-post="/move" hx-swap-oob="true" hx-swap="outerHTML" class="tile tile-md hover:cursor-grab absolute transition-all" style="bottom: %vpx; left: %vpx">
-				<img src="/assets/pieces/%v.svg" />
-			</span>
-
-			<span id="%v" hx-post="/move" hx-swap-oob="true" hx-swap="outerHTML" class="tile tile-md hover:cursor-grab absolute transition-all" style="bottom: %vpx; left: %vpx">
-				<img src="/assets/pieces/%v.svg" />
-			</span>
-		`,
-		king.Name,
-		kingSquare.Coordinates[0],
-		kingSquare.Coordinates[1],
-		king.Image,
-		rook.Name,
-		rookSquare.Coordinates[0],
-		rookSquare.Coordinates[1],
-		rook.Image,
-	)
-
-	if found {
-		for playerColor, onlinePlayer := range onlineGame {
-			newMessage := replaceStyles(
-				message,
-				[]int{
-					kingSquare.CoordinatePosition[0] * onlinePlayer.Multiplier,
-					rookSquare.CoordinatePosition[0] * onlinePlayer.Multiplier,
-				},
-				[]int{
-					kingSquare.CoordinatePosition[1] * onlinePlayer.Multiplier,
-					rookSquare.CoordinatePosition[1] * onlinePlayer.Multiplier,
-				})
-			err := onlinePlayer.Conn.WriteMessage(websocket.TextMessage, []byte(newMessage))
-			if err != nil {
-				log.Println("WebSocket write error to", playerColor, ":", err)
-				return err
-			}
-		}
-	} else {
-		_, err := fmt.Fprint(w, message)
-		if err != nil {
-			return err
-		}
-	}
-
-	rowIdx := rowIdxMap[string(king.Tile[0])]
-	king.Tile = mockBoard[rowIdx][kingSquare.Coordinates[1]/multiplier]
-	rook.Tile = mockBoard[rowIdx][rookSquare.Coordinates[1]/multiplier]
-	king.Moved = true
-	rook.Moved = true
-	newKingSquare := match.board[king.Tile]
-	newRookSquare := match.board[rook.Tile]
-	newKingSquare.Piece = king
-	newRookSquare.Piece = rook
-	match.board[king.Tile] = newKingSquare
-	match.board[rook.Tile] = newRookSquare
-	match.pieces[king.Name] = king
-	match.pieces[rook.Name] = rook
-	savedKingTile.Piece = components.Piece{}
-	savedRookTile.Piece = components.Piece{}
-	match.board[kTile] = savedKingTile
-	match.board[rTile] = savedRookTile
-	match.selectedPiece = components.Piece{}
-	match.isWhiteTurn = !match.isWhiteTurn
-	match.possibleEnPessant = ""
-	match.movesSinceLastCapture++
-	cfg.Matches[currentGame] = match
-
-	if kingSquare.CoordinatePosition[1]-rookSquare.CoordinatePosition[1] == -3 {
-		match.allMoves = append(match.allMoves, "O-O")
-		err := cfg.showMoves(match, "O-O", "king", w, r)
-		if err != nil {
-			return err
-		}
-	} else {
-		match.allMoves = append(match.allMoves, "O-O-O")
-		err := cfg.showMoves(match, "O-O-O", "king", w, r)
-		if err != nil {
-			return err
-		}
-	}
-
-	cfg.gameDone(match, currentGame, r, w)
-
-	return nil
 }
 
 func (cfg *appConfig) handleCheckForCheck(currentSquareName, currentGame string, selectedPiece components.Piece) (bool, components.Piece, []string) {
@@ -512,7 +354,7 @@ func (cfg *appConfig) handleCheckForCheck(currentSquareName, currentGame string,
 
 	for _, move := range kingLegalMoves {
 		var tilesUnderCheck []string
-		checkInFor := cfg.checkCheck(&tilesUnderCheck, startingPosition, startingPosition, move, pieceColor, match)
+		checkInFor := checkCheck(&tilesUnderCheck, startingPosition, startingPosition, move, pieceColor, match)
 		if checkInFor {
 			check = true
 			if len(tilesComb) == 0 {
@@ -541,7 +383,7 @@ func (cfg *appConfig) handleCheckForCheck(currentSquareName, currentGame string,
 	return false, king, []string{}
 }
 
-func (cfg *appConfig) checkCheck(tilesUnderCheck *[]string, startingPosition, startPosCompare [2]int, move []int, pieceColor string, match Match) bool {
+func checkCheck(tilesUnderCheck *[]string, startingPosition, startPosCompare [2]int, move []int, pieceColor string, match Match) bool {
 	currentPosition := [2]int{startingPosition[0] + move[0], startingPosition[1] + move[1]}
 
 	if currentPosition[0] < 0 || currentPosition[1] < 0 {
@@ -597,7 +439,7 @@ func (cfg *appConfig) checkCheck(tilesUnderCheck *[]string, startingPosition, st
 		}
 	}
 
-	check := cfg.checkCheck(tilesUnderCheck, currentPosition, startPosCompare, move, pieceColor, match)
+	check := checkCheck(tilesUnderCheck, currentPosition, startPosCompare, move, pieceColor, match)
 	if check {
 		*tilesUnderCheck = append(*tilesUnderCheck, currentTile)
 	}
@@ -605,13 +447,7 @@ func (cfg *appConfig) checkCheck(tilesUnderCheck *[]string, startingPosition, st
 	return check
 }
 
-func (cfg *appConfig) handleChecksWhenKingMoves(currentSquareName, currentGame string, currentMatch Match) bool {
-	var match Match
-	if currentGame != "" {
-		match = cfg.Matches[currentGame]
-	} else {
-		match = currentMatch
-	}
+func handleChecksWhenKingMoves(currentSquareName string, match Match) bool {
 	var kingPosition [2]int
 	var king components.Piece
 	var pieceColor string
@@ -649,7 +485,7 @@ func (cfg *appConfig) handleChecksWhenKingMoves(currentSquareName, currentGame s
 
 	for _, move := range kingLegalMoves {
 		var tilesUnderCheck []string
-		if cfg.checkCheck(&tilesUnderCheck, kingPosition, kingPosition, move, pieceColor, match) {
+		if checkCheck(&tilesUnderCheck, kingPosition, kingPosition, move, pieceColor, match) {
 			match.board[savedStartingTile] = savedStartSqua
 			match.board[currentSquareName] = saved
 			king.Tile = savedStartingTile
@@ -664,15 +500,7 @@ func (cfg *appConfig) handleChecksWhenKingMoves(currentSquareName, currentGame s
 	return false
 }
 
-func (cfg *appConfig) gameDone(match Match, currentGame string, r *http.Request, w http.ResponseWriter) {
-	if match.movesSinceLastCapture == 50 {
-		err := components.EndGameModal("1-1", "").Render(r.Context(), w)
-		if err != nil {
-			logError("couldn't render end game modal", err)
-			return
-		}
-		return
-	}
+func (cfg *appConfig) gameDone(match Match, currentGame string, w http.ResponseWriter) {
 	var king components.Piece
 	if match.isWhiteTurn {
 		king = match.pieces["white_king"]
@@ -682,13 +510,27 @@ func (cfg *appConfig) gameDone(match Match, currentGame string, r *http.Request,
 
 	onlineGame, found := cfg.connections[currentGame]
 
+	if match.movesSinceLastCapture == 50 {
+		msg, err := TemplString(components.EndGameModal("1-1", ""))
+		if err != nil {
+			logError("couldn't render end game modal", err)
+			return
+		}
+		err = sendMessage(onlineGame, found, w, msg, [2][]int{})
+		if err != nil {
+			logError("couldn't render end game modal", err)
+			return
+		}
+		return
+	}
+
 	savePiece := match.selectedPiece
 	match.selectedPiece = king
-	legalMoves := cfg.checkLegalMoves("", match)
+	legalMoves := checkLegalMoves(match)
 	match.selectedPiece = savePiece
 	var checkCount []bool
 	for _, move := range legalMoves {
-		if cfg.handleChecksWhenKingMoves(move, "", match) {
+		if handleChecksWhenKingMoves(move, match) {
 			checkCount = append(checkCount, true)
 		}
 	}
@@ -698,7 +540,7 @@ func (cfg *appConfig) gameDone(match Match, currentGame string, r *http.Request,
 				if piece.IsWhite && !piece.IsKing {
 					savePiece := match.selectedPiece
 					match.selectedPiece = piece
-					legalMoves := cfg.checkLegalMoves("", match)
+					legalMoves := checkLegalMoves(match)
 					match.selectedPiece = savePiece
 
 					for _, move := range legalMoves {
@@ -713,27 +555,17 @@ func (cfg *appConfig) gameDone(match Match, currentGame string, r *http.Request,
 				logError("couldn't convert component to string", err)
 				return
 			}
-			if found {
-				for _, player := range onlineGame {
-					err := player.Conn.WriteMessage(websocket.TextMessage, []byte(msg))
-					if err != nil {
-						logError("couldn't write to conn", err)
-						return
-					}
-				}
-			} else {
-				_, err := fmt.Fprint(w, msg)
-				if err != nil {
-					logError("couldn't render end game modal", err)
-					return
-				}
+			err = sendMessage(onlineGame, found, w, msg, [2][]int{})
+			if err != nil {
+				logError("couldn't render end game modal", err)
+				return
 			}
 		} else if !match.isWhiteTurn && match.isBlackUnderCheck {
 			for _, piece := range match.pieces {
 				if !piece.IsWhite && !piece.IsKing {
 					savePiece := match.selectedPiece
 					match.selectedPiece = piece
-					legalMoves := cfg.checkLegalMoves("", match)
+					legalMoves := checkLegalMoves(match)
 					match.selectedPiece = savePiece
 
 					for _, move := range legalMoves {
@@ -748,27 +580,17 @@ func (cfg *appConfig) gameDone(match Match, currentGame string, r *http.Request,
 				logError("couldn't convert component to string", err)
 				return
 			}
-			if found {
-				for _, player := range onlineGame {
-					err := player.Conn.WriteMessage(websocket.TextMessage, []byte(msg))
-					if err != nil {
-						logError("couldn't write to conn", err)
-						return
-					}
-				}
-			} else {
-				_, err := fmt.Fprint(w, msg)
-				if err != nil {
-					logError("couldn't render end game modal", err)
-					return
-				}
+			err = sendMessage(onlineGame, found, w, msg, [2][]int{})
+			if err != nil {
+				logError("couldn't render end game modal", err)
+				return
 			}
 		} else if match.isWhiteTurn {
 			for _, piece := range match.pieces {
 				if piece.IsWhite && !piece.IsKing {
 					savePiece := match.selectedPiece
 					match.selectedPiece = piece
-					legalMoves := cfg.checkLegalMoves("", match)
+					legalMoves := checkLegalMoves(match)
 					match.selectedPiece = savePiece
 
 					if len(legalMoves) > 0 {
@@ -781,27 +603,17 @@ func (cfg *appConfig) gameDone(match Match, currentGame string, r *http.Request,
 				logError("couldn't convert component to string", err)
 				return
 			}
-			if found {
-				for _, player := range onlineGame {
-					err := player.Conn.WriteMessage(websocket.TextMessage, []byte(msg))
-					if err != nil {
-						logError("couldn't write to conn", err)
-						return
-					}
-				}
-			} else {
-				_, err := fmt.Fprint(w, msg)
-				if err != nil {
-					logError("couldn't render end game modal", err)
-					return
-				}
+			err = sendMessage(onlineGame, found, w, msg, [2][]int{})
+			if err != nil {
+				logError("couldn't render end game modal", err)
+				return
 			}
 		} else if !match.isWhiteTurn {
 			for _, piece := range match.pieces {
 				if !piece.IsWhite && !piece.IsKing {
 					savePiece := match.selectedPiece
 					match.selectedPiece = piece
-					legalMoves := cfg.checkLegalMoves("", match)
+					legalMoves := checkLegalMoves(match)
 					match.selectedPiece = savePiece
 
 					if len(legalMoves) > 0 {
@@ -814,20 +626,10 @@ func (cfg *appConfig) gameDone(match Match, currentGame string, r *http.Request,
 				logError("couldn't convert component to string", err)
 				return
 			}
-			if found {
-				for _, player := range onlineGame {
-					err := player.Conn.WriteMessage(websocket.TextMessage, []byte(msg))
-					if err != nil {
-						logError("couldn't write to conn", err)
-						return
-					}
-				}
-			} else {
-				_, err := fmt.Fprint(w, msg)
-				if err != nil {
-					logError("couldn't render end game modal", err)
-					return
-				}
+			err = sendMessage(onlineGame, found, w, msg, [2][]int{})
+			if err != nil {
+				logError("couldn't render end game modal", err)
+				return
 			}
 		}
 	} else {
@@ -898,7 +700,7 @@ func formatTime(seconds int) string {
 	return fmt.Sprintf("%02d:%02d", minutes, secs)
 }
 
-func (cfg *appConfig) endTurn(currentGame string, r *http.Request, w http.ResponseWriter) {
+func (cfg *appConfig) endTurn(currentGame string, w http.ResponseWriter) {
 	match := cfg.Matches[currentGame]
 	if match.isWhiteTurn {
 		match.whiteTimer += match.addition
@@ -907,7 +709,7 @@ func (cfg *appConfig) endTurn(currentGame string, r *http.Request, w http.Respon
 	}
 	match.isWhiteTurn = !match.isWhiteTurn
 	cfg.Matches[currentGame] = match
-	cfg.gameDone(match, currentGame, r, w)
+	cfg.gameDone(match, currentGame, w)
 }
 
 func (cfg *appConfig) refreshToken(w http.ResponseWriter, r *http.Request) {
@@ -1106,41 +908,23 @@ func (cfg *appConfig) showMoves(match Match, squareName, pieceName string, w htt
 
 	var message string
 	if len(match.allMoves)%2 == 0 {
-		message = fmt.Sprintf(`
-				<div id="moves" hx-swap-oob="beforeend" class="grid grid-cols-3 text-white h-moves mt-8">
-					<span>%v</span>
-				</div>
-			`,
+		message = fmt.Sprintf(
+			getMovesUpdateMessage(),
 			squareName,
 		)
 	} else {
-		message = fmt.Sprintf(`
-				<div id="moves" hx-swap-oob="beforeend" class="grid grid-cols-3 text-white h-moves mt-8">
-					<span>%v.</span>
-					<span>%v</span>
-				</div>
-		`,
+		message = fmt.Sprintf(
+			getMovesNumberUpdateMessage(),
 			len(match.allMoves)/2+1,
 			squareName,
 		)
 	}
-	if found {
-		for playerColor, onlinePlayer := range onlineGame {
-			err := onlinePlayer.Conn.WriteMessage(websocket.TextMessage, []byte(message))
-			if err != nil {
-				log.Println("WebSocket write error to", playerColor, ":", err)
-				return err
-			}
-		}
-	} else {
-		_, err := fmt.Fprint(w, message)
-		return err
-	}
-	return nil
+	err = sendMessage(onlineGame, found, w, message, [2][]int{})
+
+	return err
 }
 
-func (cfg *appConfig) cleanFillBoard(gameName string, pieces map[string]components.Piece) {
-	match := cfg.Matches[gameName]
+func cleanFillBoard(match Match, pieces map[string]components.Piece) Match {
 	match.pieces = pieces
 	for i, tile := range match.board {
 		tile.Piece = components.Piece{}
@@ -1151,7 +935,7 @@ func (cfg *appConfig) cleanFillBoard(gameName string, pieces map[string]componen
 		getTile.Piece = v
 		match.board[v.Tile] = getTile
 	}
-	cfg.Matches[gameName] = match
+	return match
 }
 
 func (cfg *appConfig) checkForPawnPromotion(pawnName, currentGame string, w http.ResponseWriter, r *http.Request) (bool, error) {
@@ -1190,7 +974,7 @@ func (cfg *appConfig) checkForPawnPromotion(pawnName, currentGame string, w http
 			return false, err
 		}
 
-		for _, player := range onlineGame {
+		for _, player := range onlineGame.players {
 			if player.ID == userId {
 				multiplier = player.Multiplier
 			}
@@ -1208,24 +992,7 @@ func (cfg *appConfig) checkForPawnPromotion(pawnName, currentGame string, w http
 	if pawn.IsWhite && rowIdx == 0 || !pawn.IsWhite && rowIdx == 7 {
 		isOnLastTile = true
 		message := fmt.Sprintf(
-			`
-				<div 
-					id="promotion"
-					hx-swap-oob="true"
-					style="%v; left: %vpx"
-					class="absolute mt-2 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-50 opacity-0 fade-in-opacity"
-				>
-					<div class="grid gap-2 py-2">
-						<img src="/assets/pieces/%v_queen.svg" hx-post="/promotion?pawn=%v&piece=%v_queen" alt="Queen" class="tile tile-md cursor-pointer hover:scale-105 transition opacity-0 fade-in-opacity" />
-						<img src="/assets/pieces/%v_rook.svg" hx-post="/promotion?pawn=%v&piece=right_%v_rook" alt="Rook" class="tile tile-md cursor-pointer hover:scale-105 transition opacity-0 fade-in-opacity" />
-						<img src="/assets/pieces/%v_knight.svg" hx-post="/promotion?pawn=%v&piece=right_%v_knight" alt="Knight" class="tile tile-md cursor-pointer hover:scale-105 transition opacity-0 fade-in-opacity" />
-						<img src="/assets/pieces/%v_bishop.svg" hx-post="/promotion?pawn=%v&piece=right_%v_bishop" alt="Bishop" class="tile tile-md cursor-pointer hover:scale-105 transition opacity-0 fade-in-opacity" />
-					</div>
-				</div>
-
-				<div id="overlay" hx-swap-oob="true" class="w-board w-board-md h-board h-board-md absolute z-20 hover:cursor-default"></div>
-
-			`,
+			getPromotionInitMessage(),
 			firstPosition,
 			dropdownPosition,
 			pieceColor,
@@ -1241,29 +1008,11 @@ func (cfg *appConfig) checkForPawnPromotion(pawnName, currentGame string, w http
 			pawnName,
 			pieceColor,
 		)
-		if found {
-			uC, err := r.Cookie("access_token")
-			if err != nil {
-				return false, err
-			}
-			userId, err := auth.ValidateJWT(uC.Value, cfg.secret)
-			if err != nil {
-				return false, err
-			}
-			for playerColor, onlinePlayer := range onlineGame {
-				if onlinePlayer.ID == userId {
-					err := onlinePlayer.Conn.WriteMessage(websocket.TextMessage, []byte(message))
-					if err != nil {
-						log.Println("WebSocket write error to", playerColor, ":", err)
-						return false, err
-					}
-				}
-			}
-		} else {
-			_, err := fmt.Fprint(w, message)
-			if err != nil {
-				return false, err
-			}
+
+		_, err := fmt.Fprint(w, message)
+
+		if err != nil {
+			return false, err
 		}
 	}
 	return isOnLastTile, nil
@@ -1323,4 +1072,51 @@ func replaceStyles(text string, bottom, left []int) string {
 	output := builder.String()
 
 	return output
+}
+
+func eatCleanup(match Match, pieceToDelete components.Piece, squareToDeleteName, currentSquareName string) (Match, components.Square, components.Piece) {
+	squareToDelete := match.board[squareToDeleteName]
+	currentSquare := match.board[currentSquareName]
+
+	match.allMoves = append(match.allMoves, currentSquareName)
+	delete(match.pieces, pieceToDelete.Name)
+	match.selectedPiece.Tile = currentSquareName
+	match.pieces[match.selectedPiece.Name] = match.selectedPiece
+	currentSquare.Piece = match.selectedPiece
+	squareToDelete.Piece = components.Piece{}
+	match.board[currentSquareName] = currentSquare
+	match.board[squareToDeleteName] = squareToDelete
+	saveSelected := match.selectedPiece
+	match.selectedPiece = components.Piece{}
+	match.possibleEnPessant = ""
+	match.movesSinceLastCapture = 0
+
+	return match, squareToDelete, saveSelected
+}
+
+func sendMessage(onlineGame OnlineGame, found bool, w http.ResponseWriter, msg string, args [2][]int) error {
+	if found && len(args) > 0 {
+		for playerColor, onlinePlayer := range onlineGame.players {
+			var bottomCoordinates []int
+			for _, coordinate := range args[0] {
+				bottomCoordinates = append(bottomCoordinates, coordinate*onlinePlayer.Multiplier)
+			}
+			var leftCoordinates []int
+			for _, coordinate := range args[1] {
+				leftCoordinates = append(leftCoordinates, coordinate*onlinePlayer.Multiplier)
+			}
+
+			newMessage := replaceStyles(msg, bottomCoordinates, leftCoordinates)
+			onlineGame.playerMsg <- [2]string{newMessage, playerColor}
+		}
+
+	} else if found {
+		onlineGame.message <- msg
+	} else {
+		_, err := fmt.Fprint(w, msg)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
