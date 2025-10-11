@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"regexp"
 	"slices"
@@ -17,7 +16,6 @@ import (
 	"github.com/NikolaTosic-sudo/chess-live/internal/database"
 	"github.com/a-h/templ"
 	"github.com/google/uuid"
-	"github.com/gorilla/websocket"
 )
 
 var mockBoard = [][]string{
@@ -99,14 +97,7 @@ func fillBoard(match Match) Match {
 	return match
 }
 
-func (cfg *appConfig) checkLegalMoves(currentGame string, currentMatch Match) []string {
-	var match Match
-
-	if currentGame != "" {
-		match = cfg.Matches[currentGame]
-	} else {
-		match = currentMatch
-	}
+func checkLegalMoves(match Match) []string {
 	var startingPosition [2]int
 
 	var possibleMoves []string
@@ -509,15 +500,7 @@ func handleChecksWhenKingMoves(currentSquareName string, match Match) bool {
 	return false
 }
 
-func (cfg *appConfig) gameDone(match Match, currentGame string, r *http.Request, w http.ResponseWriter) {
-	if match.movesSinceLastCapture == 50 {
-		err := components.EndGameModal("1-1", "").Render(r.Context(), w)
-		if err != nil {
-			logError("couldn't render end game modal", err)
-			return
-		}
-		return
-	}
+func (cfg *appConfig) gameDone(match Match, currentGame string, w http.ResponseWriter) {
 	var king components.Piece
 	if match.isWhiteTurn {
 		king = match.pieces["white_king"]
@@ -527,9 +510,23 @@ func (cfg *appConfig) gameDone(match Match, currentGame string, r *http.Request,
 
 	onlineGame, found := cfg.connections[currentGame]
 
+	if match.movesSinceLastCapture == 50 {
+		msg, err := TemplString(components.EndGameModal("1-1", ""))
+		if err != nil {
+			logError("couldn't render end game modal", err)
+			return
+		}
+		err = sendMessage(onlineGame, found, w, msg, [2][]int{})
+		if err != nil {
+			logError("couldn't render end game modal", err)
+			return
+		}
+		return
+	}
+
 	savePiece := match.selectedPiece
 	match.selectedPiece = king
-	legalMoves := cfg.checkLegalMoves("", match)
+	legalMoves := checkLegalMoves(match)
 	match.selectedPiece = savePiece
 	var checkCount []bool
 	for _, move := range legalMoves {
@@ -543,7 +540,7 @@ func (cfg *appConfig) gameDone(match Match, currentGame string, r *http.Request,
 				if piece.IsWhite && !piece.IsKing {
 					savePiece := match.selectedPiece
 					match.selectedPiece = piece
-					legalMoves := cfg.checkLegalMoves("", match)
+					legalMoves := checkLegalMoves(match)
 					match.selectedPiece = savePiece
 
 					for _, move := range legalMoves {
@@ -558,27 +555,17 @@ func (cfg *appConfig) gameDone(match Match, currentGame string, r *http.Request,
 				logError("couldn't convert component to string", err)
 				return
 			}
-			if found {
-				for _, player := range onlineGame {
-					err := player.Conn.WriteMessage(websocket.TextMessage, []byte(msg))
-					if err != nil {
-						logError("couldn't write to conn", err)
-						return
-					}
-				}
-			} else {
-				_, err := fmt.Fprint(w, msg)
-				if err != nil {
-					logError("couldn't render end game modal", err)
-					return
-				}
+			err = sendMessage(onlineGame, found, w, msg, [2][]int{})
+			if err != nil {
+				logError("couldn't render end game modal", err)
+				return
 			}
 		} else if !match.isWhiteTurn && match.isBlackUnderCheck {
 			for _, piece := range match.pieces {
 				if !piece.IsWhite && !piece.IsKing {
 					savePiece := match.selectedPiece
 					match.selectedPiece = piece
-					legalMoves := cfg.checkLegalMoves("", match)
+					legalMoves := checkLegalMoves(match)
 					match.selectedPiece = savePiece
 
 					for _, move := range legalMoves {
@@ -593,27 +580,17 @@ func (cfg *appConfig) gameDone(match Match, currentGame string, r *http.Request,
 				logError("couldn't convert component to string", err)
 				return
 			}
-			if found {
-				for _, player := range onlineGame {
-					err := player.Conn.WriteMessage(websocket.TextMessage, []byte(msg))
-					if err != nil {
-						logError("couldn't write to conn", err)
-						return
-					}
-				}
-			} else {
-				_, err := fmt.Fprint(w, msg)
-				if err != nil {
-					logError("couldn't render end game modal", err)
-					return
-				}
+			err = sendMessage(onlineGame, found, w, msg, [2][]int{})
+			if err != nil {
+				logError("couldn't render end game modal", err)
+				return
 			}
 		} else if match.isWhiteTurn {
 			for _, piece := range match.pieces {
 				if piece.IsWhite && !piece.IsKing {
 					savePiece := match.selectedPiece
 					match.selectedPiece = piece
-					legalMoves := cfg.checkLegalMoves("", match)
+					legalMoves := checkLegalMoves(match)
 					match.selectedPiece = savePiece
 
 					if len(legalMoves) > 0 {
@@ -626,27 +603,17 @@ func (cfg *appConfig) gameDone(match Match, currentGame string, r *http.Request,
 				logError("couldn't convert component to string", err)
 				return
 			}
-			if found {
-				for _, player := range onlineGame {
-					err := player.Conn.WriteMessage(websocket.TextMessage, []byte(msg))
-					if err != nil {
-						logError("couldn't write to conn", err)
-						return
-					}
-				}
-			} else {
-				_, err := fmt.Fprint(w, msg)
-				if err != nil {
-					logError("couldn't render end game modal", err)
-					return
-				}
+			err = sendMessage(onlineGame, found, w, msg, [2][]int{})
+			if err != nil {
+				logError("couldn't render end game modal", err)
+				return
 			}
 		} else if !match.isWhiteTurn {
 			for _, piece := range match.pieces {
 				if !piece.IsWhite && !piece.IsKing {
 					savePiece := match.selectedPiece
 					match.selectedPiece = piece
-					legalMoves := cfg.checkLegalMoves("", match)
+					legalMoves := checkLegalMoves(match)
 					match.selectedPiece = savePiece
 
 					if len(legalMoves) > 0 {
@@ -659,20 +626,10 @@ func (cfg *appConfig) gameDone(match Match, currentGame string, r *http.Request,
 				logError("couldn't convert component to string", err)
 				return
 			}
-			if found {
-				for _, player := range onlineGame {
-					err := player.Conn.WriteMessage(websocket.TextMessage, []byte(msg))
-					if err != nil {
-						logError("couldn't write to conn", err)
-						return
-					}
-				}
-			} else {
-				_, err := fmt.Fprint(w, msg)
-				if err != nil {
-					logError("couldn't render end game modal", err)
-					return
-				}
+			err = sendMessage(onlineGame, found, w, msg, [2][]int{})
+			if err != nil {
+				logError("couldn't render end game modal", err)
+				return
 			}
 		}
 	} else {
@@ -743,7 +700,7 @@ func formatTime(seconds int) string {
 	return fmt.Sprintf("%02d:%02d", minutes, secs)
 }
 
-func (cfg *appConfig) endTurn(currentGame string, r *http.Request, w http.ResponseWriter) {
+func (cfg *appConfig) endTurn(currentGame string, w http.ResponseWriter) {
 	match := cfg.Matches[currentGame]
 	if match.isWhiteTurn {
 		match.whiteTimer += match.addition
@@ -752,7 +709,7 @@ func (cfg *appConfig) endTurn(currentGame string, r *http.Request, w http.Respon
 	}
 	match.isWhiteTurn = !match.isWhiteTurn
 	cfg.Matches[currentGame] = match
-	cfg.gameDone(match, currentGame, r, w)
+	cfg.gameDone(match, currentGame, w)
 }
 
 func (cfg *appConfig) refreshToken(w http.ResponseWriter, r *http.Request) {
@@ -951,41 +908,23 @@ func (cfg *appConfig) showMoves(match Match, squareName, pieceName string, w htt
 
 	var message string
 	if len(match.allMoves)%2 == 0 {
-		message = fmt.Sprintf(`
-				<div id="moves" hx-swap-oob="beforeend" class="grid grid-cols-3 text-white h-moves mt-8">
-					<span>%v</span>
-				</div>
-			`,
+		message = fmt.Sprintf(
+			getMovesUpdateMessage(),
 			squareName,
 		)
 	} else {
-		message = fmt.Sprintf(`
-				<div id="moves" hx-swap-oob="beforeend" class="grid grid-cols-3 text-white h-moves mt-8">
-					<span>%v.</span>
-					<span>%v</span>
-				</div>
-		`,
+		message = fmt.Sprintf(
+			getMovesNumberUpdateMessage(),
 			len(match.allMoves)/2+1,
 			squareName,
 		)
 	}
-	if found {
-		for playerColor, onlinePlayer := range onlineGame {
-			err := onlinePlayer.Conn.WriteMessage(websocket.TextMessage, []byte(message))
-			if err != nil {
-				log.Println("WebSocket write error to", playerColor, ":", err)
-				return err
-			}
-		}
-	} else {
-		_, err := fmt.Fprint(w, message)
-		return err
-	}
-	return nil
+	err = sendMessage(onlineGame, found, w, message, [2][]int{})
+
+	return err
 }
 
-func (cfg *appConfig) cleanFillBoard(gameName string, pieces map[string]components.Piece) {
-	match := cfg.Matches[gameName]
+func cleanFillBoard(match Match, pieces map[string]components.Piece) Match {
 	match.pieces = pieces
 	for i, tile := range match.board {
 		tile.Piece = components.Piece{}
@@ -996,7 +935,7 @@ func (cfg *appConfig) cleanFillBoard(gameName string, pieces map[string]componen
 		getTile.Piece = v
 		match.board[v.Tile] = getTile
 	}
-	cfg.Matches[gameName] = match
+	return match
 }
 
 func (cfg *appConfig) checkForPawnPromotion(pawnName, currentGame string, w http.ResponseWriter, r *http.Request) (bool, error) {
@@ -1035,7 +974,7 @@ func (cfg *appConfig) checkForPawnPromotion(pawnName, currentGame string, w http
 			return false, err
 		}
 
-		for _, player := range onlineGame {
+		for _, player := range onlineGame.players {
 			if player.ID == userId {
 				multiplier = player.Multiplier
 			}
@@ -1053,24 +992,7 @@ func (cfg *appConfig) checkForPawnPromotion(pawnName, currentGame string, w http
 	if pawn.IsWhite && rowIdx == 0 || !pawn.IsWhite && rowIdx == 7 {
 		isOnLastTile = true
 		message := fmt.Sprintf(
-			`
-				<div 
-					id="promotion"
-					hx-swap-oob="true"
-					style="%v; left: %vpx"
-					class="absolute mt-2 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-50 opacity-0 fade-in-opacity"
-				>
-					<div class="grid gap-2 py-2">
-						<img src="/assets/pieces/%v_queen.svg" hx-post="/promotion?pawn=%v&piece=%v_queen" alt="Queen" class="tile tile-md cursor-pointer hover:scale-105 transition opacity-0 fade-in-opacity" />
-						<img src="/assets/pieces/%v_rook.svg" hx-post="/promotion?pawn=%v&piece=right_%v_rook" alt="Rook" class="tile tile-md cursor-pointer hover:scale-105 transition opacity-0 fade-in-opacity" />
-						<img src="/assets/pieces/%v_knight.svg" hx-post="/promotion?pawn=%v&piece=right_%v_knight" alt="Knight" class="tile tile-md cursor-pointer hover:scale-105 transition opacity-0 fade-in-opacity" />
-						<img src="/assets/pieces/%v_bishop.svg" hx-post="/promotion?pawn=%v&piece=right_%v_bishop" alt="Bishop" class="tile tile-md cursor-pointer hover:scale-105 transition opacity-0 fade-in-opacity" />
-					</div>
-				</div>
-
-				<div id="overlay" hx-swap-oob="true" class="w-board w-board-md h-board h-board-md absolute z-20 hover:cursor-default"></div>
-
-			`,
+			getPromotionInitMessage(),
 			firstPosition,
 			dropdownPosition,
 			pieceColor,
@@ -1086,29 +1008,11 @@ func (cfg *appConfig) checkForPawnPromotion(pawnName, currentGame string, w http
 			pawnName,
 			pieceColor,
 		)
-		if found {
-			uC, err := r.Cookie("access_token")
-			if err != nil {
-				return false, err
-			}
-			userId, err := auth.ValidateJWT(uC.Value, cfg.secret)
-			if err != nil {
-				return false, err
-			}
-			for playerColor, onlinePlayer := range onlineGame {
-				if onlinePlayer.ID == userId {
-					err := onlinePlayer.Conn.WriteMessage(websocket.TextMessage, []byte(message))
-					if err != nil {
-						log.Println("WebSocket write error to", playerColor, ":", err)
-						return false, err
-					}
-				}
-			}
-		} else {
-			_, err := fmt.Fprint(w, message)
-			if err != nil {
-				return false, err
-			}
+
+		_, err := fmt.Fprint(w, message)
+
+		if err != nil {
+			return false, err
 		}
 	}
 	return isOnLastTile, nil
@@ -1168,4 +1072,51 @@ func replaceStyles(text string, bottom, left []int) string {
 	output := builder.String()
 
 	return output
+}
+
+func eatCleanup(match Match, pieceToDelete components.Piece, squareToDeleteName, currentSquareName string) (Match, components.Square, components.Piece) {
+	squareToDelete := match.board[squareToDeleteName]
+	currentSquare := match.board[currentSquareName]
+
+	match.allMoves = append(match.allMoves, currentSquareName)
+	delete(match.pieces, pieceToDelete.Name)
+	match.selectedPiece.Tile = currentSquareName
+	match.pieces[match.selectedPiece.Name] = match.selectedPiece
+	currentSquare.Piece = match.selectedPiece
+	squareToDelete.Piece = components.Piece{}
+	match.board[currentSquareName] = currentSquare
+	match.board[squareToDeleteName] = squareToDelete
+	saveSelected := match.selectedPiece
+	match.selectedPiece = components.Piece{}
+	match.possibleEnPessant = ""
+	match.movesSinceLastCapture = 0
+
+	return match, squareToDelete, saveSelected
+}
+
+func sendMessage(onlineGame OnlineGame, found bool, w http.ResponseWriter, msg string, args [2][]int) error {
+	if found && len(args) > 0 {
+		for playerColor, onlinePlayer := range onlineGame.players {
+			var bottomCoordinates []int
+			for _, coordinate := range args[0] {
+				bottomCoordinates = append(bottomCoordinates, coordinate*onlinePlayer.Multiplier)
+			}
+			var leftCoordinates []int
+			for _, coordinate := range args[1] {
+				leftCoordinates = append(leftCoordinates, coordinate*onlinePlayer.Multiplier)
+			}
+
+			newMessage := replaceStyles(msg, bottomCoordinates, leftCoordinates)
+			onlineGame.playerMsg <- [2]string{newMessage, playerColor}
+		}
+
+	} else if found {
+		onlineGame.message <- msg
+	} else {
+		_, err := fmt.Fprint(w, msg)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
