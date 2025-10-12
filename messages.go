@@ -110,7 +110,7 @@ func getPromotionInitMessage() string {
 
 func getMovesUpdateMessage() string {
 	return `
-		<div id="moves" hx-swap-oob="beforeend" class="grid grid-cols-3 text-white h-moves mt-8">
+		<div id="moves" hx-swap-oob="beforeend" class="grid grid-cols-3 w-[240px] text-white h-moves mt-8">
 			<span>%v</span>
 		</div>
 	`
@@ -118,7 +118,7 @@ func getMovesUpdateMessage() string {
 
 func getMovesNumberUpdateMessage() string {
 	return `
-		<div id="moves" hx-swap-oob="beforeend" class="grid grid-cols-3 text-white h-moves mt-8">
+		<div id="moves" hx-swap-oob="beforeend" class="grid grid-cols-3 w-[240px] text-white h-moves mt-8">
 			<span>%v.</span>
 			<span>%v</span>
 		</div>
