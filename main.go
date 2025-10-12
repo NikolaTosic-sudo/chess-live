@@ -21,6 +21,13 @@ func main() {
 		logError("Couldn't load env", err)
 		return
 	}
+
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Println("Recovered. Error:\n", r)
+		}
+	}()
+
 	port := os.Getenv("PORT")
 	dbUrl := os.Getenv("DB_URL")
 	secret := os.Getenv("SECRET")

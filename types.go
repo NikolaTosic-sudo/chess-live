@@ -23,7 +23,8 @@ type User struct {
 type OnlineGame struct {
 	players   map[string]components.OnlinePlayerStruct
 	message   chan (string)
-	playerMsg chan ([2]string)
+	playerMsg chan (string)
+	player    chan (components.OnlinePlayerStruct)
 }
 
 type Match struct {

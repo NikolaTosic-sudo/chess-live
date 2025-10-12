@@ -309,7 +309,8 @@ func (cfg *appConfig) onlineBoardHandler(w http.ResponseWriter, r *http.Request)
 			"black": {},
 		},
 		message:   make(chan string),
-		playerMsg: make(chan [2]string),
+		playerMsg: make(chan string),
+		player:    make(chan components.OnlinePlayerStruct),
 	}
 	err = components.WaitingModal().Render(r.Context(), w)
 	if err != nil {

@@ -1096,7 +1096,7 @@ func eatCleanup(match Match, pieceToDelete components.Piece, squareToDeleteName,
 
 func sendMessage(onlineGame OnlineGame, found bool, w http.ResponseWriter, msg string, args [2][]int) error {
 	if found && len(args) > 0 {
-		for playerColor, onlinePlayer := range onlineGame.players {
+		for _, onlinePlayer := range onlineGame.players {
 			var bottomCoordinates []int
 			for _, coordinate := range args[0] {
 				bottomCoordinates = append(bottomCoordinates, coordinate*onlinePlayer.Multiplier)
@@ -1107,7 +1107,8 @@ func sendMessage(onlineGame OnlineGame, found bool, w http.ResponseWriter, msg s
 			}
 
 			newMessage := replaceStyles(msg, bottomCoordinates, leftCoordinates)
-			onlineGame.playerMsg <- [2]string{newMessage, playerColor}
+			onlineGame.playerMsg <- newMessage
+			onlineGame.player <- onlinePlayer
 		}
 
 	} else if found {
