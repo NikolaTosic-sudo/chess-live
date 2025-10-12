@@ -40,40 +40,40 @@ var rowIdxMap = map[string]int{
 	"1": 7,
 }
 
-func canPlay(piece components.Piece, match Match, onlineGame map[string]components.OnlinePlayerStruct, userId uuid.UUID) (bool, error) {
+func canPlay(piece components.Piece, match Match, onlineGame map[string]components.OnlinePlayerStruct, userId uuid.UUID) bool {
 	if onlineGame != nil {
 
 		if userId == uuid.Nil {
-			return false, nil
+			return false
 		}
 
 		if piece.IsWhite && match.isWhiteTurn && onlineGame["white"].ID == userId {
-			return true, nil
+			return true
 		} else if match.selectedPiece.IsWhite && piece.IsWhite && match.isWhiteTurn && onlineGame["white"].ID == userId {
-			return true, nil
+			return true
 		} else if !piece.IsWhite && !match.isWhiteTurn && onlineGame["black"].ID == userId {
-			return true, nil
+			return true
 		} else if !match.selectedPiece.IsWhite && !piece.IsWhite && !match.isWhiteTurn && onlineGame["black"].ID == userId {
-			return true, nil
+			return true
 		}
 
-		return false, nil
+		return false
 	}
 	if match.isWhiteTurn {
 		if piece.IsWhite {
-			return true, nil
+			return true
 		} else if match.selectedPiece.IsWhite && piece.IsWhite {
-			return true, nil
+			return true
 		}
 	} else {
 		if !piece.IsWhite {
-			return true, nil
+			return true
 		} else if !match.selectedPiece.IsWhite && !piece.IsWhite {
-			return true, nil
+			return true
 		}
 	}
 
-	return false, nil
+	return false
 }
 
 func canEat(selectedPiece, currentPiece components.Piece) bool {
@@ -833,7 +833,6 @@ func (cfg *appConfig) middleWareCheckForUserPrivate(next func(http.ResponseWrite
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		err := cfg.checkUserPrivate(w, r)
 		if err != nil {
-			logError("error with check private user", err)
 			http.Redirect(w, r, "/", http.StatusFound)
 		}
 		next(w, r)

@@ -46,11 +46,8 @@ func (cfg *appConfig) moveHandler(w http.ResponseWriter, r *http.Request) {
 		userId, _ = auth.ValidateJWT(userC.Value, cfg.secret)
 	}
 
-	canPlay, err := canPlay(currentPiece, match, onlineGame.players, userId)
-	if err != nil {
-		respondWithAnErrorPage(w, r, http.StatusUnauthorized, "user not found")
-		return
-	}
+	canPlay := canPlay(currentPiece, match, onlineGame.players, userId)
+
 	currentSquareName := currentPiece.Tile
 	currentSquare := match.board[currentSquareName]
 	selectedSquare := match.selectedPiece.Tile
