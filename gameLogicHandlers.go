@@ -976,10 +976,14 @@ func (cfg *appConfig) handleCastle(w http.ResponseWriter, currentPiece component
 		kC := kingSquare.Coordinates[1]
 		rookSquare.Coordinates[1] = kC + multiplier
 		kingSquare.Coordinates[1] = kC + multiplier*2
+		rookSquare.CoordinatePosition[1] = rookSquare.Coordinates[1] / multiplier
+		kingSquare.CoordinatePosition[1] = kingSquare.Coordinates[1] / multiplier
 	} else {
 		kC := kingSquare.Coordinates[1]
 		rookSquare.Coordinates[1] = kC - multiplier
 		kingSquare.Coordinates[1] = kC - multiplier*2
+		rookSquare.CoordinatePosition[1] = rookSquare.Coordinates[1] / multiplier
+		kingSquare.CoordinatePosition[1] = kingSquare.Coordinates[1] / multiplier
 	}
 
 	message := fmt.Sprintf(
@@ -1032,7 +1036,7 @@ func (cfg *appConfig) handleCastle(w http.ResponseWriter, currentPiece component
 	match.movesSinceLastCapture++
 	cfg.Matches[currentGame] = match
 
-	if kingSquare.CoordinatePosition[1]-rookSquare.CoordinatePosition[1] == -3 {
+	if kingSquare.CoordinatePosition[1]-rookSquare.CoordinatePosition[1] == 1 {
 		match.allMoves = append(match.allMoves, "O-O")
 		err := cfg.showMoves(match, "O-O", "king", w, r)
 		if err != nil {

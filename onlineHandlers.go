@@ -50,6 +50,7 @@ func (cfg *appConfig) wsHandler(w http.ResponseWriter, r *http.Request) {
 					err := onlinePlayer.Conn.WriteMessage(websocket.TextMessage, []byte(msg))
 					if err != nil {
 						respondWithAnError(w, http.StatusInternalServerError, fmt.Sprintf("WebSocket write error to: %v", playerColor), err)
+						break
 					}
 				}
 			case playerMsg := <-game.playerMsg:
@@ -57,6 +58,7 @@ func (cfg *appConfig) wsHandler(w http.ResponseWriter, r *http.Request) {
 				err := player.Conn.WriteMessage(websocket.TextMessage, []byte(playerMsg))
 				if err != nil {
 					respondWithAnError(w, http.StatusInternalServerError, fmt.Sprintf("WebSocket write error to: %v", playerMsg), err)
+					continue
 				}
 			}
 		}

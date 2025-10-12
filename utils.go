@@ -919,6 +919,9 @@ func (cfg *appConfig) showMoves(match Match, squareName, pieceName string, w htt
 			squareName,
 		)
 	}
+
+	cfg.Matches[c.Value] = match
+
 	err = sendMessage(onlineGame, found, w, message, [2][]int{})
 
 	return err
