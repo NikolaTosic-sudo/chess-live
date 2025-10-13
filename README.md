@@ -57,7 +57,7 @@ my new-found knowledge of backend, and my love for chess.
 - [x] Finished adding rules to the game
 - [x] Tighting WebSocket implementation
 - [x] BIG REFACTOR
-- [ ] Add unit tests  
+- [x] Add unit tests  
 - [ ] Improve playability & testing environment  
 - [ ] Deploy to a public domain  
 
