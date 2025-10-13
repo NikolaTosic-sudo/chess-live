@@ -60,7 +60,6 @@ func (cfg *appConfig) privateBoardHandler(w http.ResponseWriter, r *http.Request
 	userC, err := r.Cookie("access_token")
 
 	if err != nil {
-		logError("user not found", err)
 		userName = "Guest"
 	} else if userC.Value != "" {
 		userId, err := auth.ValidateJWT(userC.Value, cfg.secret)
