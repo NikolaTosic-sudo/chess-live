@@ -1,6 +1,7 @@
 package main
 
 import (
+	"reflect"
 	"testing"
 
 	"github.com/NikolaTosic-sudo/chess-live/containers/components"
@@ -185,6 +186,63 @@ func TestReplaceStyles(t *testing.T) {
 
 			if replacedText != tt.wantResult {
 				t.Errorf("replaceStyles() replacedText = %v, want %v", replacedText, tt.wantResult)
+			}
+		})
+	}
+}
+
+func TestCheckForCastle(t *testing.T) {
+	tests := []struct {
+		name         string
+		match        Match
+		currentPiece components.Piece
+		wantResult   bool
+	}{
+		{
+			name:  "Yes to the white small castle",
+			match: getMockMatchCastle(),
+			currentPiece: components.Piece{
+				Name:       "left_white_rook",
+				Image:      "white_rook",
+				Tile:       "1h",
+				IsWhite:    true,
+				LegalMoves: [][]int{{1, 0}, {0, 1}, {-1, 0}, {0, -1}},
+				Moved:      false,
+			},
+			wantResult: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			isCastle, _ := checkForCastle(tt.match, tt.currentPiece)
+
+			if isCastle != tt.wantResult {
+				t.Errorf("checkForCastle() isCastle = %v, want %v", isCastle, tt.wantResult)
+			}
+		})
+	}
+}
+
+func TestCheckLegalMoves(t *testing.T) {
+	tests := []struct {
+		name       string
+		match      Match
+		wantResult []string
+	}{
+		{
+			name:       "Yes to the white small castle",
+			match:      getMockMatchMovesKnight(),
+			wantResult: []string{"1g", "4h", "4d", "5g", "5e"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			legalMoves := checkLegalMoves(tt.match)
+
+			if !reflect.DeepEqual(legalMoves, tt.wantResult) {
+				t.Errorf("checkLegalMoves() legalMoves = %v, want %v", legalMoves, tt.wantResult)
 			}
 		})
 	}
