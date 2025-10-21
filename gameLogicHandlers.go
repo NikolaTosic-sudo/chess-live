@@ -56,20 +56,6 @@ func (cfg *appConfig) moveHandler(w http.ResponseWriter, r *http.Request) {
 
 	if canEat(match.selectedPiece, currentPiece) && slices.Contains(legalMoves, currentSquareName) {
 		if found {
-			userC, err := r.Cookie("access_token")
-
-			if err != nil {
-				respondWithAnErrorPage(w, r, http.StatusUnauthorized, "user not found")
-				return
-			}
-
-			userId, err := auth.ValidateJWT(userC.Value, cfg.secret)
-
-			if err != nil {
-				respondWithAnErrorPage(w, r, http.StatusUnauthorized, "user not found")
-				return
-			}
-
 			if match.isWhiteTurn && onlineGame.players["white"].ID != userId {
 				return
 			} else if !match.isWhiteTurn && onlineGame.players["black"].ID != userId {
