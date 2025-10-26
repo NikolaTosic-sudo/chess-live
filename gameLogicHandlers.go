@@ -15,6 +15,8 @@ import (
 	"github.com/gorilla/websocket"
 )
 
+// TODO: Every handler is attached to appConfig, but it shouldn't be, most likely to the Match itself, or Online match
+
 func (cfg *appConfig) moveHandler(w http.ResponseWriter, r *http.Request) {
 	currentPieceName := r.Header.Get("Hx-Trigger")
 	c, err := r.Cookie("current_game")
