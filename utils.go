@@ -40,6 +40,8 @@ var rowIdxMap = map[string]int{
 	"1": 7,
 }
 
+//TODO: There are still methods attached to the appConfig, this is not correct as it should be attached to Match most likely, and there is a lot of passing around with arguments and props, it should be cleaner
+
 func canPlay(piece components.Piece, match Match, onlineGame map[string]components.OnlinePlayerStruct, userId uuid.UUID) bool {
 	if onlineGame != nil {
 
