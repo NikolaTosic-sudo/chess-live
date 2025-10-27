@@ -1,8 +1,6 @@
 name: ci
 
-on:
-  pull_request:
-    branches: [main]
+on: [push]
 
 jobs:
   tests:
@@ -20,3 +18,25 @@ jobs:
 
       - name: Run the tests
         run: go test ./... -cover
+
+  style:
+    name: Style
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.23.0"
+      
+      - name: Check for styling
+        run: test -z $(go fmt ./...)
+
+      - name: Install staticcheck
+        run: go install honnef.co/go/tools/cmd/staticcheck@latest
+      
+      - name: Lint check with staticcheck
+        run: staticcheck ./...
