@@ -1,7 +1,7 @@
 # ─────────────────────────────
 # 1. Build stage
 # ─────────────────────────────
-FROM golang:1.24-bullseye AS builder
+FROM golang:1.25 AS builder
 
 # Install goose + templ
 RUN go install github.com/pressly/goose/v3/cmd/goose@latest \

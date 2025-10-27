@@ -21,6 +21,8 @@ services:
   app:
     build: .
     container_name: chess-live-app
+    volumes:
+      - ./.env:/app/.env
     restart: always
     environment:
       PORT: 8080

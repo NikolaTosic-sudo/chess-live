@@ -2,6 +2,7 @@
 set -e
 
 echo "Waiting for Postgres to be ready..."
+
 until pg_isready -h $(echo $DB_URL | sed -E 's|.*@([^:]+):.*|\1|') -p 5432; do
   sleep 1
 done
