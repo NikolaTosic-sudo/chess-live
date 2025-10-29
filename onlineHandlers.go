@@ -137,7 +137,7 @@ func (cfg *appConfig) searchingOppHandler(w http.ResponseWriter, r *http.Request
 		SameSite: http.SameSiteLaxMode,
 	}
 
-	match := cfg.Matches[currentGame]
+	match, _ := cfg.Matches.getMatch(currentGame)
 	match = fillBoard(match)
 	UpdateCoordinates(&match, whitePlayer.Multiplier)
 	http.SetCookie(w, &startGame)
@@ -260,7 +260,7 @@ func (cfg *appConfig) cancelOnlineHandler(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	saveGame := cfg.Matches[currentGame.Value]
+	saveGame, _ := cfg.Matches.getMatch(currentGame.Value)
 
 	onlineGame := cfg.connections[currentGame.Value]
 
@@ -324,7 +324,7 @@ func (cfg *appConfig) continueOnlineHandler(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	match, ok := cfg.Matches[currentGame.Value]
+	match, ok := cfg.Matches.getMatch(currentGame.Value)
 
 	onlineGame, ok2 := cfg.connections[currentGame.Value]
 	if !ok || !ok2 {
@@ -339,7 +339,7 @@ func (cfg *appConfig) continueOnlineHandler(w http.ResponseWriter, r *http.Reque
 		}
 
 		http.SetCookie(w, &cGC)
-		match := cfg.Matches["initial"]
+		match, _ := cfg.Matches.getMatch("initial")
 		match = fillBoard(match)
 
 		whitePlayer := components.PlayerStruct{

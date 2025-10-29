@@ -29,11 +29,14 @@ func (cfg *appConfig) boardHandler(w http.ResponseWriter, r *http.Request) {
 		game = "initial"
 	}
 
-	match, ok := cfg.Matches[game]
+	match, ok := cfg.Matches.getMatch(game)
+
 	if !ok {
-		match = cfg.Matches["initial"]
+		match = cfg.Matches.getInitialMatch()
 	}
+
 	match = fillBoard(match)
+
 	whitePlayer := components.PlayerStruct{
 		Image:  "/assets/images/user-icon.png",
 		Name:   "Guest",
@@ -56,29 +59,13 @@ func (cfg *appConfig) boardHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (cfg *appConfig) privateBoardHandler(w http.ResponseWriter, r *http.Request) {
-	var userName string
-	userC, err := r.Cookie("access_token")
+	user, err := cfg.getUser(r)
 
 	if err != nil {
-		userName = "Guest"
-	} else if userC.Value != "" {
-		userId, err := auth.ValidateJWT(userC.Value, cfg.secret)
-
-		if err != nil {
-			userName = "Guest"
-		}
-
-		user, err := cfg.database.GetUserById(r.Context(), userId)
-
-		if err != nil {
-			logError("user not found in the database", err)
-			userName = "Guest"
-		} else if user.Name != "" {
-			userName = user.Name
-		}
-	} else {
-		userName = "Guest"
+		logError("error getting user:", err)
 	}
+
+	userName := user.Name
 
 	var game string
 	c, err := r.Cookie("current_game")
@@ -96,31 +83,15 @@ func (cfg *appConfig) privateBoardHandler(w http.ResponseWriter, r *http.Request
 	if err == nil {
 		game = sC.Value
 
-		startGame := http.Cookie{
-			Name:     "current_game",
-			Value:    game,
-			Path:     "/",
-			MaxAge:   604800,
-			HttpOnly: true,
-			Secure:   true,
-			SameSite: http.SameSiteLaxMode,
-		}
+		startGame := cfg.makeCookie("current_game", game, "/")
 
-		sGC := http.Cookie{
-			Name:     "saved_game",
-			Value:    "",
-			Path:     "/",
-			MaxAge:   -1,
-			HttpOnly: true,
-			Secure:   true,
-			SameSite: http.SameSiteLaxMode,
-		}
+		sGC := cfg.removeCookie("saved_game")
 
 		http.SetCookie(w, &startGame)
 		http.SetCookie(w, &sGC)
 	}
 
-	match := cfg.Matches[game]
+	match, _ := cfg.Matches.getMatch(game)
 	match = fillBoard(match)
 
 	whitePlayer := components.PlayerStruct{
@@ -145,52 +116,27 @@ func (cfg *appConfig) privateBoardHandler(w http.ResponseWriter, r *http.Request
 }
 
 func (cfg *appConfig) onlineBoardHandler(w http.ResponseWriter, r *http.Request) {
-	var userName string
-	var userId uuid.UUID
-	userCookie, err := r.Cookie("access_token")
+	user, err := cfg.getUser(r)
 	if err != nil {
-		respondWithAnErrorPage(w, r, http.StatusNotFound, "No user found")
+		respondWithAnErrorPage(w, r, http.StatusInternalServerError, "Please try again")
 		return
-	} else if userCookie.Value != "" {
-		userId, err = auth.ValidateJWT(userCookie.Value, cfg.secret)
-
-		if err != nil {
-			respondWithAnErrorPage(w, r, http.StatusNotFound, "No user found")
-			return
-		}
-
-		user, err := cfg.database.GetUserById(r.Context(), userId)
-
-		if err != nil {
-			respondWithAnErrorPage(w, r, http.StatusNotFound, "No user found")
-			return
-		} else if user.Name != "" {
-			userName = user.Name
-		} else {
-			respondWithAnErrorPage(w, r, http.StatusNotFound, "No user found")
-			return
-		}
 	}
 
-	var emptyPlayer components.OnlinePlayerStruct
+	userName := user.Name
+	userId := user.ID
+
+	emptyPlayer := components.OnlinePlayerStruct{}
+
 	if len(cfg.connections) > 0 {
 		for gameName, players := range cfg.connections {
 			for color, player := range players.players {
 				if player == emptyPlayer {
 					connection := cfg.connections[gameName]
 
-					mC, noMc := r.Cookie("multiplier")
-
-					var multiplier int
-					if noMc != nil {
-						multiplier = 80
-					} else {
-						mcInt, err := strconv.Atoi(mC.Value)
-						if err != nil {
-							respondWithAnError(w, http.StatusInternalServerError, "couldn't convert value", err)
-							return
-						}
-						multiplier = mcInt
+					multiplier, err := cfg.getMultiplier(r)
+					if err != nil {
+						respondWithAnErrorPage(w, r, http.StatusInternalServerError, "Please try again")
+						return
 					}
 
 					player = components.OnlinePlayerStruct{
@@ -202,6 +148,7 @@ func (cfg *appConfig) onlineBoardHandler(w http.ResponseWriter, r *http.Request)
 						ReconnectTimer: 30,
 						Multiplier:     multiplier,
 					}
+
 					connection.players[color] = player
 					cfg.connections[gameName] = connection
 					whitePlayer := connection.players["white"]
@@ -221,7 +168,7 @@ func (cfg *appConfig) onlineBoardHandler(w http.ResponseWriter, r *http.Request)
 					startingBoard := MakeBoard()
 					startingPieces := MakePieces()
 
-					cfg.Matches[gameName] = Match{
+					match := Match{
 						board:                startingBoard,
 						pieces:               startingPieces,
 						selectedPiece:        components.Piece{},
@@ -235,17 +182,10 @@ func (cfg *appConfig) onlineBoardHandler(w http.ResponseWriter, r *http.Request)
 						matchId:              matchId,
 					}
 
-					startGame := http.Cookie{
-						Name:     "current_game",
-						Value:    gameName,
-						Path:     "/",
-						MaxAge:   604800,
-						HttpOnly: true,
-						Secure:   true,
-						SameSite: http.SameSiteLaxMode,
-					}
+					cfg.Matches.setMatch(gameName, match)
 
-					match := cfg.Matches[gameName]
+					startGame := cfg.makeCookie("current_game", gameName, "/")
+
 					match = fillBoard(match)
 					UpdateCoordinates(&match, whitePlayer.Multiplier)
 					http.SetCookie(w, &startGame)
@@ -259,6 +199,7 @@ func (cfg *appConfig) onlineBoardHandler(w http.ResponseWriter, r *http.Request)
 			}
 		}
 	}
+
 	var currentGame string
 
 	randomString, err := auth.MakeRefreshToken()
@@ -268,30 +209,14 @@ func (cfg *appConfig) onlineBoardHandler(w http.ResponseWriter, r *http.Request)
 	}
 	currentGame = fmt.Sprintf("online:%v", randomString)
 
-	startGame := http.Cookie{
-		Name:     "current_game",
-		Value:    currentGame,
-		Path:     "/",
-		MaxAge:   604800,
-		HttpOnly: true,
-		Secure:   true,
-		SameSite: http.SameSiteLaxMode,
-	}
+	startGame := cfg.makeCookie("current_game", currentGame, "/")
 
 	http.SetCookie(w, &startGame)
 
-	mC, noMc := r.Cookie("multiplier")
-
-	var multiplier int
-	if noMc != nil {
-		multiplier = 80
-	} else {
-		mcInt, err := strconv.Atoi(mC.Value)
-		if err != nil {
-			respondWithAnError(w, http.StatusInternalServerError, "couldn't convert value", err)
-			return
-		}
-		multiplier = mcInt
+	multiplier, err := cfg.getMultiplier(r)
+	if err != nil {
+		respondWithAnError(w, http.StatusInternalServerError, "error getting multiplier", err)
+		return
 	}
 
 	cfg.connections[currentGame] = OnlineGame{
@@ -341,21 +266,14 @@ func (cfg *appConfig) updateMultiplerHandler(w http.ResponseWriter, r *http.Requ
 	} else {
 		currentGame = c.Value
 	}
-	match := cfg.Matches[currentGame]
+	match, _ := cfg.Matches.getMatch(currentGame)
 
 	match.coordinateMultiplier = multiplier
 	UpdateCoordinates(&match, multiplier)
-	cfg.Matches[currentGame] = match
+	cfg.Matches.setMatch(currentGame, match)
 
-	multiplierCookie := http.Cookie{
-		Name:     "multiplier",
-		Value:    r.FormValue("multiplier"),
-		Path:     "/",
-		MaxAge:   604800,
-		HttpOnly: true,
-		Secure:   true,
-		SameSite: http.SameSiteLaxMode,
-	}
+	multiplierCookie := cfg.makeCookie("multiplier", r.FormValue("multiplier"), "/")
+
 	http.SetCookie(w, &multiplierCookie)
 
 	for k, piece := range match.pieces {
@@ -473,7 +391,7 @@ func (cfg *appConfig) startGameHandler(w http.ResponseWriter, r *http.Request) {
 		multiplier = mcInt
 	}
 
-	cfg.Matches[newGameName] = Match{
+	cur := Match{
 		board:                startingBoard,
 		pieces:               startingPieces,
 		selectedPiece:        components.Piece{},
@@ -487,7 +405,7 @@ func (cfg *appConfig) startGameHandler(w http.ResponseWriter, r *http.Request) {
 		matchId:              matchId,
 	}
 
-	cur := cfg.Matches[newGameName]
+	cfg.Matches.setMatch(newGameName, cur)
 
 	cur = fillBoard(cur)
 	UpdateCoordinates(&cur, cur.coordinateMultiplier)
@@ -523,7 +441,7 @@ func (cfg *appConfig) resumeGameHandler(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	match, ok := cfg.Matches[c.Value]
+	match, ok := cfg.Matches.getMatch(c.Value)
 
 	if !ok {
 		respondWithAnError(w, http.StatusNoContent, "no game found", err)
@@ -548,7 +466,7 @@ func (cfg *appConfig) getAllMovesHandler(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	match, ok := cfg.Matches[c.Value]
+	match, ok := cfg.Matches.getMatch(c.Value)
 	onlineGame, found := cfg.connections[c.Value]
 
 	if !ok {
@@ -769,7 +687,7 @@ func (cfg *appConfig) playHandler(w http.ResponseWriter, r *http.Request) {
 		http.SetCookie(w, &sGC)
 	}
 
-	match := cfg.Matches[game]
+	match, _ := cfg.Matches.getMatch(game)
 	match = fillBoard(match)
 
 	whitePlayer := components.PlayerStruct{
@@ -854,7 +772,7 @@ func (cfg *appConfig) matchesHandler(w http.ResponseWriter, r *http.Request) {
 	startingBoard := MakeBoard()
 	startingPieces := MakePieces()
 
-	cfg.Matches[newGame] = Match{
+	cur := Match{
 		board:                startingBoard,
 		pieces:               startingPieces,
 		selectedPiece:        components.Piece{},
@@ -867,7 +785,7 @@ func (cfg *appConfig) matchesHandler(w http.ResponseWriter, r *http.Request) {
 		matchId:              match.ID,
 	}
 
-	cur := cfg.Matches[newGame]
+	cfg.Matches.setMatch(newGame, cur)
 
 	cur = fillBoard(cur)
 	UpdateCoordinates(&cur, cur.coordinateMultiplier)
@@ -946,7 +864,7 @@ func (cfg *appConfig) moveHistoryHandler(w http.ResponseWriter, r *http.Request)
 		curr.Tile = v
 		pieces[k] = curr
 	}
-	curr := cfg.Matches[c.Value]
+	curr, _ := cfg.Matches.getMatch(c.Value)
 
 	curr = cleanFillBoard(curr, pieces)
 
