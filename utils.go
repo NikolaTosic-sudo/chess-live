@@ -298,7 +298,7 @@ func checkForCastle(match Match, currentPiece components.Piece) (bool, bool) {
 }
 
 func (cfg *appConfig) handleCheckForCheck(currentSquareName, currentGame string, selectedPiece components.Piece) (bool, components.Piece, []string) {
-	match := cfg.Matches[currentGame]
+	match, _ := cfg.Matches.getMatch(currentGame)
 	var startingPosition [2]int
 
 	var king components.Piece
@@ -377,7 +377,7 @@ func (cfg *appConfig) handleCheckForCheck(currentSquareName, currentGame string,
 		match.board[savedStartingTile] = savedStartSqua
 		match.board[currentSquareName] = saved
 		selectedPiece.Tile = savedStartingTile
-		cfg.Matches[currentGame] = match
+		cfg.Matches.setMatch(currentGame, match)
 
 		return check, king, tilesComb
 	}
@@ -648,7 +648,7 @@ func setUserCheck(king components.Piece, currentMatch *Match) {
 }
 
 func handleIfCheck(w http.ResponseWriter, r *http.Request, cfg *appConfig, selected components.Piece, currentGame string) (bool, error) {
-	match := cfg.Matches[currentGame]
+	match, _ := cfg.Matches.getMatch(currentGame)
 	check, king, tilesUnderAttack := cfg.handleCheckForCheck("", currentGame, selected)
 	kingSquare := match.board[king.Tile]
 	if check {
@@ -658,7 +658,7 @@ func handleIfCheck(w http.ResponseWriter, r *http.Request, cfg *appConfig, selec
 			return false, err
 		}
 		match.tilesUnderAttack = tilesUnderAttack
-		cfg.Matches[currentGame] = match
+		cfg.Matches.setMatch(currentGame, match)
 		for _, tile := range tilesUnderAttack {
 			t := match.board[tile]
 
@@ -703,14 +703,14 @@ func formatTime(seconds int) string {
 }
 
 func (cfg *appConfig) endTurn(currentGame string, w http.ResponseWriter) {
-	match := cfg.Matches[currentGame]
+	match, _ := cfg.Matches.getMatch(currentGame)
 	if match.isWhiteTurn {
 		match.whiteTimer += match.addition
 	} else {
 		match.blackTimer += match.addition
 	}
 	match.isWhiteTurn = !match.isWhiteTurn
-	cfg.Matches[currentGame] = match
+	cfg.Matches.setMatch(currentGame, match)
 	cfg.gameDone(match, currentGame, w)
 }
 
@@ -921,7 +921,7 @@ func (cfg *appConfig) showMoves(match Match, squareName, pieceName string, w htt
 		)
 	}
 
-	cfg.Matches[c.Value] = match
+	cfg.Matches.setMatch(c.Value, match)
 
 	err = sendMessage(onlineGame, found, w, message, [2][]int{})
 
@@ -944,7 +944,7 @@ func cleanFillBoard(match Match, pieces map[string]components.Piece) Match {
 
 func (cfg *appConfig) checkForPawnPromotion(pawnName, currentGame string, w http.ResponseWriter, r *http.Request) (bool, error) {
 	var isOnLastTile bool
-	match := cfg.Matches[currentGame]
+	match, _ := cfg.Matches.getMatch(currentGame)
 	onlineGame, found := cfg.connections[currentGame]
 	pawn := match.pieces[pawnName]
 	if !pawn.IsPawn {

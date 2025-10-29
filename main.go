@@ -40,12 +40,8 @@ func main() {
 	startingPieces := MakePieces()
 	gameRooms := make(map[string]OnlineGame, 0)
 
-	cfg := appConfig{
-		database:    dbQueries,
-		secret:      secret,
-		users:       make(map[uuid.UUID]User, 0),
-		connections: gameRooms,
-		Matches: map[string]Match{
+	matches := Matches{
+		matches: map[string]Match{
 			"initial": {
 				board:                startingBoard,
 				pieces:               startingPieces,
@@ -62,7 +58,15 @@ func main() {
 		},
 	}
 
-	cur := cfg.Matches["initial"]
+	cfg := appConfig{
+		database:    dbQueries,
+		secret:      secret,
+		users:       make(map[uuid.UUID]User, 0),
+		connections: gameRooms,
+		Matches:     matches,
+	}
+
+	cur, _ := cfg.Matches.getMatch("initial")
 	UpdateCoordinates(&cur, cur.coordinateMultiplier)
 
 	http.Handle("/assets/", http.StripPrefix("/assets/", http.FileServer(http.Dir("assets"))))
