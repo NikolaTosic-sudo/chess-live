@@ -293,7 +293,12 @@ func (m *Match) checkForCastle(currentPiece components.Piece) (bool, bool) {
 	return false, false
 }
 
+<<<<<<< HEAD
 func (m *Match) handleCheckForCheck(currentSquareName string, selectedPiece components.Piece) (bool, components.Piece, []string) {
+=======
+func (cfg *appConfig) handleCheckForCheck(currentSquareName, currentGame string, selectedPiece components.Piece) (bool, components.Piece, []string) {
+	match, _ := cfg.Matches.getMatch(currentGame)
+>>>>>>> 7dd374c (Implemented all helper functions and changes around types)
 	var startingPosition [2]int
 
 	var king components.Piece
@@ -372,6 +377,10 @@ func (m *Match) handleCheckForCheck(currentSquareName string, selectedPiece comp
 		m.board[savedStartingTile] = savedStartSqua
 		m.board[currentSquareName] = saved
 		selectedPiece.Tile = savedStartingTile
+<<<<<<< HEAD
+=======
+		cfg.Matches.setMatch(currentGame, match)
+>>>>>>> 7dd374c (Implemented all helper functions and changes around types)
 
 		return check, king, tilesComb
 	}
@@ -644,7 +653,11 @@ func (m *Match) setUserCheck(king components.Piece) {
 
 func handleIfCheck(w http.ResponseWriter, r *http.Request, cfg *appConfig, selected components.Piece, currentGame string) (bool, error) {
 	match, _ := cfg.Matches.getMatch(currentGame)
+<<<<<<< HEAD
 	check, king, tilesUnderAttack := match.handleCheckForCheck("", selected)
+=======
+	check, king, tilesUnderAttack := cfg.handleCheckForCheck("", currentGame, selected)
+>>>>>>> 7dd374c (Implemented all helper functions and changes around types)
 	kingSquare := match.board[king.Tile]
 	if check {
 		match.setUserCheck(king)
