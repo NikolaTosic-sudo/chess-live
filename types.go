@@ -11,7 +11,7 @@ type appConfig struct {
 	secret   string
 	users    map[uuid.UUID]User
 	// TODO: this can probably be combined into one struct, instead of multiple, Matches and connections
-	Matches     map[string]Match
+	Matches     Matches
 	connections map[string]OnlineGame
 }
 
@@ -26,6 +26,10 @@ type OnlineGame struct {
 	message   chan (string)
 	playerMsg chan (string)
 	player    chan (components.OnlinePlayerStruct)
+}
+
+type Matches struct {
+	matches map[string]Match
 }
 
 type Match struct {
@@ -49,4 +53,5 @@ type Match struct {
 	possibleEnPessant     string
 	takenPiecesWhite      []string
 	takenPiecesBlack      []string
+	online                OnlineGame
 }
