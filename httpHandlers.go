@@ -146,7 +146,7 @@ func (cfg *appConfig) registerAllHandlers() {
 		{
 			method:    "GET",
 			reqPath:   "/play-online",
-			handlFunc: cfg.onlineBoardHandler,
+			handlFunc: cfg.middleWareCheckForUserPrivate(cfg.onlineBoardHandler),
 		},
 		{
 			method:    "GET",
