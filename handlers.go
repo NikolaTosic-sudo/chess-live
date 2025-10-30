@@ -353,15 +353,7 @@ func (cfg *appConfig) startGameHandler(w http.ResponseWriter, r *http.Request) {
 		newGameName = randomString
 	}
 
-	startGame := http.Cookie{
-		Name:     "current_game",
-		Value:    newGameName,
-		Path:     "/",
-		MaxAge:   604800,
-		HttpOnly: true,
-		Secure:   true,
-		SameSite: http.SameSiteLaxMode,
-	}
+	startGame := cfg.makeCookie("current_game", newGameName, "/")
 
 	startingBoard := MakeBoard()
 	startingPieces := MakePieces()
@@ -377,18 +369,12 @@ func (cfg *appConfig) startGameHandler(w http.ResponseWriter, r *http.Request) {
 		respondWithAnError(w, http.StatusInternalServerError, "couldn't convert duration", err)
 		return
 	}
-	mC, noMc := r.Cookie("multiplier")
 
-	var multiplier int
-	if noMc != nil {
-		multiplier = 80
-	} else {
-		mcInt, err := strconv.Atoi(mC.Value)
-		if err != nil {
-			respondWithAnError(w, http.StatusInternalServerError, "couldn't convert multiplier", err)
-			return
-		}
-		multiplier = mcInt
+	multiplier, err := cfg.getMultiplier(r)
+
+	if err != nil {
+		respondWithAnError(w, http.StatusInternalServerError, "couldn't convert multiplier", err)
+		return
 	}
 
 	cur := Match{
@@ -641,15 +627,8 @@ func (cfg *appConfig) playHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		game = "initial"
 	} else if strings.Contains(c.Value, "database:") {
-		cGC := http.Cookie{
-			Name:     "current_game",
-			Value:    "",
-			Path:     "/",
-			MaxAge:   -1,
-			HttpOnly: true,
-			Secure:   true,
-			SameSite: http.SameSiteLaxMode,
-		}
+		cGC := cfg.removeCookie("current_game")
+
 		http.SetCookie(w, &cGC)
 		game = "initial"
 	} else if c.Value != "" {
@@ -663,25 +642,9 @@ func (cfg *appConfig) playHandler(w http.ResponseWriter, r *http.Request) {
 	if err == nil {
 		game = sC.Value
 
-		startGame := http.Cookie{
-			Name:     "current_game",
-			Value:    game,
-			Path:     "/",
-			MaxAge:   604800,
-			HttpOnly: true,
-			Secure:   true,
-			SameSite: http.SameSiteLaxMode,
-		}
+		startGame := cfg.makeCookie("current_game", game, "/")
 
-		sGC := http.Cookie{
-			Name:     "saved_game",
-			Value:    "",
-			Path:     "/",
-			MaxAge:   -1,
-			HttpOnly: true,
-			Secure:   true,
-			SameSite: http.SameSiteLaxMode,
-		}
+		sGC := cfg.removeCookie("saved_game")
 
 		http.SetCookie(w, &startGame)
 		http.SetCookie(w, &sGC)
@@ -731,43 +694,20 @@ func (cfg *appConfig) matchesHandler(w http.ResponseWriter, r *http.Request) {
 
 	c, noCookie := r.Cookie("current_game")
 
-	if noCookie == nil {
-		saveGame := http.Cookie{
-			Name:     "saved_game",
-			Value:    c.Value,
-			Path:     "/",
-			MaxAge:   604800,
-			HttpOnly: true,
-			Secure:   true,
-			SameSite: http.SameSiteLaxMode,
-		}
+	if noCookie == nil && c.Value != "" {
+		saveGame := cfg.makeCookie("saved_game", c.Value, "/")
 
 		http.SetCookie(w, &saveGame)
 	}
 
-	mC, noMc := r.Cookie("multiplier")
+	multiplier, err := cfg.getMultiplier(r)
 
-	var multiplier int
-	if noMc != nil {
-		multiplier = 80
-	} else {
-		mcInt, err := strconv.Atoi(mC.Value)
-		if err != nil {
-			respondWithAnError(w, http.StatusInternalServerError, "couldn't convert value", err)
-			return
-		}
-		multiplier = mcInt
+	if err != nil {
+		respondWithAnError(w, http.StatusInternalServerError, "couldn't convert value", err)
+		return
 	}
 
-	startGame := http.Cookie{
-		Name:     "current_game",
-		Value:    newGame,
-		Path:     "/",
-		MaxAge:   604800,
-		HttpOnly: true,
-		Secure:   true,
-		SameSite: http.SameSiteLaxMode,
-	}
+	startGame := cfg.makeCookie("current_game", newGame, "/")
 
 	startingBoard := MakeBoard()
 	startingPieces := MakePieces()
