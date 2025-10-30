@@ -111,35 +111,10 @@ func (cfg *appConfig) signupHandler(w http.ResponseWriter, r *http.Request) {
 		SameSite: http.SameSiteLaxMode,
 	}
 
-	refreshC := http.Cookie{
-		Name:     "refresh_token",
-		Value:    refreshString,
-		Path:     "/api/refresh",
-		MaxAge:   604800,
-		HttpOnly: true,
-		Secure:   true,
-		SameSite: http.SameSiteLaxMode,
-	}
+	refreshC := cfg.makeCookie("refresh_token", refreshString, "/api/refresh")
 
-	cGC := http.Cookie{
-		Name:     "current_game",
-		Value:    "",
-		Path:     "/",
-		MaxAge:   -1,
-		HttpOnly: true,
-		Secure:   true,
-		SameSite: http.SameSiteLaxMode,
-	}
-
-	sGC := http.Cookie{
-		Name:     "saved_game",
-		Value:    "",
-		Path:     "/",
-		MaxAge:   -1,
-		HttpOnly: true,
-		Secure:   true,
-		SameSite: http.SameSiteLaxMode,
-	}
+	cGC := cfg.removeCookie("current_game")
+	sGC := cfg.removeCookie("saved_game")
 
 	http.SetCookie(w, &c)
 	http.SetCookie(w, &refreshC)
@@ -217,45 +192,11 @@ func (cfg *appConfig) loginHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	c := http.Cookie{
-		Name:     "access_token",
-		Value:    token,
-		Path:     "/",
-		MaxAge:   3600,
-		HttpOnly: true,
-		Secure:   true,
-		SameSite: http.SameSiteLaxMode,
-	}
+	c := cfg.makeCookieMaxAge("access_token", token, "/", 3600)
+	refreshC := cfg.makeCookie("refresh_token", refreshString, "/api/refresh")
 
-	refreshC := http.Cookie{
-		Name:     "refresh_token",
-		Value:    refreshString,
-		Path:     "/api/refresh",
-		MaxAge:   604800,
-		HttpOnly: true,
-		Secure:   true,
-		SameSite: http.SameSiteLaxMode,
-	}
-
-	cGC := http.Cookie{
-		Name:     "current_game",
-		Value:    "",
-		Path:     "/",
-		MaxAge:   -1,
-		HttpOnly: true,
-		Secure:   true,
-		SameSite: http.SameSiteLaxMode,
-	}
-
-	sGC := http.Cookie{
-		Name:     "saved_game",
-		Value:    "",
-		Path:     "/",
-		MaxAge:   -1,
-		HttpOnly: true,
-		Secure:   true,
-		SameSite: http.SameSiteLaxMode,
-	}
+	cGC := cfg.removeCookie("current_game")
+	sGC := cfg.removeCookie("saved_game")
 
 	http.SetCookie(w, &c)
 	http.SetCookie(w, &refreshC)
@@ -291,44 +232,10 @@ func (cfg *appConfig) logoutHandler(w http.ResponseWriter, r *http.Request) {
 
 	delete(cfg.users, userId)
 
-	accC := http.Cookie{
-		Name:     "access_token",
-		Value:    "",
-		Path:     "/",
-		MaxAge:   -1,
-		HttpOnly: true,
-		Secure:   true,
-		SameSite: http.SameSiteLaxMode,
-	}
-
-	refreshC := http.Cookie{
-		Name:     "refresh_token",
-		Value:    "",
-		Path:     "/api/refresh",
-		MaxAge:   -1,
-		HttpOnly: true,
-		Secure:   true,
-		SameSite: http.SameSiteLaxMode,
-	}
-
-	cGC := http.Cookie{
-		Name:     "current_game",
-		Value:    "",
-		Path:     "/",
-		MaxAge:   -1,
-		HttpOnly: true,
-		Secure:   true,
-		SameSite: http.SameSiteLaxMode,
-	}
-	sGC := http.Cookie{
-		Name:     "saved_game",
-		Value:    "",
-		Path:     "/",
-		MaxAge:   -1,
-		HttpOnly: true,
-		Secure:   true,
-		SameSite: http.SameSiteLaxMode,
-	}
+	cGC := cfg.removeCookie("current_game")
+	accC := cfg.removeCookie("access_token")
+	sGC := cfg.removeCookie("saved_game")
+	refreshC := cfg.removeCookiePath("refresh_token", "/api/refresh")
 
 	http.SetCookie(w, &accC)
 	http.SetCookie(w, &refreshC)
