@@ -127,15 +127,7 @@ func (cfg *appConfig) searchingOppHandler(w http.ResponseWriter, r *http.Request
 
 	whitePlayer := game.players["white"]
 	blackPlayer := game.players["black"]
-	startGame := http.Cookie{
-		Name:     "current_game",
-		Value:    currentGame,
-		Path:     "/",
-		MaxAge:   604800,
-		HttpOnly: true,
-		Secure:   true,
-		SameSite: http.SameSiteLaxMode,
-	}
+	startGame := cfg.makeCookie("current_game", currentGame, "/")
 
 	match, _ := cfg.Matches.getMatch(currentGame)
 	match = fillBoard(match)
@@ -280,15 +272,7 @@ func (cfg *appConfig) cancelOnlineHandler(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	cGC := http.Cookie{
-		Name:     "current_game",
-		Value:    "",
-		Path:     "/",
-		MaxAge:   -1,
-		HttpOnly: true,
-		Secure:   true,
-		SameSite: http.SameSiteLaxMode,
-	}
+	cGC := cfg.removeCookie("current_game")
 	http.SetCookie(w, &cGC)
 
 	_, err = fmt.Fprintf(w, `<div id="rec" hx-swap-oob="outerHTML"></div>`)
@@ -328,17 +312,10 @@ func (cfg *appConfig) continueOnlineHandler(w http.ResponseWriter, r *http.Reque
 
 	onlineGame, ok2 := cfg.connections[currentGame.Value]
 	if !ok || !ok2 {
-		cGC := http.Cookie{
-			Name:     "current_game",
-			Value:    "",
-			Path:     "/",
-			MaxAge:   -1,
-			HttpOnly: true,
-			Secure:   true,
-			SameSite: http.SameSiteLaxMode,
-		}
 
+		cGC := cfg.removeCookie("current_game")
 		http.SetCookie(w, &cGC)
+
 		match, _ := cfg.Matches.getMatch("initial")
 		match = fillBoard(match)
 
@@ -412,16 +389,7 @@ func (cfg *appConfig) cancelOnlineSearchHandler(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	cGC := http.Cookie{
-		Name:     "current_game",
-		Value:    "",
-		Path:     "/",
-		MaxAge:   -1,
-		HttpOnly: true,
-		Secure:   true,
-		SameSite: http.SameSiteLaxMode,
-	}
-
+	cGC := cfg.removeCookie("current_game")
 	http.SetCookie(w, &cGC)
 
 	delete(cfg.connections, currentGame.Value)
