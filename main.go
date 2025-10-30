@@ -72,7 +72,6 @@ func main() {
 	http.Handle("/assets/", http.StripPrefix("/assets/", http.FileServer(http.Dir("assets"))))
 	cfg.registerAllHandlers()
 
-	fmt.Printf("Listening on :%v\n", port)
 	err = http.ListenAndServe(fmt.Sprintf(":%v", port), nil)
 	if err != nil {
 		logError("couldn't start the server", err)
