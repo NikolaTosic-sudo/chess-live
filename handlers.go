@@ -11,6 +11,7 @@ import (
 	layout "github.com/NikolaTosic-sudo/chess-live/containers/layouts"
 	"github.com/NikolaTosic-sudo/chess-live/internal/auth"
 	"github.com/NikolaTosic-sudo/chess-live/internal/database"
+	"github.com/NikolaTosic-sudo/chess-live/internal/queue"
 	"github.com/google/uuid"
 )
 
@@ -125,77 +126,88 @@ func (cfg *appConfig) onlineBoardHandler(w http.ResponseWriter, r *http.Request)
 	userName := user.Name
 	userId := user.ID
 
-	emptyPlayer := components.OnlinePlayerStruct{}
-
 	if len(cfg.connections) > 0 {
-		for gameName, players := range cfg.connections {
-			for color, player := range players.players {
-				if player == emptyPlayer {
-					connection := cfg.connections[gameName]
+		for gameName, game := range cfg.connections {
 
-					multiplier, err := cfg.getMultiplier(r)
+			if game.playersQueue.HasSpot() {
+
+				multiplier, err := cfg.getMultiplier(r)
+				if err != nil {
+					respondWithAnErrorPage(w, r, http.StatusInternalServerError, "Please try again")
+					return
+				}
+
+				game.playersQueue.Enqueue(components.OnlinePlayerStruct{
+					ID:             userId,
+					Name:           userName,
+					Image:          "/assets/images/user-icon.png",
+					Timer:          formatTime(600),
+					ReconnectTimer: 30,
+					Multiplier:     multiplier,
+				})
+
+				for color := range game.players {
+					playerDq, err := game.playersQueue.Dequeue()
+
 					if err != nil {
-						respondWithAnErrorPage(w, r, http.StatusInternalServerError, "Please try again")
+						respondWithAnError(w, http.StatusInternalServerError, "", err)
 						return
 					}
 
-					player = components.OnlinePlayerStruct{
-						ID:             userId,
-						Name:           userName,
-						Image:          "/assets/images/user-icon.png",
-						Timer:          formatTime(600),
-						Pieces:         "black",
-						ReconnectTimer: 30,
-						Multiplier:     multiplier,
-					}
+					playerDq.Pieces = color
 
-					connection.players[color] = player
-					cfg.connections[gameName] = connection
-					whitePlayer := connection.players["white"]
+					player := playerDq
 
-					matchId, _ := cfg.database.CreateMatch(r.Context(), database.CreateMatchParams{
-						White:    whitePlayer.Name,
-						Black:    player.Name,
-						FullTime: 600,
-						IsOnline: true,
-					})
-
-					_ = cfg.database.CreateMatchUser(r.Context(), database.CreateMatchUserParams{
-						UserID:  userId,
-						MatchID: matchId,
-					})
-
-					startingBoard := MakeBoard()
-					startingPieces := MakePieces()
-
-					match := Match{
-						board:                startingBoard,
-						pieces:               startingPieces,
-						selectedPiece:        components.Piece{},
-						coordinateMultiplier: multiplier,
-						isWhiteTurn:          true,
-						isWhiteUnderCheck:    false,
-						isBlackUnderCheck:    false,
-						whiteTimer:           600,
-						blackTimer:           600,
-						addition:             0,
-						matchId:              matchId,
-					}
-
-					cfg.Matches.setMatch(gameName, match)
-
-					startGame := cfg.makeCookie("current_game", gameName, "/")
-
-					match = fillBoard(match)
-					UpdateCoordinates(&match, whitePlayer.Multiplier)
-					http.SetCookie(w, &startGame)
-
-					err = layout.MainPageOnline(match.board, match.pieces, whitePlayer.Multiplier, whitePlayer, player, match.takenPiecesWhite, match.takenPiecesBlack, false).Render(r.Context(), w)
-					if err != nil {
-						respondWithAnErrorPage(w, r, http.StatusInternalServerError, "Couldn't render template")
-					}
-					return
+					game.players[color] = player
 				}
+
+				whitePlayer := game.players["white"]
+				blackPlayer := game.players["black"]
+
+				matchId, _ := cfg.database.CreateMatch(r.Context(), database.CreateMatchParams{
+					White:    whitePlayer.Name,
+					Black:    blackPlayer.Name,
+					FullTime: 600,
+					IsOnline: true,
+				})
+
+				_ = cfg.database.CreateMatchUser(r.Context(), database.CreateMatchUserParams{
+					UserID:  userId,
+					MatchID: matchId,
+				})
+
+				startingBoard := MakeBoard()
+				startingPieces := MakePieces()
+
+				match := Match{
+					board:                startingBoard,
+					pieces:               startingPieces,
+					selectedPiece:        components.Piece{},
+					coordinateMultiplier: multiplier,
+					isWhiteTurn:          true,
+					isWhiteUnderCheck:    false,
+					isBlackUnderCheck:    false,
+					whiteTimer:           600,
+					blackTimer:           600,
+					addition:             0,
+					matchId:              matchId,
+				}
+
+				cfg.Matches.setMatch(gameName, match)
+
+				startGame := cfg.makeCookie("current_game", gameName, "/")
+
+				cfg.connections[gameName] = game
+
+				match = fillBoard(match)
+				UpdateCoordinates(&match, whitePlayer.Multiplier)
+				http.SetCookie(w, &startGame)
+
+				err = layout.MainPageOnline(match.board, match.pieces, whitePlayer.Multiplier, whitePlayer, blackPlayer, match.takenPiecesWhite, match.takenPiecesBlack, false).Render(r.Context(), w)
+				if err != nil {
+					respondWithAnErrorPage(w, r, http.StatusInternalServerError, "Couldn't render template")
+				}
+				return
 			}
 		}
 	}
@@ -219,22 +231,28 @@ func (cfg *appConfig) onlineBoardHandler(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	qS := queue.PlayersQueue{}
+
+	pQ := qS.NewQueue()
+
+	pQ.Enqueue(components.OnlinePlayerStruct{
+		ID:             userId,
+		Name:           userName,
+		Image:          "/assets/images/user-icon.png",
+		Timer:          formatTime(600),
+		ReconnectTimer: 30,
+		Multiplier:     multiplier,
+	})
+
 	cfg.connections[currentGame] = OnlineGame{
 		players: map[string]components.OnlinePlayerStruct{
-			"white": {
-				ID:             userId,
-				Name:           userName,
-				Image:          "/assets/images/user-icon.png",
-				Timer:          formatTime(600),
-				Pieces:         "white",
-				ReconnectTimer: 30,
-				Multiplier:     multiplier,
-			},
+			"white": {},
 			"black": {},
 		},
-		message:   make(chan string),
-		playerMsg: make(chan string),
-		player:    make(chan components.OnlinePlayerStruct),
+		message:      make(chan string),
+		playerMsg:    make(chan string),
+		player:       make(chan components.OnlinePlayerStruct),
+		playersQueue: pQ,
 	}
 	err = components.WaitingModal().Render(r.Context(), w)
 	if err != nil {
