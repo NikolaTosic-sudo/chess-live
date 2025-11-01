@@ -28,3 +28,17 @@ func (q *Queries) CreateMatchUser(ctx context.Context, arg CreateMatchUserParams
 	_, err := q.db.ExecContext(ctx, createMatchUser, arg.MatchID, arg.UserID)
 	return err
 }
+
+const deleteMatchUser = `-- name: DeleteMatchUser :exec
+DELETE FROM matches_users WHERE user_id = $1 AND match_id = $2
+`
+
+type DeleteMatchUserParams struct {
+	UserID  uuid.UUID
+	MatchID int32
+}
+
+func (q *Queries) DeleteMatchUser(ctx context.Context, arg DeleteMatchUserParams) error {
+	_, err := q.db.ExecContext(ctx, deleteMatchUser, arg.UserID, arg.MatchID)
+	return err
+}
