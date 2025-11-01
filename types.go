@@ -34,10 +34,6 @@ type Matches struct {
 	matches map[string]Match
 }
 
-type Matches struct {
-	matches map[string]Match
-}
-
 type Match struct {
 	//TODO: let's make board and pieces into it's own struct, so we can attach functions to it
 	board  map[string]components.Square
