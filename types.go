@@ -3,6 +3,7 @@ package main
 import (
 	"github.com/NikolaTosic-sudo/chess-live/containers/components"
 	"github.com/NikolaTosic-sudo/chess-live/internal/database"
+	"github.com/NikolaTosic-sudo/chess-live/internal/queue"
 	"github.com/google/uuid"
 )
 
@@ -22,10 +23,11 @@ type User struct {
 }
 
 type OnlineGame struct {
-	players   map[string]components.OnlinePlayerStruct
-	message   chan (string)
-	playerMsg chan (string)
-	player    chan (components.OnlinePlayerStruct)
+	players      map[string]components.OnlinePlayerStruct
+	message      chan (string)
+	playerMsg    chan (string)
+	player       chan (components.OnlinePlayerStruct)
+	playersQueue queue.PlayersQueue
 }
 
 type Matches struct {
