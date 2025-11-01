@@ -4,3 +4,6 @@ VALUES(
   $1,
   $2
 );
+
+-- name: DeleteMatchUser :exec
+DELETE FROM matches_users WHERE user_id = $1 AND match_id = $2;
