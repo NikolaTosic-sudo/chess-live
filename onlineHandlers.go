@@ -23,16 +23,14 @@ func (cfg *appConfig) wsHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		return
 	}
-	userC, err := r.Cookie("access_token")
-	if err != nil {
-		respondWithAnError(w, http.StatusNotFound, "no user found", err)
-		return
-	}
-	userId, err := auth.ValidateJWT(userC.Value, cfg.secret)
+
+	userId, err := cfg.getUserId(r)
+
 	if err != nil {
 		respondWithAnError(w, http.StatusUnauthorized, "unauthorized user", err)
 		return
 	}
+
 	game := cfg.connections[c.Value]
 	for color, player := range game.players {
 		if player.ID == userId {
