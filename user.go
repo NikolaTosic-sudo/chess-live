@@ -7,18 +7,35 @@ import (
 
 	"github.com/NikolaTosic-sudo/chess-live/internal/auth"
 	"github.com/NikolaTosic-sudo/chess-live/internal/database"
+	"github.com/google/uuid"
 )
 
-func (cfg *appConfig) getUser(r *http.Request) (database.User, error) {
-	user := database.User{}
+func (cfg *appConfig) getUserId(r *http.Request) (uuid.UUID, error) {
+	userId, err := uuid.NewUUID()
+
+	if err != nil {
+		return userId, err
+	}
 
 	userC, err := r.Cookie("access_token")
 
 	if err != nil || userC.Value == "" {
-		return user, fmt.Errorf("invalid access token")
+		return userId, fmt.Errorf("invalid access token")
 	}
 
-	userId, err := auth.ValidateJWT(userC.Value, cfg.secret)
+	userId, err = auth.ValidateJWT(userC.Value, cfg.secret)
+
+	if err != nil {
+		return userId, err
+	}
+
+	return userId, err
+}
+
+func (cfg *appConfig) getUser(r *http.Request) (database.User, error) {
+	user := database.User{}
+
+	userId, err := cfg.getUserId(r)
 
 	if err != nil {
 		return user, err
