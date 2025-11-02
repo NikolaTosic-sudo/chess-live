@@ -55,5 +55,5 @@ type Match struct {
 	possibleEnPessant     string
 	takenPiecesWhite      []string
 	takenPiecesBlack      []string
-	online                OnlineGame
+	// online                OnlineGame
 }
