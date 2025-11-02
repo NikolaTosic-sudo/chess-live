@@ -126,8 +126,12 @@ func (cfg *appConfig) onlineBoardHandler(w http.ResponseWriter, r *http.Request)
 	userName := user.Name
 	userId := user.ID
 
-	if len(cfg.connections) > 0 {
-		for gameName, game := range cfg.connections {
+	onlineMatches := cfg.Matches.getAllOnlineMatches()
+
+	if len(onlineMatches) > 0 {
+		for gameName, match := range onlineMatches {
+
+			game := match.online
 
 			if game.playersQueue.HasSpot() {
 
@@ -171,33 +175,33 @@ func (cfg *appConfig) onlineBoardHandler(w http.ResponseWriter, r *http.Request)
 					IsOnline: true,
 				})
 
-				_ = cfg.database.CreateMatchUser(r.Context(), database.CreateMatchUserParams{
-					UserID:  userId,
-					MatchID: matchId,
-				})
+				playersId := []uuid.UUID{whitePlayer.ID, blackPlayer.ID}
+				for _, id := range playersId {
+					_ = cfg.database.CreateMatchUser(r.Context(), database.CreateMatchUserParams{
+						UserID:  id,
+						MatchID: matchId,
+					})
+				}
 
 				startingBoard := MakeBoard()
 				startingPieces := MakePieces()
 
-				match := Match{
-					board:                startingBoard,
-					pieces:               startingPieces,
-					selectedPiece:        components.Piece{},
-					coordinateMultiplier: multiplier,
-					isWhiteTurn:          true,
-					isWhiteUnderCheck:    false,
-					isBlackUnderCheck:    false,
-					whiteTimer:           600,
-					blackTimer:           600,
-					addition:             0,
-					matchId:              matchId,
-				}
+				match.board = startingBoard
+				match.pieces = startingPieces
+				match.selectedPiece = components.Piece{}
+				match.coordinateMultiplier = multiplier
+				match.isWhiteTurn = true
+				match.isWhiteUnderCheck = false
+				match.isBlackUnderCheck = false
+				match.whiteTimer = 600
+				match.blackTimer = 600
+				match.addition = 0
+				match.matchId = matchId
+				match.online = game
 
 				cfg.Matches.setMatch(gameName, match)
 
 				startGame := cfg.makeCookie("current_game", gameName, "/")
-
-				cfg.connections[gameName] = game
 
 				match.fillBoard()
 				UpdateCoordinates(&match, whitePlayer.Multiplier)
@@ -244,16 +248,22 @@ func (cfg *appConfig) onlineBoardHandler(w http.ResponseWriter, r *http.Request)
 		Multiplier:     multiplier,
 	})
 
-	cfg.connections[currentGame] = OnlineGame{
-		players: map[string]components.OnlinePlayerStruct{
-			"white": {},
-			"black": {},
+	match := Match{
+		isOnline: true,
+		online: OnlineGame{
+			players: map[string]components.OnlinePlayerStruct{
+				"white": {},
+				"black": {},
+			},
+			message:      make(chan string),
+			playerMsg:    make(chan string),
+			player:       make(chan components.OnlinePlayerStruct),
+			playersQueue: pQ,
 		},
-		message:      make(chan string),
-		playerMsg:    make(chan string),
-		player:       make(chan components.OnlinePlayerStruct),
-		playersQueue: pQ,
 	}
+
+	cfg.Matches.setMatch(currentGame, match)
+
 	err = components.WaitingModal().Render(r.Context(), w)
 	if err != nil {
 		respondWithAnErrorPage(w, r, http.StatusInternalServerError, "couldn't render template")
@@ -471,7 +481,7 @@ func (cfg *appConfig) getAllMovesHandler(w http.ResponseWriter, r *http.Request)
 	}
 
 	match, ok := cfg.Matches.getMatch(c.Value)
-	onlineGame, found := cfg.connections[c.Value]
+	onlineGame, found := match.isOnlineMatch()
 
 	if !ok {
 		respondWithAnError(w, http.StatusNoContent, "no game found", err)

@@ -496,7 +496,7 @@ func (m *Match) handleChecksWhenKingMoves(currentSquareName string) bool {
 	return false
 }
 
-func (cfg *appConfig) gameDone(match Match, currentGame string, w http.ResponseWriter) {
+func (cfg *appConfig) gameDone(match Match, w http.ResponseWriter) {
 	var king components.Piece
 	if match.isWhiteTurn {
 		king = match.pieces["white_king"]
@@ -504,7 +504,7 @@ func (cfg *appConfig) gameDone(match Match, currentGame string, w http.ResponseW
 		king = match.pieces["black_king"]
 	}
 
-	onlineGame, found := cfg.connections[currentGame]
+	onlineGame, found := match.isOnlineMatch()
 
 	if match.movesSinceLastCapture == 50 {
 		msg, err := TemplString(components.EndGameModal("1-1", ""))
@@ -647,7 +647,7 @@ func handleIfCheck(w http.ResponseWriter, r *http.Request, cfg *appConfig, selec
 	kingSquare := match.board[king.Tile]
 	if check {
 		match.setUserCheck(king)
-		err := cfg.respondWithCheck(w, kingSquare, king, currentGame)
+		err := match.respondWithCheck(w, kingSquare, king)
 		if err != nil {
 			return false, err
 		}
@@ -663,7 +663,7 @@ func handleIfCheck(w http.ResponseWriter, r *http.Request, cfg *appConfig, selec
 					return false, err
 				}
 			} else {
-				err := cfg.respondWithCoverCheck(w, tile, t, currentGame)
+				err := match.respondWithCoverCheck(w, tile, t)
 				if err != nil {
 					return false, err
 				}
@@ -705,7 +705,7 @@ func (cfg *appConfig) endTurn(currentGame string, w http.ResponseWriter) {
 	}
 	match.isWhiteTurn = !match.isWhiteTurn
 	cfg.Matches.setMatch(currentGame, match)
-	cfg.gameDone(match, currentGame, w)
+	cfg.gameDone(match, w)
 }
 
 func (cfg *appConfig) refreshToken(w http.ResponseWriter, r *http.Request) {
@@ -864,7 +864,7 @@ func (cfg *appConfig) showMoves(match Match, squareName, pieceName string, w htt
 			return err
 		}
 	}
-	onlineGame, found := cfg.connections[c.Value]
+	onlineGame, found := match.isOnlineMatch()
 	boardState := make(map[string]string, 0)
 	for k, v := range match.pieces {
 		boardState[k] = v.Tile
@@ -932,7 +932,7 @@ func (m *Match) cleanFillBoard(pieces map[string]components.Piece) {
 func (cfg *appConfig) checkForPawnPromotion(pawnName, currentGame string, w http.ResponseWriter, r *http.Request) (bool, error) {
 	var isOnLastTile bool
 	match, _ := cfg.Matches.getMatch(currentGame)
-	onlineGame, found := cfg.connections[currentGame]
+	onlineGame, found := match.isOnlineMatch()
 	pawn := match.pieces[pawnName]
 	if !pawn.IsPawn {
 		return false, nil
