@@ -128,7 +128,7 @@ func (cfg *appConfig) searchingOppHandler(w http.ResponseWriter, r *http.Request
 	startGame := cfg.makeCookie("current_game", currentGame, "/")
 
 	match, _ := cfg.Matches.getMatch(currentGame)
-	match = fillBoard(match)
+	match.fillBoard()
 	UpdateCoordinates(&match, whitePlayer.Multiplier)
 	http.SetCookie(w, &startGame)
 
@@ -315,7 +315,7 @@ func (cfg *appConfig) continueOnlineHandler(w http.ResponseWriter, r *http.Reque
 		http.SetCookie(w, &cGC)
 
 		match, _ := cfg.Matches.getMatch("initial")
-		match = fillBoard(match)
+		match.fillBoard()
 
 		whitePlayer := components.PlayerStruct{
 			Image:  "/assets/images/user-icon.png",

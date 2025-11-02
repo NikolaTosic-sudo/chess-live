@@ -48,13 +48,13 @@ func (cfg *appConfig) moveHandler(w http.ResponseWriter, r *http.Request) {
 		userId, _ = auth.ValidateJWT(userC.Value, cfg.secret)
 	}
 
-	canPlay := canPlay(currentPiece, match, onlineGame.players, userId)
+	canPlay := match.canPlay(currentPiece, onlineGame.players, userId)
 
 	currentSquareName := currentPiece.Tile
 	currentSquare := match.board[currentSquareName]
 	selectedSquare := match.selectedPiece.Tile
 	selSq := match.board[selectedSquare]
-	legalMoves := checkLegalMoves(match)
+	legalMoves := match.checkLegalMoves()
 
 	if canEat(match.selectedPiece, currentPiece) && slices.Contains(legalMoves, currentSquareName) {
 		if found {
@@ -66,7 +66,7 @@ func (cfg *appConfig) moveHandler(w http.ResponseWriter, r *http.Request) {
 		}
 		var kingCheck bool
 		if match.selectedPiece.IsKing {
-			kingCheck = handleChecksWhenKingMoves(currentSquareName, match)
+			kingCheck = match.handleChecksWhenKingMoves(currentSquareName)
 		} else if match.isWhiteTurn && match.isWhiteUnderCheck && !slices.Contains(match.tilesUnderAttack, currentSquareName) {
 			w.WriteHeader(http.StatusNoContent)
 			return
@@ -77,7 +77,7 @@ func (cfg *appConfig) moveHandler(w http.ResponseWriter, r *http.Request) {
 
 		var check bool
 		if !match.selectedPiece.IsKing {
-			check, _, _ = cfg.handleCheckForCheck(currentSquareName, currentGame, match.selectedPiece)
+			check, _, _ = match.handleCheckForCheck(currentSquareName, match.selectedPiece)
 		}
 
 		if check || kingCheck {
@@ -115,7 +115,7 @@ func (cfg *appConfig) moveHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		match, _, saveSelected := eatCleanup(match, currentPiece, selectedSquare, currentSquareName)
+		_, saveSelected := match.eatCleanup(currentPiece, selectedSquare, currentSquareName)
 
 		cfg.Matches.setMatch(currentGame, match)
 		err = cfg.showMoves(match, currentSquareName, saveSelected.Name, w, r)
@@ -184,7 +184,7 @@ func (cfg *appConfig) moveHandler(w http.ResponseWriter, r *http.Request) {
 
 	if selectedSquare != "" && selectedSquare != currentSquareName && samePiece(match.selectedPiece, currentPiece) {
 
-		isCastle, kingCheck := checkForCastle(match, currentPiece)
+		isCastle, kingCheck := match.checkForCastle(currentPiece)
 
 		if isCastle && !match.isBlackUnderCheck && !match.isWhiteUnderCheck && !kingCheck {
 
@@ -299,11 +299,11 @@ func (cfg *appConfig) moveToHandler(w http.ResponseWriter, r *http.Request) {
 	currentSquare := match.board[currentSquareName]
 	selectedSquare := match.selectedPiece.Tile
 
-	legalMoves := checkLegalMoves(match)
+	legalMoves := match.checkLegalMoves()
 
 	var kingCheck bool
 	if match.selectedPiece.IsKing && slices.Contains(legalMoves, currentSquareName) {
-		kingCheck = handleChecksWhenKingMoves(currentSquareName, match)
+		kingCheck = match.handleChecksWhenKingMoves(currentSquareName)
 	} else if !slices.Contains(legalMoves, currentSquareName) && !slices.Contains(legalMoves, fmt.Sprintf("enpessant_%v", currentSquareName)) {
 		w.WriteHeader(http.StatusNoContent)
 		return
@@ -311,7 +311,7 @@ func (cfg *appConfig) moveToHandler(w http.ResponseWriter, r *http.Request) {
 
 	var check bool
 	if !match.selectedPiece.IsKing {
-		check, _, _ = cfg.handleCheckForCheck(currentSquareName, currentGame, match.selectedPiece)
+		check, _, _ = match.handleCheckForCheck(currentSquareName, match.selectedPiece)
 	}
 
 	if check || kingCheck {
@@ -358,7 +358,7 @@ func (cfg *appConfig) moveToHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		match, squareToDelete, saveSelected := eatCleanup(match, pieceToDelete, squareToDeleteName, currentSquareName)
+		squareToDelete, saveSelected := match.eatCleanup(pieceToDelete, squareToDeleteName, currentSquareName)
 
 		cfg.Matches.setMatch(currentGame, match)
 		err = cfg.showMoves(match, currentSquareName, saveSelected.Name, w, r)
@@ -430,10 +430,10 @@ func (cfg *appConfig) moveToHandler(w http.ResponseWriter, r *http.Request) {
 			respondWithAnError(w, http.StatusInternalServerError, "couldn't write to page", err)
 			return
 		}
-		match = checkForEnPessant(selectedSquare, currentSquare, match)
+		match.checkForEnPessant(selectedSquare, currentSquare)
 		saveSelected := match.selectedPiece
 		match.allMoves = append(match.allMoves, currentSquareName)
-		bigCleanup(currentSquareName, &match)
+		match.bigCleanup(currentSquareName)
 		err = cfg.showMoves(match, currentSquareName, saveSelected.Name, w, r)
 		if err != nil {
 			respondWithAnError(w, http.StatusInternalServerError, "show moves error: ", err)
@@ -477,7 +477,7 @@ func (cfg *appConfig) coverCheckHandler(w http.ResponseWriter, r *http.Request) 
 	currentSquare := match.board[currentSquareName]
 	selectedSquare := match.selectedPiece.Tile
 
-	legalMoves := checkLegalMoves(match)
+	legalMoves := match.checkLegalMoves()
 
 	if !slices.Contains(legalMoves, currentSquareName) {
 		w.WriteHeader(http.StatusNoContent)
@@ -486,9 +486,9 @@ func (cfg *appConfig) coverCheckHandler(w http.ResponseWriter, r *http.Request) 
 	var check bool
 	var kingCheck bool
 	if match.selectedPiece.IsKing {
-		kingCheck = handleChecksWhenKingMoves(currentSquareName, match)
+		kingCheck = match.handleChecksWhenKingMoves(currentSquareName)
 	} else {
-		check, _, _ = cfg.handleCheckForCheck(currentSquareName, currentGame, match.selectedPiece)
+		check, _, _ = match.handleCheckForCheck(currentSquareName, match.selectedPiece)
 	}
 	if check || kingCheck {
 		w.WriteHeader(http.StatusNoContent)
@@ -538,7 +538,7 @@ func (cfg *appConfig) coverCheckHandler(w http.ResponseWriter, r *http.Request) 
 		}
 		saveSelected := match.selectedPiece
 		match.allMoves = append(match.allMoves, currentSquareName)
-		bigCleanup(currentSquareName, &match)
+		match.bigCleanup(currentSquareName)
 		err = cfg.showMoves(match, currentSquareName, saveSelected.Name, w, r)
 		if err != nil {
 			respondWithAnError(w, http.StatusInternalServerError, "show moves error: ", err)
