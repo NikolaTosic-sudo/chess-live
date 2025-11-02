@@ -36,7 +36,7 @@ func (cfg *appConfig) boardHandler(w http.ResponseWriter, r *http.Request) {
 		match = cfg.Matches.getInitialMatch()
 	}
 
-	match = fillBoard(match)
+	match.fillBoard()
 
 	whitePlayer := components.PlayerStruct{
 		Image:  "/assets/images/user-icon.png",
@@ -93,7 +93,7 @@ func (cfg *appConfig) privateBoardHandler(w http.ResponseWriter, r *http.Request
 	}
 
 	match, _ := cfg.Matches.getMatch(game)
-	match = fillBoard(match)
+	match.fillBoard()
 
 	whitePlayer := components.PlayerStruct{
 		Image:  "/assets/images/user-icon.png",
@@ -199,7 +199,7 @@ func (cfg *appConfig) onlineBoardHandler(w http.ResponseWriter, r *http.Request)
 
 				cfg.connections[gameName] = game
 
-				match = fillBoard(match)
+				match.fillBoard()
 				UpdateCoordinates(&match, whitePlayer.Multiplier)
 				http.SetCookie(w, &startGame)
 
@@ -411,7 +411,7 @@ func (cfg *appConfig) startGameHandler(w http.ResponseWriter, r *http.Request) {
 
 	cfg.Matches.setMatch(newGameName, cur)
 
-	cur = fillBoard(cur)
+	cur.fillBoard()
 	UpdateCoordinates(&cur, cur.coordinateMultiplier)
 	http.SetCookie(w, &startGame)
 
@@ -452,7 +452,7 @@ func (cfg *appConfig) resumeGameHandler(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	match = fillBoard(match)
+	match.fillBoard()
 	UpdateCoordinates(&match, match.coordinateMultiplier)
 
 	err = components.StartGameRight().Render(r.Context(), w)
@@ -669,7 +669,7 @@ func (cfg *appConfig) playHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	match, _ := cfg.Matches.getMatch(game)
-	match = fillBoard(match)
+	match.fillBoard()
 
 	whitePlayer := components.PlayerStruct{
 		Image:  "/assets/images/user-icon.png",
@@ -745,7 +745,7 @@ func (cfg *appConfig) matchesHandler(w http.ResponseWriter, r *http.Request) {
 
 	cfg.Matches.setMatch(newGame, cur)
 
-	cur = fillBoard(cur)
+	cur.fillBoard()
 	UpdateCoordinates(&cur, cur.coordinateMultiplier)
 	http.SetCookie(w, &startGame)
 
@@ -824,7 +824,7 @@ func (cfg *appConfig) moveHistoryHandler(w http.ResponseWriter, r *http.Request)
 	}
 	curr, _ := cfg.Matches.getMatch(c.Value)
 
-	curr = cleanFillBoard(curr, pieces)
+	curr.cleanFillBoard(pieces)
 
 	err = components.UpdateBoardHistory(curr.board, pieces, curr.coordinateMultiplier, formatTime(int(board.WhiteTime)), formatTime(int(board.BlackTime))).Render(r.Context(), w)
 	if err != nil {
