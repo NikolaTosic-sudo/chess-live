@@ -31,7 +31,7 @@ func (cfg *appConfig) wsHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	game := cfg.connections[c.Value]
+	game := cfg.Matches.matches[c.Value].online
 	for color, player := range game.players {
 		if player.ID == userId {
 			player.Conn = conn
@@ -116,7 +116,8 @@ func (cfg *appConfig) searchingOppHandler(w http.ResponseWriter, r *http.Request
 		return
 	}
 	currentGame := c.Value
-	game := cfg.connections[currentGame]
+
+	game := cfg.Matches.matches[currentGame].online
 	var emptyPlayer components.OnlinePlayerStruct
 	if game.players["black"] == emptyPlayer {
 		w.WriteHeader(http.StatusNoContent)
@@ -160,7 +161,7 @@ func (cfg *appConfig) waitingForReconnect(w http.ResponseWriter, r *http.Request
 		respondWithAnError(w, http.StatusNotFound, "couldn't validate jwt", err)
 		return
 	}
-	game := cfg.connections[c.Value]
+	game := cfg.Matches.matches[c.Value].online
 
 	err1 := game.players["white"].Conn.WriteMessage(websocket.TextMessage, []byte("test"))
 	err2 := game.players["black"].Conn.WriteMessage(websocket.TextMessage, []byte("test"))
@@ -252,7 +253,7 @@ func (cfg *appConfig) cancelOnlineHandler(w http.ResponseWriter, r *http.Request
 
 	saveGame, _ := cfg.Matches.getMatch(currentGame.Value)
 
-	onlineGame := cfg.connections[currentGame.Value]
+	onlineGame := cfg.Matches.matches[currentGame.Value].online
 
 	var result string
 	if onlineGame.players["white"].ID == userId {
@@ -308,7 +309,12 @@ func (cfg *appConfig) continueOnlineHandler(w http.ResponseWriter, r *http.Reque
 
 	match, ok := cfg.Matches.getMatch(currentGame.Value)
 
-	onlineGame, ok2 := cfg.connections[currentGame.Value]
+	onlineGame, ok2 := OnlineGame{}, false
+
+	if ok {
+		onlineGame, ok2 = match.isOnlineMatch()
+	}
+
 	if !ok || !ok2 {
 
 		cGC := cfg.removeCookie("current_game")
@@ -390,7 +396,7 @@ func (cfg *appConfig) cancelOnlineSearchHandler(w http.ResponseWriter, r *http.R
 	cGC := cfg.removeCookie("current_game")
 	http.SetCookie(w, &cGC)
 
-	delete(cfg.connections, currentGame.Value)
+	delete(cfg.Matches.matches, currentGame.Value)
 
 	_, err = w.Write([]byte{})
 	if err != nil {

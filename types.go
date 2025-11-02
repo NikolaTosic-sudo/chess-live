@@ -11,9 +11,7 @@ type appConfig struct {
 	database *database.Queries
 	secret   string
 	users    map[uuid.UUID]User
-	// TODO: this can probably be combined into one struct, instead of multiple, Matches and connections
-	Matches     Matches
-	connections map[string]OnlineGame
+	Matches  Matches
 }
 
 type User struct {
@@ -55,5 +53,6 @@ type Match struct {
 	possibleEnPessant     string
 	takenPiecesWhite      []string
 	takenPiecesBlack      []string
-	// online                OnlineGame
+	isOnline              bool
+	online                OnlineGame
 }

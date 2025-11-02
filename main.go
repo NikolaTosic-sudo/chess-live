@@ -38,7 +38,6 @@ func main() {
 	dbQueries := database.New(db)
 	startingBoard := MakeBoard()
 	startingPieces := MakePieces()
-	gameRooms := make(map[string]OnlineGame, 0)
 
 	matches := Matches{
 		matches: map[string]Match{
@@ -59,11 +58,10 @@ func main() {
 	}
 
 	cfg := appConfig{
-		database:    dbQueries,
-		secret:      secret,
-		users:       make(map[uuid.UUID]User, 0),
-		connections: gameRooms,
-		Matches:     matches,
+		database: dbQueries,
+		secret:   secret,
+		users:    make(map[uuid.UUID]User, 0),
+		Matches:  matches,
 	}
 
 	cur, _ := cfg.Matches.getMatch("initial")

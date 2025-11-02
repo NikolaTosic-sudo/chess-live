@@ -68,8 +68,8 @@ func respondWithNewPiece(w http.ResponseWriter, r *http.Request, square componen
 	return err
 }
 
-func (cfg *appConfig) respondWithCheck(w http.ResponseWriter, square components.Square, king components.Piece, currentGame string) error {
-	onlineGame, found := cfg.connections[currentGame]
+func (m *Match) respondWithCheck(w http.ResponseWriter, square components.Square, king components.Piece) error {
+	onlineGame, found := m.isOnlineMatch()
 	className := `class="bg-red-400"`
 	message := fmt.Sprintf(
 		getSinglePieceMessage(),
@@ -88,8 +88,8 @@ func (cfg *appConfig) respondWithCheck(w http.ResponseWriter, square components.
 	return err
 }
 
-func (cfg *appConfig) respondWithCoverCheck(w http.ResponseWriter, tile string, t components.Square, currentGame string) error {
-	onlineGame, found := cfg.connections[currentGame]
+func (m *Match) respondWithCoverCheck(w http.ResponseWriter, tile string, t components.Square) error {
+	onlineGame, found := m.isOnlineMatch()
 	message := fmt.Sprintf(
 		getTileMessage(),
 		tile,

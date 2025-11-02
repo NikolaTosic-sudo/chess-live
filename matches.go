@@ -13,3 +13,19 @@ func (m *Matches) getInitialMatch() Match {
 	match := m.matches["initial"]
 	return match
 }
+
+func (m *Matches) getAllOnlineMatches() map[string]Match {
+	onlineMatches := make(map[string]Match)
+
+	for name, match := range m.matches {
+		if match.isOnline {
+			onlineMatches[name] = match
+		}
+	}
+
+	return onlineMatches
+}
+
+func (m *Match) isOnlineMatch() (OnlineGame, bool) {
+	return m.online, m.isOnline
+}

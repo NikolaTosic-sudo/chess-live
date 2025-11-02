@@ -38,8 +38,8 @@ func (cfg *appConfig) moveHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	currentGame := c.Value
-	onlineGame, found := cfg.connections[currentGame]
 	match, _ := cfg.Matches.getMatch(currentGame)
+	onlineGame, found := match.isOnlineMatch()
 	currentPiece := match.pieces[currentPieceName]
 	userC, err := r.Cookie("access_token")
 
@@ -294,8 +294,8 @@ func (cfg *appConfig) moveToHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	currentGame := c.Value
-	onlineGame, found := cfg.connections[currentGame]
 	match, _ := cfg.Matches.getMatch(currentGame)
+	onlineGame, found := match.isOnlineMatch()
 	currentSquare := match.board[currentSquareName]
 	selectedSquare := match.selectedPiece.Tile
 
@@ -472,8 +472,8 @@ func (cfg *appConfig) coverCheckHandler(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	currentGame := c.Value
-	onlineGame, found := cfg.connections[currentGame]
 	match, _ := cfg.Matches.getMatch(currentGame)
+	onlineGame, found := match.isOnlineMatch()
 	currentSquare := match.board[currentSquareName]
 	selectedSquare := match.selectedPiece.Tile
 
@@ -608,8 +608,8 @@ func (cfg *appConfig) timerHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	currentGame := c.Value
-	onlineGame, found := cfg.connections[currentGame]
 	match, _ := cfg.Matches.getMatch(currentGame)
+	onlineGame, found := match.isOnlineMatch()
 
 	var toChangeColor string
 	var stayTheSameColor string
@@ -683,7 +683,7 @@ func (cfg *appConfig) handlePromotion(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	currentGame, _ := cfg.Matches.getMatch(c.Value)
-	onlineGame, found := cfg.connections[c.Value]
+	onlineGame, found := currentGame.isOnlineMatch()
 	pawnName := r.FormValue("pawn")
 	pieceName := r.FormValue("piece")
 
@@ -821,13 +821,21 @@ func (cfg *appConfig) endGameHandler(w http.ResponseWriter, r *http.Request) {
 		respondWithAnError(w, http.StatusNotFound, "game not found", err)
 		return
 	}
+
 	err = r.ParseForm()
 	if err != nil {
 		respondWithAnError(w, http.StatusInternalServerError, "error parsing form", err)
 		return
 	}
+
 	saveGame, _ := cfg.Matches.getMatch(currentGame.Value)
+	if match, ok := saveGame.isOnlineMatch(); ok {
+		_ = match.players["white"].Conn.Close()
+		_ = match.players["black"].Conn.Close()
+	}
+
 	delete(cfg.Matches.matches, currentGame.Value)
+
 	err = cfg.database.UpdateMatchOnEnd(r.Context(), database.UpdateMatchOnEndParams{
 		Result: r.FormValue("result"),
 		ID:     saveGame.matchId,
@@ -836,11 +844,7 @@ func (cfg *appConfig) endGameHandler(w http.ResponseWriter, r *http.Request) {
 		respondWithAnError(w, http.StatusInternalServerError, "error updating match", err)
 		return
 	}
-	if match, ok := cfg.connections[currentGame.Value]; ok {
-		_ = match.players["white"].Conn.Close()
-		_ = match.players["black"].Conn.Close()
-		delete(cfg.connections, currentGame.Value)
-	}
+
 	cGC := http.Cookie{
 		Name:     "current_game",
 		Value:    "",
@@ -861,9 +865,11 @@ func (cfg *appConfig) surrenderHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	uC, err := r.Cookie("access_token")
+	currentGame, _ := cfg.Matches.getMatch(c.Value)
+
 	if err == nil && uC.Value != "" && strings.Contains(c.Value, "online:") {
 		var msg string
-		connection := cfg.connections[c.Value]
+		connection := currentGame.online
 		userId, err := auth.ValidateJWT(uC.Value, cfg.secret)
 		if err != nil {
 			respondWithAnError(w, http.StatusUnauthorized, "user not found", err)
@@ -894,7 +900,6 @@ func (cfg *appConfig) surrenderHandler(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
-	currentGame, _ := cfg.Matches.getMatch(c.Value)
 	if currentGame.isWhiteTurn {
 		err := components.EndGameModal("0-1", "black").Render(r.Context(), w)
 		if err != nil {
@@ -912,7 +917,7 @@ func (cfg *appConfig) surrenderHandler(w http.ResponseWriter, r *http.Request) {
 
 func (cfg *appConfig) handleCastle(w http.ResponseWriter, currentPiece components.Piece, currentGame string, r *http.Request) error {
 	match, _ := cfg.Matches.getMatch(currentGame)
-	onlineGame, found := cfg.connections[currentGame]
+	onlineGame, found := match.isOnlineMatch()
 
 	var king components.Piece
 	var rook components.Piece
@@ -1012,7 +1017,7 @@ func (cfg *appConfig) handleCastle(w http.ResponseWriter, currentPiece component
 		}
 	}
 
-	cfg.gameDone(match, currentGame, w)
+	cfg.gameDone(match, w)
 
 	return nil
 }
