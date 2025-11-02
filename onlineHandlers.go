@@ -130,7 +130,7 @@ func (cfg *appConfig) searchingOppHandler(w http.ResponseWriter, r *http.Request
 
 	match, _ := cfg.Matches.getMatch(currentGame)
 	match.fillBoard()
-	UpdateCoordinates(&match, whitePlayer.Multiplier)
+	match.UpdateCoordinates(whitePlayer.Multiplier)
 	http.SetCookie(w, &startGame)
 
 	_ = cfg.database.CreateMatchUser(r.Context(), database.CreateMatchUserParams{

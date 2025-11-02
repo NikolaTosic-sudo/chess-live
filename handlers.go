@@ -204,7 +204,7 @@ func (cfg *appConfig) onlineBoardHandler(w http.ResponseWriter, r *http.Request)
 				startGame := cfg.makeCookie("current_game", gameName, "/")
 
 				match.fillBoard()
-				UpdateCoordinates(&match, whitePlayer.Multiplier)
+				match.UpdateCoordinates(whitePlayer.Multiplier)
 				http.SetCookie(w, &startGame)
 
 				err = layout.MainPageOnline(match.board, match.pieces, whitePlayer.Multiplier, whitePlayer, blackPlayer, match.takenPiecesWhite, match.takenPiecesBlack, false).Render(r.Context(), w)
@@ -297,7 +297,7 @@ func (cfg *appConfig) updateMultiplerHandler(w http.ResponseWriter, r *http.Requ
 	match, _ := cfg.Matches.getMatch(currentGame)
 
 	match.coordinateMultiplier = multiplier
-	UpdateCoordinates(&match, multiplier)
+	match.UpdateCoordinates(multiplier)
 	cfg.Matches.setMatch(currentGame, match)
 
 	multiplierCookie := cfg.makeCookie("multiplier", r.FormValue("multiplier"), "/")
@@ -422,7 +422,7 @@ func (cfg *appConfig) startGameHandler(w http.ResponseWriter, r *http.Request) {
 	cfg.Matches.setMatch(newGameName, cur)
 
 	cur.fillBoard()
-	UpdateCoordinates(&cur, cur.coordinateMultiplier)
+	cur.UpdateCoordinates(cur.coordinateMultiplier)
 	http.SetCookie(w, &startGame)
 
 	whitePlayer := components.PlayerStruct{
@@ -463,7 +463,7 @@ func (cfg *appConfig) resumeGameHandler(w http.ResponseWriter, r *http.Request) 
 	}
 
 	match.fillBoard()
-	UpdateCoordinates(&match, match.coordinateMultiplier)
+	match.UpdateCoordinates(match.coordinateMultiplier)
 
 	err = components.StartGameRight().Render(r.Context(), w)
 	if err != nil {
@@ -481,7 +481,6 @@ func (cfg *appConfig) getAllMovesHandler(w http.ResponseWriter, r *http.Request)
 	}
 
 	match, ok := cfg.Matches.getMatch(c.Value)
-	onlineGame, found := match.isOnlineMatch()
 
 	if !ok {
 		respondWithAnError(w, http.StatusNoContent, "no game found", err)
@@ -503,7 +502,7 @@ func (cfg *appConfig) getAllMovesHandler(w http.ResponseWriter, r *http.Request)
 			)
 		}
 
-		err := sendMessage(onlineGame, found, w, message, [2][]int{})
+		err := match.sendMessage(w, message, [2][]int{})
 		if err != nil {
 			respondWithAnError(w, http.StatusInternalServerError, "couldn't write to page", err)
 			return
@@ -756,7 +755,7 @@ func (cfg *appConfig) matchesHandler(w http.ResponseWriter, r *http.Request) {
 	cfg.Matches.setMatch(newGame, cur)
 
 	cur.fillBoard()
-	UpdateCoordinates(&cur, cur.coordinateMultiplier)
+	cur.UpdateCoordinates(cur.coordinateMultiplier)
 	http.SetCookie(w, &startGame)
 
 	whitePlayer := components.PlayerStruct{

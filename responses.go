@@ -69,7 +69,6 @@ func respondWithNewPiece(w http.ResponseWriter, r *http.Request, square componen
 }
 
 func (m *Match) respondWithCheck(w http.ResponseWriter, square components.Square, king components.Piece) error {
-	onlineGame, found := m.isOnlineMatch()
 	className := `class="bg-red-400"`
 	message := fmt.Sprintf(
 		getSinglePieceMessage(),
@@ -80,7 +79,7 @@ func (m *Match) respondWithCheck(w http.ResponseWriter, square components.Square
 		className,
 	)
 
-	err := sendMessage(onlineGame, found, w, message, [2][]int{
+	err := m.sendMessage(w, message, [2][]int{
 		{square.CoordinatePosition[0]},
 		{square.CoordinatePosition[1]},
 	})
@@ -89,7 +88,6 @@ func (m *Match) respondWithCheck(w http.ResponseWriter, square components.Square
 }
 
 func (m *Match) respondWithCoverCheck(w http.ResponseWriter, tile string, t components.Square) error {
-	onlineGame, found := m.isOnlineMatch()
 	message := fmt.Sprintf(
 		getTileMessage(),
 		tile,
@@ -97,7 +95,7 @@ func (m *Match) respondWithCoverCheck(w http.ResponseWriter, tile string, t comp
 		t.Color,
 	)
 
-	err := sendMessage(onlineGame, found, w, message, [2][]int{})
+	err := m.sendMessage(w, message, [2][]int{})
 
 	return err
 }
