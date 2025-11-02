@@ -79,7 +79,7 @@ func TestCanPlay(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			canPlayResult := canPlay(tt.piece, tt.match, tt.onlinePlayers, tt.userId)
+			canPlayResult := tt.match.canPlay(tt.piece, tt.onlinePlayers, tt.userId)
 
 			if canPlayResult != tt.wantResult {
 				t.Errorf("canPlay() canPlayResult = %v, want %v", canPlayResult, tt.wantResult)
@@ -215,7 +215,7 @@ func TestCheckForCastle(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			isCastle, _ := checkForCastle(tt.match, tt.currentPiece)
+			isCastle, _ := tt.match.checkForCastle(tt.currentPiece)
 
 			if isCastle != tt.wantResult {
 				t.Errorf("checkForCastle() isCastle = %v, want %v", isCastle, tt.wantResult)
@@ -239,7 +239,7 @@ func TestCheckLegalMoves(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			legalMoves := checkLegalMoves(tt.match)
+			legalMoves := tt.match.checkLegalMoves()
 
 			if !reflect.DeepEqual(legalMoves, tt.wantResult) {
 				t.Errorf("checkLegalMoves() legalMoves = %v, want %v", legalMoves, tt.wantResult)
