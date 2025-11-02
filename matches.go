@@ -13,4 +13,3 @@ func (m *Matches) getInitialMatch() Match {
 	match := m.matches["initial"]
 	return match
 }
-
