@@ -65,7 +65,7 @@ func main() {
 	}
 
 	cur, _ := cfg.Matches.getMatch("initial")
-	UpdateCoordinates(&cur, cur.coordinateMultiplier)
+	cur.UpdateCoordinates(cur.coordinateMultiplier)
 
 	http.Handle("/assets/", http.StripPrefix("/assets/", http.FileServer(http.Dir("assets"))))
 	cfg.registerAllHandlers()

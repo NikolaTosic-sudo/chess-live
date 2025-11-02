@@ -497,23 +497,21 @@ func (m *Match) handleChecksWhenKingMoves(currentSquareName string) bool {
 	return false
 }
 
-func (cfg *appConfig) gameDone(match Match, w http.ResponseWriter) {
+func (m *Match) gameDone(w http.ResponseWriter) {
 	var king components.Piece
-	if match.isWhiteTurn {
-		king = match.pieces["white_king"]
+	if m.isWhiteTurn {
+		king = m.pieces["white_king"]
 	} else {
-		king = match.pieces["black_king"]
+		king = m.pieces["black_king"]
 	}
 
-	onlineGame, found := match.isOnlineMatch()
-
-	if match.movesSinceLastCapture == 50 {
+	if m.movesSinceLastCapture == 50 {
 		msg, err := TemplString(components.EndGameModal("1-1", ""))
 		if err != nil {
 			logError("couldn't render end game modal", err)
 			return
 		}
-		err = sendMessage(onlineGame, found, w, msg, [2][]int{})
+		err = m.sendMessage(w, msg, [2][]int{})
 		if err != nil {
 			logError("couldn't render end game modal", err)
 			return
@@ -521,27 +519,27 @@ func (cfg *appConfig) gameDone(match Match, w http.ResponseWriter) {
 		return
 	}
 
-	savePiece := match.selectedPiece
-	match.selectedPiece = king
-	legalMoves := match.checkLegalMoves()
-	match.selectedPiece = savePiece
+	savePiece := m.selectedPiece
+	m.selectedPiece = king
+	legalMoves := m.checkLegalMoves()
+	m.selectedPiece = savePiece
 	var checkCount []bool
 	for _, move := range legalMoves {
-		if match.handleChecksWhenKingMoves(move) {
+		if m.handleChecksWhenKingMoves(move) {
 			checkCount = append(checkCount, true)
 		}
 	}
 	if len(legalMoves) == len(checkCount) {
-		if match.isWhiteTurn && match.isWhiteUnderCheck {
-			for _, piece := range match.pieces {
+		if m.isWhiteTurn && m.isWhiteUnderCheck {
+			for _, piece := range m.pieces {
 				if piece.IsWhite && !piece.IsKing {
-					savePiece := match.selectedPiece
-					match.selectedPiece = piece
-					legalMoves := match.checkLegalMoves()
-					match.selectedPiece = savePiece
+					savePiece := m.selectedPiece
+					m.selectedPiece = piece
+					legalMoves := m.checkLegalMoves()
+					m.selectedPiece = savePiece
 
 					for _, move := range legalMoves {
-						if slices.Contains(match.tilesUnderAttack, move) {
+						if slices.Contains(m.tilesUnderAttack, move) {
 							return
 						}
 					}
@@ -552,21 +550,21 @@ func (cfg *appConfig) gameDone(match Match, w http.ResponseWriter) {
 				logError("couldn't convert component to string", err)
 				return
 			}
-			err = sendMessage(onlineGame, found, w, msg, [2][]int{})
+			err = m.sendMessage(w, msg, [2][]int{})
 			if err != nil {
 				logError("couldn't render end game modal", err)
 				return
 			}
-		} else if !match.isWhiteTurn && match.isBlackUnderCheck {
-			for _, piece := range match.pieces {
+		} else if !m.isWhiteTurn && m.isBlackUnderCheck {
+			for _, piece := range m.pieces {
 				if !piece.IsWhite && !piece.IsKing {
-					savePiece := match.selectedPiece
-					match.selectedPiece = piece
-					legalMoves := match.checkLegalMoves()
-					match.selectedPiece = savePiece
+					savePiece := m.selectedPiece
+					m.selectedPiece = piece
+					legalMoves := m.checkLegalMoves()
+					m.selectedPiece = savePiece
 
 					for _, move := range legalMoves {
-						if slices.Contains(match.tilesUnderAttack, move) {
+						if slices.Contains(m.tilesUnderAttack, move) {
 							return
 						}
 					}
@@ -577,18 +575,18 @@ func (cfg *appConfig) gameDone(match Match, w http.ResponseWriter) {
 				logError("couldn't convert component to string", err)
 				return
 			}
-			err = sendMessage(onlineGame, found, w, msg, [2][]int{})
+			err = m.sendMessage(w, msg, [2][]int{})
 			if err != nil {
 				logError("couldn't render end game modal", err)
 				return
 			}
-		} else if match.isWhiteTurn {
-			for _, piece := range match.pieces {
+		} else if m.isWhiteTurn {
+			for _, piece := range m.pieces {
 				if piece.IsWhite && !piece.IsKing {
-					savePiece := match.selectedPiece
-					match.selectedPiece = piece
-					legalMoves := match.checkLegalMoves()
-					match.selectedPiece = savePiece
+					savePiece := m.selectedPiece
+					m.selectedPiece = piece
+					legalMoves := m.checkLegalMoves()
+					m.selectedPiece = savePiece
 
 					if len(legalMoves) > 0 {
 						return
@@ -600,18 +598,18 @@ func (cfg *appConfig) gameDone(match Match, w http.ResponseWriter) {
 				logError("couldn't convert component to string", err)
 				return
 			}
-			err = sendMessage(onlineGame, found, w, msg, [2][]int{})
+			err = m.sendMessage(w, msg, [2][]int{})
 			if err != nil {
 				logError("couldn't render end game modal", err)
 				return
 			}
-		} else if !match.isWhiteTurn {
-			for _, piece := range match.pieces {
+		} else if !m.isWhiteTurn {
+			for _, piece := range m.pieces {
 				if !piece.IsWhite && !piece.IsKing {
-					savePiece := match.selectedPiece
-					match.selectedPiece = piece
-					legalMoves := match.checkLegalMoves()
-					match.selectedPiece = savePiece
+					savePiece := m.selectedPiece
+					m.selectedPiece = piece
+					legalMoves := m.checkLegalMoves()
+					m.selectedPiece = savePiece
 
 					if len(legalMoves) > 0 {
 						return
@@ -623,7 +621,7 @@ func (cfg *appConfig) gameDone(match Match, w http.ResponseWriter) {
 				logError("couldn't convert component to string", err)
 				return
 			}
-			err = sendMessage(onlineGame, found, w, msg, [2][]int{})
+			err = m.sendMessage(w, msg, [2][]int{})
 			if err != nil {
 				logError("couldn't render end game modal", err)
 				return
@@ -642,20 +640,18 @@ func (m *Match) setUserCheck(king components.Piece) {
 	}
 }
 
-func handleIfCheck(w http.ResponseWriter, r *http.Request, cfg *appConfig, selected components.Piece, currentGame string) (bool, error) {
-	match, _ := cfg.Matches.getMatch(currentGame)
-	check, king, tilesUnderAttack := match.handleCheckForCheck("", selected)
-	kingSquare := match.board[king.Tile]
+func (m *Match) handleIfCheck(w http.ResponseWriter, r *http.Request, selected components.Piece) (bool, error) {
+	check, king, tilesUnderAttack := m.handleCheckForCheck("", selected)
+	kingSquare := m.board[king.Tile]
 	if check {
-		match.setUserCheck(king)
-		err := match.respondWithCheck(w, kingSquare, king)
+		m.setUserCheck(king)
+		err := m.respondWithCheck(w, kingSquare, king)
 		if err != nil {
 			return false, err
 		}
-		match.tilesUnderAttack = tilesUnderAttack
-		cfg.Matches.setMatch(currentGame, match)
+		m.tilesUnderAttack = tilesUnderAttack
 		for _, tile := range tilesUnderAttack {
-			t := match.board[tile]
+			t := m.board[tile]
 
 			if t.Piece.Name != "" {
 				err := respondWithNewPiece(w, r, t)
@@ -664,7 +660,7 @@ func handleIfCheck(w http.ResponseWriter, r *http.Request, cfg *appConfig, selec
 					return false, err
 				}
 			} else {
-				err := match.respondWithCoverCheck(w, tile, t)
+				err := m.respondWithCoverCheck(w, tile, t)
 				if err != nil {
 					return false, err
 				}
@@ -697,16 +693,14 @@ func formatTime(seconds int) string {
 	return fmt.Sprintf("%02d:%02d", minutes, secs)
 }
 
-func (cfg *appConfig) endTurn(currentGame string, w http.ResponseWriter) {
-	match, _ := cfg.Matches.getMatch(currentGame)
-	if match.isWhiteTurn {
-		match.whiteTimer += match.addition
+func (m *Match) endTurn(w http.ResponseWriter) {
+	if m.isWhiteTurn {
+		m.whiteTimer += m.addition
 	} else {
-		match.blackTimer += match.addition
+		m.blackTimer += m.addition
 	}
-	match.isWhiteTurn = !match.isWhiteTurn
-	cfg.Matches.setMatch(currentGame, match)
-	cfg.gameDone(match, w)
+	m.isWhiteTurn = !m.isWhiteTurn
+	m.gameDone(w)
 }
 
 func (cfg *appConfig) refreshToken(w http.ResponseWriter, r *http.Request) {
@@ -745,15 +739,7 @@ func (cfg *appConfig) refreshToken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	newC := http.Cookie{
-		Name:     "access_token",
-		Value:    newToken,
-		Path:     "/",
-		MaxAge:   3600,
-		HttpOnly: true,
-		Secure:   true,
-		SameSite: http.SameSiteLaxMode,
-	}
+	newC := cfg.makeCookieMaxAge("access_token", newToken, "/", 3600)
 
 	http.SetCookie(w, &newC)
 
@@ -865,7 +851,7 @@ func (cfg *appConfig) showMoves(match Match, squareName, pieceName string, w htt
 			return err
 		}
 	}
-	onlineGame, found := match.isOnlineMatch()
+
 	boardState := make(map[string]string, 0)
 	for k, v := range match.pieces {
 		boardState[k] = v.Tile
@@ -912,7 +898,7 @@ func (cfg *appConfig) showMoves(match Match, squareName, pieceName string, w htt
 
 	cfg.Matches.setMatch(c.Value, match)
 
-	err = sendMessage(onlineGame, found, w, message, [2][]int{})
+	err = match.sendMessage(w, message, [2][]int{})
 
 	return err
 }
@@ -930,15 +916,14 @@ func (m *Match) cleanFillBoard(pieces map[string]components.Piece) {
 	}
 }
 
-func (cfg *appConfig) checkForPawnPromotion(pawnName, currentGame string, w http.ResponseWriter, r *http.Request) (bool, error) {
+func (m *Match) checkForPawnPromotion(pawnName string, w http.ResponseWriter, userId uuid.UUID) (bool, error) {
 	var isOnLastTile bool
-	match, _ := cfg.Matches.getMatch(currentGame)
-	onlineGame, found := match.isOnlineMatch()
-	pawn := match.pieces[pawnName]
+	onlineGame, found := m.isOnlineMatch()
+	pawn := m.pieces[pawnName]
 	if !pawn.IsPawn {
 		return false, nil
 	}
-	square := match.board[pawn.Tile]
+	square := m.board[pawn.Tile]
 	var pieceColor string
 	var firstPosition string
 	if pawn.IsWhite {
@@ -952,27 +937,13 @@ func (cfg *appConfig) checkForPawnPromotion(pawnName, currentGame string, w http
 	var multiplier int
 
 	if found {
-		userC, err := r.Cookie("access_token")
-
-		if err != nil {
-			respondWithAnErrorPage(w, r, http.StatusUnauthorized, "user not found")
-			return false, err
-		}
-
-		userId, err := auth.ValidateJWT(userC.Value, cfg.secret)
-
-		if err != nil {
-			respondWithAnErrorPage(w, r, http.StatusUnauthorized, "user not found")
-			return false, err
-		}
-
 		for _, player := range onlineGame.players {
 			if player.ID == userId {
 				multiplier = player.Multiplier
 			}
 		}
 	} else {
-		multiplier = match.coordinateMultiplier
+		multiplier = m.coordinateMultiplier
 	}
 	endBoardCoordinates := 7 * multiplier
 	dropdownPosition := square.Coordinates[1] + multiplier
@@ -1085,7 +1056,9 @@ func (m *Match) eatCleanup(pieceToDelete components.Piece, squareToDeleteName, c
 	return squareToDelete, saveSelected
 }
 
-func sendMessage(onlineGame OnlineGame, found bool, w http.ResponseWriter, msg string, args [2][]int) error {
+func (m *Match) sendMessage(w http.ResponseWriter, msg string, args [2][]int) error {
+	onlineGame, found := m.isOnlineMatch()
+
 	if found && len(args) > 0 {
 		for _, onlinePlayer := range onlineGame.players {
 			var bottomCoordinates []int
