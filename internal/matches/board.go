@@ -1,8 +1,6 @@
-package main
+package matches
 
-import (
-	"github.com/NikolaTosic-sudo/chess-live/containers/components"
-)
+import "github.com/NikolaTosic-sudo/chess-live/containers/components"
 
 func MakeBoard() map[string]components.Square {
 	board := map[string]components.Square{

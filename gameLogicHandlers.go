@@ -696,7 +696,7 @@ func (cfg *appConfig) handlePromotion(w http.ResponseWriter, r *http.Request) {
 	pawnName := r.FormValue("pawn")
 	pieceName := r.FormValue("piece")
 
-	allPieces := MakePieces()
+	allPieces := matches.MakePieces()
 
 	pawnPiece := currentGame.Pieces[pawnName]
 

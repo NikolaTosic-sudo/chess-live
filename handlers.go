@@ -186,8 +186,8 @@ func (cfg *appConfig) onlineBoardHandler(w http.ResponseWriter, r *http.Request)
 					})
 				}
 
-				startingBoard := MakeBoard()
-				startingPieces := MakePieces()
+				startingBoard := matches.MakeBoard()
+				startingPieces := matches.MakePieces()
 
 				match.Board = startingBoard
 				match.Pieces = startingPieces
@@ -386,8 +386,8 @@ func (cfg *appConfig) startGameHandler(w http.ResponseWriter, r *http.Request) {
 
 	startGame := cfg.makeCookie("current_game", newGameName, "/")
 
-	startingBoard := MakeBoard()
-	startingPieces := MakePieces()
+	startingBoard := matches.MakeBoard()
+	startingPieces := matches.MakePieces()
 
 	durationSplit := strings.Split(duration, "+")
 	timer, err := strconv.Atoi(durationSplit[0])
@@ -739,8 +739,8 @@ func (cfg *appConfig) matchesHandler(w http.ResponseWriter, r *http.Request) {
 
 	startGame := cfg.makeCookie("current_game", newGame, "/")
 
-	startingBoard := MakeBoard()
-	startingPieces := MakePieces()
+	startingBoard := matches.MakeBoard()
+	startingPieces := matches.MakePieces()
 
 	cur := matches.Match{
 		Board:                startingBoard,
@@ -825,7 +825,7 @@ func (cfg *appConfig) moveHistoryHandler(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	startingPieces := MakePieces()
+	startingPieces := matches.MakePieces()
 
 	pieces := make(map[string]components.Piece, 0)
 
