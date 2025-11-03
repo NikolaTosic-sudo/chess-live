@@ -4,15 +4,6 @@ import (
 	"github.com/NikolaTosic-sudo/chess-live/containers/components"
 )
 
-func (m *Match) UpdateCoordinates(multiplier int) {
-	for key, square := range m.board {
-		square.Coordinates[0] = square.CoordinatePosition[0] * multiplier
-		square.Coordinates[1] = square.CoordinatePosition[1] * multiplier
-
-		m.board[key] = square
-	}
-}
-
 func MakeBoard() map[string]components.Square {
 	board := map[string]components.Square{
 		"1a": {

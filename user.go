@@ -7,6 +7,7 @@ import (
 
 	"github.com/NikolaTosic-sudo/chess-live/internal/auth"
 	"github.com/NikolaTosic-sudo/chess-live/internal/database"
+	"github.com/NikolaTosic-sudo/chess-live/internal/responses"
 	"github.com/google/uuid"
 )
 
@@ -44,7 +45,7 @@ func (cfg *appConfig) getUser(r *http.Request) (database.User, error) {
 	user, err = cfg.database.GetUserById(r.Context(), userId)
 
 	if err != nil {
-		logError("user not found in the database", err)
+		responses.LogError("user not found in the database", err)
 		return user, err
 	}
 
