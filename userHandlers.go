@@ -102,15 +102,7 @@ func (cfg *appConfig) signupHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	c := http.Cookie{
-		Name:     "access_token",
-		Value:    token,
-		Path:     "/",
-		MaxAge:   3600,
-		HttpOnly: true,
-		Secure:   true,
-		SameSite: http.SameSiteLaxMode,
-	}
+	c := cfg.makeCookieMaxAge("access_token", token, "/", 3600)
 
 	refreshC := cfg.makeCookie("refresh_token", refreshString, "/api/refresh")
 

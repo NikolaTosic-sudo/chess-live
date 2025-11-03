@@ -38,8 +38,8 @@ func main() {
 		log.Fatal(err)
 	}
 	dbQueries := database.New(db)
-	startingBoard := MakeBoard()
-	startingPieces := MakePieces()
+	startingBoard := matches.MakeBoard()
+	startingPieces := matches.MakePieces()
 
 	matches := matches.Matches{
 		Matches: map[string]matches.Match{
