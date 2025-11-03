@@ -11,6 +11,9 @@ import (
 	"github.com/NikolaTosic-sudo/chess-live/containers/components"
 	"github.com/NikolaTosic-sudo/chess-live/internal/auth"
 	"github.com/NikolaTosic-sudo/chess-live/internal/database"
+	"github.com/NikolaTosic-sudo/chess-live/internal/matches"
+	"github.com/NikolaTosic-sudo/chess-live/internal/responses"
+	"github.com/NikolaTosic-sudo/chess-live/internal/utils"
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 )
@@ -19,26 +22,26 @@ func (cfg *appConfig) moveHandler(w http.ResponseWriter, r *http.Request) {
 	currentPieceName := r.Header.Get("Hx-Trigger")
 	c, err := r.Cookie("current_game")
 	if err != nil {
-		respondWithAnError(w, http.StatusNotFound, "no game found", err)
+		responses.RespondWithAnError(w, http.StatusNotFound, "no game found", err)
 		return
 	}
 	err = r.ParseForm()
 
 	if err != nil {
-		respondWithAnError(w, http.StatusInternalServerError, "couldn't decode request", err)
+		responses.RespondWithAnError(w, http.StatusInternalServerError, "couldn't decode request", err)
 		return
 	}
 
 	multiplier, err := strconv.Atoi(r.FormValue("multiplier"))
 
 	if err != nil {
-		respondWithAnError(w, http.StatusInternalServerError, "couldn't convert multiplier", err)
+		responses.RespondWithAnError(w, http.StatusInternalServerError, "couldn't convert multiplier", err)
 		return
 	}
 	currentGame := c.Value
-	match, _ := cfg.Matches.getMatch(currentGame)
-	onlineGame, found := match.isOnlineMatch()
-	currentPiece := match.pieces[currentPieceName]
+	match, _ := cfg.Matches.GetMatch(currentGame)
+	onlineGame, found := match.IsOnlineMatch()
+	currentPiece := match.Pieces[currentPieceName]
 	userC, err := r.Cookie("access_token")
 
 	var userId uuid.UUID
@@ -46,36 +49,36 @@ func (cfg *appConfig) moveHandler(w http.ResponseWriter, r *http.Request) {
 		userId, _ = auth.ValidateJWT(userC.Value, cfg.secret)
 	}
 
-	canPlay := match.canPlay(currentPiece, onlineGame.players, userId)
+	canPlay := match.CanPlay(currentPiece, onlineGame.Players, userId)
 
 	currentSquareName := currentPiece.Tile
-	currentSquare := match.board[currentSquareName]
-	selectedSquare := match.selectedPiece.Tile
-	selSq := match.board[selectedSquare]
-	legalMoves := match.checkLegalMoves()
+	currentSquare := match.Board[currentSquareName]
+	selectedSquare := match.SelectedPiece.Tile
+	selSq := match.Board[selectedSquare]
+	legalMoves := match.CheckLegalMoves()
 
-	if canEat(match.selectedPiece, currentPiece) && slices.Contains(legalMoves, currentSquareName) {
+	if matches.CanEat(match.SelectedPiece, currentPiece) && slices.Contains(legalMoves, currentSquareName) {
 		if found {
-			if match.isWhiteTurn && onlineGame.players["white"].ID != userId {
+			if match.IsWhiteTurn && onlineGame.Players["white"].ID != userId {
 				return
-			} else if !match.isWhiteTurn && onlineGame.players["black"].ID != userId {
+			} else if !match.IsWhiteTurn && onlineGame.Players["black"].ID != userId {
 				return
 			}
 		}
 		var kingCheck bool
-		if match.selectedPiece.IsKing {
-			kingCheck = match.handleChecksWhenKingMoves(currentSquareName)
-		} else if match.isWhiteTurn && match.isWhiteUnderCheck && !slices.Contains(match.tilesUnderAttack, currentSquareName) {
+		if match.SelectedPiece.IsKing {
+			kingCheck = match.HandleChecksWhenKingMoves(currentSquareName)
+		} else if match.IsWhiteTurn && match.IsWhiteUnderCheck && !slices.Contains(match.TilesUnderAttack, currentSquareName) {
 			w.WriteHeader(http.StatusNoContent)
 			return
-		} else if !match.isWhiteTurn && match.isBlackUnderCheck && !slices.Contains(match.tilesUnderAttack, currentSquareName) {
+		} else if !match.IsWhiteTurn && match.IsBlackUnderCheck && !slices.Contains(match.TilesUnderAttack, currentSquareName) {
 			w.WriteHeader(http.StatusNoContent)
 			return
 		}
 
 		var check bool
-		if !match.selectedPiece.IsKing {
-			check, _, _ = match.handleCheckForCheck(currentSquareName, match.selectedPiece)
+		if !match.SelectedPiece.IsKing {
+			check, _, _ = match.HandleCheckForCheck(currentSquareName, match.SelectedPiece)
 		}
 
 		if check || kingCheck {
@@ -83,47 +86,47 @@ func (cfg *appConfig) moveHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		var userColor string
-		if match.isWhiteTurn {
-			match.takenPiecesWhite = append(match.takenPiecesWhite, currentPiece.Image)
+		if match.IsWhiteTurn {
+			match.TakenPiecesWhite = append(match.TakenPiecesWhite, currentPiece.Image)
 			userColor = "white"
 		} else {
-			match.takenPiecesBlack = append(match.takenPiecesBlack, currentPiece.Image)
+			match.TakenPiecesBlack = append(match.TakenPiecesBlack, currentPiece.Image)
 			userColor = "black"
 		}
 
 		message := fmt.Sprintf(
-			getEatPiecesMessage(),
+			responses.GetEatPiecesMessage(),
 			currentPiece.Name,
 			currentPiece.Image,
-			match.selectedPiece.Name,
+			match.SelectedPiece.Name,
 			currentSquare.Coordinates[0],
 			currentSquare.Coordinates[1],
-			match.selectedPiece.Image,
+			match.SelectedPiece.Image,
 			userColor,
 			currentPiece.Image,
 		)
 
-		err = match.sendMessage(w, message, [2][]int{
+		err = match.SendMessage(w, message, [2][]int{
 			{currentSquare.CoordinatePosition[0]},
 			{currentSquare.CoordinatePosition[1]},
 		})
 
 		if err != nil {
-			respondWithAnError(w, http.StatusInternalServerError, "couldn't print to page", err)
+			responses.RespondWithAnError(w, http.StatusInternalServerError, "couldn't print to page", err)
 			return
 		}
 
-		_, saveSelected := match.eatCleanup(currentPiece, selectedSquare, currentSquareName)
+		_, saveSelected := match.EatCleanup(currentPiece, selectedSquare, currentSquareName)
 
-		cfg.Matches.setMatch(currentGame, match)
+		cfg.Matches.SetMatch(currentGame, match)
 		err = cfg.showMoves(match, currentSquareName, saveSelected.Name, w, r)
 		if err != nil {
-			respondWithAnError(w, http.StatusInternalServerError, "show moves error: ", err)
+			responses.RespondWithAnError(w, http.StatusInternalServerError, "show moves error: ", err)
 			return
 		}
-		pawnPromotion, err := match.checkForPawnPromotion(saveSelected.Name, w, userId)
+		pawnPromotion, err := match.CheckForPawnPromotion(saveSelected.Name, w, userId)
 		if err != nil {
-			respondWithAnError(w, http.StatusInternalServerError, "pawn promotion error: ", err)
+			responses.RespondWithAnError(w, http.StatusInternalServerError, "pawn promotion error: ", err)
 			return
 		}
 
@@ -131,29 +134,30 @@ func (cfg *appConfig) moveHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		noCheck, err := match.handleIfCheck(w, r, saveSelected)
+		noCheck, err := match.HandleIfCheck(w, r, saveSelected)
 		if err != nil {
-			respondWithAnError(w, http.StatusInternalServerError, "handle check error: ", err)
+			responses.RespondWithAnError(w, http.StatusInternalServerError, "handle check error: ", err)
 			return
 		}
 		if noCheck {
 			var kingName string
-			if match.isWhiteUnderCheck {
+			if match.IsWhiteUnderCheck {
 				kingName = "white_king"
-			} else if match.isBlackUnderCheck {
+			} else if match.IsBlackUnderCheck {
 				kingName = "black_king"
 			} else {
-				match.endTurn(w)
+				match.EndTurn(w)
+				cfg.Matches.SetMatch(currentGame, match)
 				return
 			}
-			match.isWhiteUnderCheck = false
-			match.isBlackUnderCheck = false
-			match.tilesUnderAttack = []string{}
-			getKing := match.pieces[kingName]
-			getKingSquare := match.board[getKing.Tile]
+			match.IsWhiteUnderCheck = false
+			match.IsBlackUnderCheck = false
+			match.TilesUnderAttack = []string{}
+			getKing := match.Pieces[kingName]
+			getKingSquare := match.Board[getKing.Tile]
 
 			message = fmt.Sprintf(
-				getSinglePieceMessage(),
+				responses.GetSinglePieceMessage(),
 				getKing.Name,
 				getKingSquare.Coordinates[0],
 				getKingSquare.Coordinates[1],
@@ -161,17 +165,18 @@ func (cfg *appConfig) moveHandler(w http.ResponseWriter, r *http.Request) {
 				"",
 			)
 
-			err = match.sendMessage(w, message, [2][]int{
+			err = match.SendMessage(w, message, [2][]int{
 				{getKingSquare.CoordinatePosition[0]},
 				{getKingSquare.CoordinatePosition[1]},
 			})
 
 			if err != nil {
-				respondWithAnError(w, http.StatusInternalServerError, "couldn't write to page", err)
+				responses.RespondWithAnError(w, http.StatusInternalServerError, "couldn't write to page", err)
 				return
 			}
 		}
-		match.endTurn(w)
+		match.EndTurn(w)
+		cfg.Matches.SetMatch(currentGame, match)
 		return
 	}
 
@@ -180,64 +185,64 @@ func (cfg *appConfig) moveHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if selectedSquare != "" && selectedSquare != currentSquareName && samePiece(match.selectedPiece, currentPiece) {
+	if selectedSquare != "" && selectedSquare != currentSquareName && matches.SamePiece(match.SelectedPiece, currentPiece) {
 
-		isCastle, kingCheck := match.checkForCastle(currentPiece)
+		isCastle, kingCheck := match.CheckForCastle(currentPiece)
 
-		if isCastle && !match.isBlackUnderCheck && !match.isWhiteUnderCheck && !kingCheck {
+		if isCastle && !match.IsBlackUnderCheck && !match.IsWhiteUnderCheck && !kingCheck {
 
 			err := cfg.handleCastle(w, currentPiece, currentGame, r)
 			if err != nil {
-				respondWithAnError(w, http.StatusInternalServerError, "error with handling castle", err)
+				responses.RespondWithAnError(w, http.StatusInternalServerError, "error with handling castle", err)
 			}
 			return
 		}
 
 		var kingsName string
 		var className string
-		if match.isWhiteTurn && match.isWhiteUnderCheck {
+		if match.IsWhiteTurn && match.IsWhiteUnderCheck {
 			kingsName = "white_king"
-		} else if !match.isWhiteTurn && match.isBlackUnderCheck {
+		} else if !match.IsWhiteTurn && match.IsBlackUnderCheck {
 			kingsName = "black_king"
 		}
 
-		if kingsName != "" && strings.Contains(match.selectedPiece.Name, kingsName) {
+		if kingsName != "" && strings.Contains(match.SelectedPiece.Name, kingsName) {
 			className = `class="bg-red-400"`
 		}
 
 		_, err := fmt.Fprintf(
 			w,
-			getReselectPieceMessage(),
+			responses.GetReselectPieceMessage(),
 			currentPieceName,
 			currentSquare.CoordinatePosition[0]*multiplier,
 			currentSquare.CoordinatePosition[1]*multiplier,
 			currentPiece.Image,
-			match.selectedPiece.Name,
+			match.SelectedPiece.Name,
 			selSq.CoordinatePosition[0]*multiplier,
 			selSq.CoordinatePosition[1]*multiplier,
-			match.selectedPiece.Image,
+			match.SelectedPiece.Image,
 			className,
 		)
 
 		if err != nil {
-			respondWithAnError(w, http.StatusInternalServerError, "couldn't send to page", err)
+			responses.RespondWithAnError(w, http.StatusInternalServerError, "couldn't send to page", err)
 		}
 
-		match.selectedPiece = currentPiece
-		cfg.Matches.setMatch(currentGame, match)
+		match.SelectedPiece = currentPiece
+		cfg.Matches.SetMatch(currentGame, match)
 		return
 	}
 
 	if currentSquare.Selected {
 		currentSquare.Selected = false
-		isKing := match.selectedPiece.IsKing
-		match.selectedPiece = components.Piece{}
-		match.board[currentSquareName] = currentSquare
+		isKing := match.SelectedPiece.IsKing
+		match.SelectedPiece = components.Piece{}
+		match.Board[currentSquareName] = currentSquare
 		var kingsName string
 		var className string
-		if match.isWhiteTurn && match.isWhiteUnderCheck {
+		if match.IsWhiteTurn && match.IsWhiteUnderCheck {
 			kingsName = "white_king"
-		} else if !match.isWhiteTurn && match.isBlackUnderCheck {
+		} else if !match.IsWhiteTurn && match.IsBlackUnderCheck {
 			kingsName = "black_king"
 		}
 		if kingsName != "" && isKing {
@@ -245,7 +250,7 @@ func (cfg *appConfig) moveHandler(w http.ResponseWriter, r *http.Request) {
 		}
 		_, err := fmt.Fprintf(
 			w,
-			getSinglePieceMessage(),
+			responses.GetSinglePieceMessage(),
 			currentPieceName,
 			currentSquare.CoordinatePosition[0]*multiplier,
 			currentSquare.CoordinatePosition[1]*multiplier,
@@ -254,20 +259,20 @@ func (cfg *appConfig) moveHandler(w http.ResponseWriter, r *http.Request) {
 		)
 
 		if err != nil {
-			respondWithAnError(w, http.StatusInternalServerError, "couldn't write to page", err)
+			responses.RespondWithAnError(w, http.StatusInternalServerError, "couldn't write to page", err)
 		}
 
-		cfg.Matches.setMatch(currentGame, match)
+		cfg.Matches.SetMatch(currentGame, match)
 
 		return
 	} else {
 		currentSquare.Selected = true
-		match.selectedPiece = currentPiece
-		match.board[currentSquareName] = currentSquare
+		match.SelectedPiece = currentPiece
+		match.Board[currentSquareName] = currentSquare
 		className := `class="bg-sky-300"`
 		_, err := fmt.Fprintf(
 			w,
-			getSinglePieceMessage(),
+			responses.GetSinglePieceMessage(),
 			currentPieceName,
 			currentSquare.CoordinatePosition[0]*multiplier,
 			currentSquare.CoordinatePosition[1]*multiplier,
@@ -276,10 +281,10 @@ func (cfg *appConfig) moveHandler(w http.ResponseWriter, r *http.Request) {
 		)
 
 		if err != nil {
-			respondWithAnError(w, http.StatusInternalServerError, "couldn't write to page", err)
+			responses.RespondWithAnError(w, http.StatusInternalServerError, "couldn't write to page", err)
 			return
 		}
-		cfg.Matches.setMatch(currentGame, match)
+		cfg.Matches.SetMatch(currentGame, match)
 		return
 	}
 }
@@ -288,29 +293,29 @@ func (cfg *appConfig) moveToHandler(w http.ResponseWriter, r *http.Request) {
 	currentSquareName := r.Header.Get("Hx-Trigger")
 	c, err := r.Cookie("current_game")
 	if err != nil {
-		respondWithAnError(w, http.StatusNotFound, "no game found", err)
+		responses.RespondWithAnError(w, http.StatusNotFound, "no game found", err)
 		return
 	}
 	currentGame := c.Value
-	match, _ := cfg.Matches.getMatch(currentGame)
-	currentSquare := match.board[currentSquareName]
-	selectedSquare := match.selectedPiece.Tile
+	match, _ := cfg.Matches.GetMatch(currentGame)
+	currentSquare := match.Board[currentSquareName]
+	selectedSquare := match.SelectedPiece.Tile
 
-	legalMoves := match.checkLegalMoves()
+	legalMoves := match.CheckLegalMoves()
 
 	userId, _ := cfg.getUserId(r)
 
 	var kingCheck bool
-	if match.selectedPiece.IsKing && slices.Contains(legalMoves, currentSquareName) {
-		kingCheck = match.handleChecksWhenKingMoves(currentSquareName)
+	if match.SelectedPiece.IsKing && slices.Contains(legalMoves, currentSquareName) {
+		kingCheck = match.HandleChecksWhenKingMoves(currentSquareName)
 	} else if !slices.Contains(legalMoves, currentSquareName) && !slices.Contains(legalMoves, fmt.Sprintf("enpessant_%v", currentSquareName)) {
 		w.WriteHeader(http.StatusNoContent)
 		return
 	}
 
 	var check bool
-	if !match.selectedPiece.IsKing {
-		check, _, _ = match.handleCheckForCheck(currentSquareName, match.selectedPiece)
+	if !match.SelectedPiece.IsKing {
+		check, _, _ = match.HandleCheckForCheck(currentSquareName, match.SelectedPiece)
 	}
 
 	if check || kingCheck {
@@ -321,74 +326,75 @@ func (cfg *appConfig) moveToHandler(w http.ResponseWriter, r *http.Request) {
 	if slices.Contains(legalMoves, fmt.Sprintf("enpessant_%v", currentSquareName)) {
 		var squareToDeleteName string
 		var userColor string
-		if strings.Contains(match.possibleEnPessant, "white") {
-			enPessantSlice := strings.Split(match.possibleEnPessant, "_")
+		if strings.Contains(match.PossibleEnPessant, "white") {
+			enPessantSlice := strings.Split(match.PossibleEnPessant, "_")
 			squareNumber, _ := strconv.Atoi(string(enPessantSlice[1][0]))
 			squareToDeleteName = fmt.Sprintf("%v%v", squareNumber-1, string(enPessantSlice[1][1]))
 			userColor = "white"
 		} else {
-			enPessantSlice := strings.Split(match.possibleEnPessant, "_")
+			enPessantSlice := strings.Split(match.PossibleEnPessant, "_")
 			squareNumber, _ := strconv.Atoi(string(enPessantSlice[1][0]))
 			squareToDeleteName = fmt.Sprintf("%v%v", squareNumber+1, string(enPessantSlice[1][1]))
 			userColor = "black"
 		}
-		squareToDelete := match.board[squareToDeleteName]
+		squareToDelete := match.Board[squareToDeleteName]
 		pieceToDelete := squareToDelete.Piece
-		currentSquare := match.board[currentSquareName]
+		currentSquare := match.Board[currentSquareName]
 		message := fmt.Sprintf(
-			getEatPiecesMessage(),
+			responses.GetEatPiecesMessage(),
 			pieceToDelete.Name,
 			pieceToDelete.Image,
-			match.selectedPiece.Name,
+			match.SelectedPiece.Name,
 			currentSquare.Coordinates[0],
 			currentSquare.Coordinates[1],
-			match.selectedPiece.Image,
+			match.SelectedPiece.Image,
 			userColor,
 			pieceToDelete.Image,
 		)
 
-		err = match.sendMessage(w, message, [2][]int{
+		err = match.SendMessage(w, message, [2][]int{
 			{currentSquare.CoordinatePosition[0]},
 			{currentSquare.CoordinatePosition[1]},
 		})
 
 		if err != nil {
-			respondWithAnError(w, http.StatusInternalServerError, "couldn't print to page", err)
+			responses.RespondWithAnError(w, http.StatusInternalServerError, "couldn't print to page", err)
 			return
 		}
 
-		squareToDelete, saveSelected := match.eatCleanup(pieceToDelete, squareToDeleteName, currentSquareName)
+		squareToDelete, saveSelected := match.EatCleanup(pieceToDelete, squareToDeleteName, currentSquareName)
 
-		cfg.Matches.setMatch(currentGame, match)
+		cfg.Matches.SetMatch(currentGame, match)
 		err = cfg.showMoves(match, currentSquareName, saveSelected.Name, w, r)
 		if err != nil {
-			respondWithAnError(w, http.StatusInternalServerError, "show moves error: ", err)
+			responses.RespondWithAnError(w, http.StatusInternalServerError, "show moves error: ", err)
 			return
 		}
 
-		noCheck, err := match.handleIfCheck(w, r, saveSelected)
+		noCheck, err := match.HandleIfCheck(w, r, saveSelected)
 		if err != nil {
-			respondWithAnError(w, http.StatusInternalServerError, "handle check error: ", err)
+			responses.RespondWithAnError(w, http.StatusInternalServerError, "handle check error: ", err)
 			return
 		}
 		if noCheck {
 			var kingName string
-			if match.isWhiteUnderCheck {
+			if match.IsWhiteUnderCheck {
 				kingName = "white_king"
-			} else if match.isBlackUnderCheck {
+			} else if match.IsBlackUnderCheck {
 				kingName = "black_king"
 			} else {
-				match.endTurn(w)
+				match.EndTurn(w)
+				cfg.Matches.SetMatch(currentGame, match)
 				return
 			}
-			match.isWhiteUnderCheck = false
-			match.isBlackUnderCheck = false
-			match.tilesUnderAttack = []string{}
-			getKing := match.pieces[kingName]
-			getKingSquare := match.board[getKing.Tile]
+			match.IsWhiteUnderCheck = false
+			match.IsBlackUnderCheck = false
+			match.TilesUnderAttack = []string{}
+			getKing := match.Pieces[kingName]
+			getKingSquare := match.Board[getKing.Tile]
 
 			message = fmt.Sprintf(
-				getSinglePieceMessage(),
+				responses.GetSinglePieceMessage(),
 				getKing.Name,
 				getKingSquare.Coordinates[0],
 				getKingSquare.Coordinates[1],
@@ -396,67 +402,70 @@ func (cfg *appConfig) moveToHandler(w http.ResponseWriter, r *http.Request) {
 				"",
 			)
 
-			err = match.sendMessage(w, message, [2][]int{
+			err = match.SendMessage(w, message, [2][]int{
 				{getKingSquare.CoordinatePosition[0]},
 				{getKingSquare.CoordinatePosition[1]},
 			})
 
 			if err != nil {
-				respondWithAnError(w, http.StatusInternalServerError, "couldn't write to page", err)
+				responses.RespondWithAnError(w, http.StatusInternalServerError, "couldn't write to page", err)
 				return
 			}
 		}
-		match.endTurn(w)
+
+		match.EndTurn(w)
+		cfg.Matches.SetMatch(currentGame, match)
 		return
 	}
 
 	if selectedSquare != "" && selectedSquare != currentSquareName {
 		message := fmt.Sprintf(
-			getSinglePieceMessage(),
-			match.selectedPiece.Name,
+			responses.GetSinglePieceMessage(),
+			match.SelectedPiece.Name,
 			currentSquare.Coordinates[0],
 			currentSquare.Coordinates[1],
-			match.selectedPiece.Image,
+			match.SelectedPiece.Image,
 			"",
 		)
 
-		err = match.sendMessage(w, message, [2][]int{
+		err = match.SendMessage(w, message, [2][]int{
 			{currentSquare.CoordinatePosition[0]},
 			{currentSquare.CoordinatePosition[1]},
 		})
 
 		if err != nil {
-			respondWithAnError(w, http.StatusInternalServerError, "couldn't write to page", err)
+			responses.RespondWithAnError(w, http.StatusInternalServerError, "couldn't write to page", err)
 			return
 		}
-		match.checkForEnPessant(selectedSquare, currentSquare)
-		saveSelected := match.selectedPiece
-		match.allMoves = append(match.allMoves, currentSquareName)
-		match.bigCleanup(currentSquareName)
+		match.CheckForEnPessant(selectedSquare, currentSquare)
+		saveSelected := match.SelectedPiece
+		match.AllMoves = append(match.AllMoves, currentSquareName)
+		match.BigCleanup(currentSquareName)
 		err = cfg.showMoves(match, currentSquareName, saveSelected.Name, w, r)
 		if err != nil {
-			respondWithAnError(w, http.StatusInternalServerError, "show moves error: ", err)
+			responses.RespondWithAnError(w, http.StatusInternalServerError, "show moves error: ", err)
 			return
 		}
-		match.movesSinceLastCapture++
-		cfg.Matches.setMatch(currentGame, match)
-		noCheck, err := match.handleIfCheck(w, r, saveSelected)
+		match.MovesSinceLastCapture++
+		cfg.Matches.SetMatch(currentGame, match)
+		noCheck, err := match.HandleIfCheck(w, r, saveSelected)
 		if err != nil {
-			respondWithAnError(w, http.StatusInternalServerError, "couldn't write to page", err)
+			responses.RespondWithAnError(w, http.StatusInternalServerError, "couldn't write to page", err)
 		}
 		if noCheck {
-			match.isWhiteUnderCheck = false
-			match.isBlackUnderCheck = false
-			cfg.Matches.setMatch(currentGame, match)
+			match.IsWhiteUnderCheck = false
+			match.IsBlackUnderCheck = false
+			cfg.Matches.SetMatch(currentGame, match)
 		}
-		pawnPromotion, err := match.checkForPawnPromotion(saveSelected.Name, w, userId)
+		pawnPromotion, err := match.CheckForPawnPromotion(saveSelected.Name, w, userId)
 		if err != nil {
-			respondWithAnError(w, http.StatusInternalServerError, "error checking pawn promotion", err)
+			responses.RespondWithAnError(w, http.StatusInternalServerError, "error checking pawn promotion", err)
 		}
 		if saveSelected.IsPawn && pawnPromotion {
 			return
 		}
-		match.endTurn(w)
+		match.EndTurn(w)
+		cfg.Matches.SetMatch(currentGame, match)
 		return
 	}
 
@@ -467,15 +476,15 @@ func (cfg *appConfig) coverCheckHandler(w http.ResponseWriter, r *http.Request) 
 	currentSquareName := r.Header.Get("Hx-Trigger")
 	c, err := r.Cookie("current_game")
 	if err != nil {
-		respondWithAnError(w, http.StatusNotFound, "game not found", err)
+		responses.RespondWithAnError(w, http.StatusNotFound, "game not found", err)
 		return
 	}
 	currentGame := c.Value
-	match, _ := cfg.Matches.getMatch(currentGame)
-	currentSquare := match.board[currentSquareName]
-	selectedSquare := match.selectedPiece.Tile
+	match, _ := cfg.Matches.GetMatch(currentGame)
+	currentSquare := match.Board[currentSquareName]
+	selectedSquare := match.SelectedPiece.Tile
 
-	legalMoves := match.checkLegalMoves()
+	legalMoves := match.CheckLegalMoves()
 
 	userId, _ := cfg.getUserId(r)
 
@@ -485,10 +494,10 @@ func (cfg *appConfig) coverCheckHandler(w http.ResponseWriter, r *http.Request) 
 	}
 	var check bool
 	var kingCheck bool
-	if match.selectedPiece.IsKing {
-		kingCheck = match.handleChecksWhenKingMoves(currentSquareName)
+	if match.SelectedPiece.IsKing {
+		kingCheck = match.HandleChecksWhenKingMoves(currentSquareName)
 	} else {
-		check, _, _ = match.handleCheckForCheck(currentSquareName, match.selectedPiece)
+		check, _, _ = match.HandleCheckForCheck(currentSquareName, match.SelectedPiece)
 	}
 	if check || kingCheck {
 		w.WriteHeader(http.StatusNoContent)
@@ -497,31 +506,31 @@ func (cfg *appConfig) coverCheckHandler(w http.ResponseWriter, r *http.Request) 
 
 	var kingName string
 
-	if match.isWhiteTurn {
+	if match.IsWhiteTurn {
 		kingName = "white_king"
 	} else {
 		kingName = "black_king"
 	}
 
-	king := match.pieces[kingName]
-	kingSquare := match.board[king.Tile]
+	king := match.Pieces[kingName]
+	kingSquare := match.Board[king.Tile]
 
 	if selectedSquare != "" && selectedSquare != currentSquareName {
 		message := fmt.Sprintf(
-			getCoverCheckMessage(),
+			responses.GetCoverCheckMessage(),
 			currentSquareName,
 			currentSquare.Color,
 			king.Name,
 			kingSquare.Coordinates[0],
 			kingSquare.Coordinates[1],
 			king.Image,
-			match.selectedPiece.Name,
+			match.SelectedPiece.Name,
 			currentSquare.Coordinates[0],
 			currentSquare.Coordinates[1],
-			match.selectedPiece.Image,
+			match.SelectedPiece.Image,
 		)
 
-		err = match.sendMessage(w, message, [2][]int{
+		err = match.SendMessage(w, message, [2][]int{
 			{
 				kingSquare.CoordinatePosition[0],
 				currentSquare.CoordinatePosition[0],
@@ -533,64 +542,65 @@ func (cfg *appConfig) coverCheckHandler(w http.ResponseWriter, r *http.Request) 
 		})
 
 		if err != nil {
-			respondWithAnError(w, http.StatusInternalServerError, "couldn't write to page", err)
+			responses.RespondWithAnError(w, http.StatusInternalServerError, "couldn't write to page", err)
 			return
 		}
-		saveSelected := match.selectedPiece
-		match.allMoves = append(match.allMoves, currentSquareName)
-		match.bigCleanup(currentSquareName)
+		saveSelected := match.SelectedPiece
+		match.AllMoves = append(match.AllMoves, currentSquareName)
+		match.BigCleanup(currentSquareName)
 		err = cfg.showMoves(match, currentSquareName, saveSelected.Name, w, r)
 		if err != nil {
-			respondWithAnError(w, http.StatusInternalServerError, "show moves error: ", err)
+			responses.RespondWithAnError(w, http.StatusInternalServerError, "show moves error: ", err)
 			return
 		}
 
-		for _, tile := range match.tilesUnderAttack {
-			t := match.board[tile]
+		for _, tile := range match.TilesUnderAttack {
+			t := match.Board[tile]
 			if t.Piece.Name != "" {
-				err := respondWithNewPiece(w, r, t)
+				err := responses.RespondWithNewPiece(w, r, t)
 
 				if err != nil {
-					respondWithAnError(w, http.StatusInternalServerError, "error with new piece", err)
+					responses.RespondWithAnError(w, http.StatusInternalServerError, "error with new piece", err)
 					return
 				}
 			} else {
 				message := fmt.Sprintf(
-					getTileMessage(),
+					responses.GetTileMessage(),
 					tile,
 					"move-to",
 					t.Color,
 				)
-				err = match.sendMessage(w, message, [2][]int{})
+				err = match.SendMessage(w, message, [2][]int{})
 				if err != nil {
-					respondWithAnError(w, http.StatusInternalServerError, "Couldn't write to page", err)
+					responses.RespondWithAnError(w, http.StatusInternalServerError, "Couldn't write to page", err)
 					return
 				}
 
 			}
 		}
 
-		pawnPromotion, err := match.checkForPawnPromotion(saveSelected.Name, w, userId)
+		pawnPromotion, err := match.CheckForPawnPromotion(saveSelected.Name, w, userId)
 		if err != nil {
-			respondWithAnError(w, http.StatusInternalServerError, "check pawn promotion error", err)
+			responses.RespondWithAnError(w, http.StatusInternalServerError, "check pawn promotion error", err)
 		}
 		if saveSelected.IsPawn && pawnPromotion {
 			return
 		}
 
-		noCheck, err := match.handleIfCheck(w, r, saveSelected)
+		noCheck, err := match.HandleIfCheck(w, r, saveSelected)
 		if err != nil {
-			respondWithAnError(w, http.StatusInternalServerError, "handle check error", err)
+			responses.RespondWithAnError(w, http.StatusInternalServerError, "handle check error", err)
 		}
 		if noCheck {
-			match.isWhiteUnderCheck = false
-			match.isBlackUnderCheck = false
+			match.IsWhiteUnderCheck = false
+			match.IsBlackUnderCheck = false
 		}
 
-		match.possibleEnPessant = ""
-		match.movesSinceLastCapture++
-		cfg.Matches.setMatch(currentGame, match)
-		match.endTurn(w)
+		match.PossibleEnPessant = ""
+		match.MovesSinceLastCapture++
+		cfg.Matches.SetMatch(currentGame, match)
+		match.EndTurn(w)
+		cfg.Matches.SetMatch(currentGame, match)
 
 		return
 	}
@@ -602,74 +612,74 @@ func (cfg *appConfig) timerHandler(w http.ResponseWriter, r *http.Request) {
 
 	c, err := r.Cookie("current_game")
 	if err != nil {
-		respondWithAnError(w, http.StatusNotFound, "game not found", err)
+		responses.RespondWithAnError(w, http.StatusNotFound, "game not found", err)
 		return
 	} else if strings.Contains(c.Value, "database:") {
 		return
 	}
 	currentGame := c.Value
-	match, _ := cfg.Matches.getMatch(currentGame)
+	match, _ := cfg.Matches.GetMatch(currentGame)
 
 	var toChangeColor string
 	var stayTheSameColor string
 	var toChange int
 	var stayTheSame int
 
-	if match.isWhiteTurn {
+	if match.IsWhiteTurn {
 		toChangeColor = "white"
-		match.whiteTimer -= 1
-		toChange = match.whiteTimer
-		stayTheSame = match.blackTimer
+		match.WhiteTimer -= 1
+		toChange = match.WhiteTimer
+		stayTheSame = match.BlackTimer
 		stayTheSameColor = "black"
 	} else {
-		match.blackTimer -= 1
+		match.BlackTimer -= 1
 		toChangeColor = "black"
-		toChange = match.blackTimer
-		stayTheSame = match.whiteTimer
+		toChange = match.BlackTimer
+		stayTheSame = match.WhiteTimer
 		stayTheSameColor = "white"
 	}
 
 	message := fmt.Sprintf(
-		getTimerMessage(),
+		responses.GetTimerMessage(),
 		toChangeColor,
-		formatTime(toChange),
+		utils.FormatTime(toChange),
 		stayTheSameColor,
-		formatTime(stayTheSame),
+		utils.FormatTime(stayTheSame),
 	)
 
-	err = match.sendMessage(w, message, [2][]int{})
+	err = match.SendMessage(w, message, [2][]int{})
 
 	if err != nil {
-		respondWithAnError(w, http.StatusInternalServerError, "couldn't write to page", err)
+		responses.RespondWithAnError(w, http.StatusInternalServerError, "couldn't write to page", err)
 		return
 	}
 
-	cfg.Matches.setMatch(currentGame, match)
+	cfg.Matches.SetMatch(currentGame, match)
 
-	if match.isWhiteTurn && (match.whiteTimer < 0 || match.whiteTimer == 0) {
-		msg, err := TemplString(components.EndGameModal("0-1", "black"))
+	if match.IsWhiteTurn && (match.WhiteTimer < 0 || match.WhiteTimer == 0) {
+		msg, err := utils.TemplString(components.EndGameModal("0-1", "black"))
 		if err != nil {
-			respondWithAnError(w, http.StatusInternalServerError, "error converting component to string", err)
+			responses.RespondWithAnError(w, http.StatusInternalServerError, "error converting component to string", err)
 			return
 		}
 
-		err = match.sendMessage(w, msg, [2][]int{})
+		err = match.SendMessage(w, msg, [2][]int{})
 
 		if err != nil {
-			respondWithAnError(w, http.StatusInternalServerError, "couldn't write to page", err)
+			responses.RespondWithAnError(w, http.StatusInternalServerError, "couldn't write to page", err)
 			return
 		}
-	} else if !match.isWhiteTurn && (match.blackTimer < 0 || match.blackTimer == 0) {
-		msg, err := TemplString(components.EndGameModal("1-0", "white"))
+	} else if !match.IsWhiteTurn && (match.BlackTimer < 0 || match.BlackTimer == 0) {
+		msg, err := utils.TemplString(components.EndGameModal("1-0", "white"))
 		if err != nil {
-			respondWithAnError(w, http.StatusInternalServerError, "error converting component to string", err)
+			responses.RespondWithAnError(w, http.StatusInternalServerError, "error converting component to string", err)
 			return
 		}
 
-		err = match.sendMessage(w, msg, [2][]int{})
+		err = match.SendMessage(w, msg, [2][]int{})
 
 		if err != nil {
-			respondWithAnError(w, http.StatusInternalServerError, "couldn't write to page", err)
+			responses.RespondWithAnError(w, http.StatusInternalServerError, "couldn't write to page", err)
 			return
 		}
 	}
@@ -678,16 +688,17 @@ func (cfg *appConfig) timerHandler(w http.ResponseWriter, r *http.Request) {
 func (cfg *appConfig) handlePromotion(w http.ResponseWriter, r *http.Request) {
 	c, err := r.Cookie("current_game")
 	if err != nil {
-		respondWithAnError(w, http.StatusNotFound, "game not found", err)
+		responses.RespondWithAnError(w, http.StatusNotFound, "game not found", err)
 		return
 	}
-	currentGame, _ := cfg.Matches.getMatch(c.Value)
+	currentGameName := c.Value
+	currentGame, _ := cfg.Matches.GetMatch(currentGameName)
 	pawnName := r.FormValue("pawn")
 	pieceName := r.FormValue("piece")
 
 	allPieces := MakePieces()
 
-	pawnPiece := currentGame.pieces[pawnName]
+	pawnPiece := currentGame.Pieces[pawnName]
 
 	newPiece := components.Piece{
 		Name:       pawnName,
@@ -701,55 +712,55 @@ func (cfg *appConfig) handlePromotion(w http.ResponseWriter, r *http.Request) {
 		IsPawn:     false,
 	}
 
-	delete(currentGame.pieces, pawnName)
-	currentGame.pieces[pawnName] = newPiece
-	currentSquare := currentGame.board[pawnPiece.Tile]
+	delete(currentGame.Pieces, pawnName)
+	currentGame.Pieces[pawnName] = newPiece
+	currentSquare := currentGame.Board[pawnPiece.Tile]
 	currentSquare.Piece = newPiece
-	currentGame.board[pawnPiece.Tile] = currentSquare
+	currentGame.Board[pawnPiece.Tile] = currentSquare
 
-	cfg.Matches.setMatch(c.Value, currentGame)
+	cfg.Matches.SetMatch(c.Value, currentGame)
 
 	message := fmt.Sprintf(
-		getPromotionDoneMessage(),
+		responses.GetPromotionDoneMessage(),
 		pawnName,
 		currentSquare.Coordinates[0],
 		currentSquare.Coordinates[1],
 		currentSquare.Piece.Image,
 	)
 
-	err = currentGame.sendMessage(w, message, [2][]int{
+	err = currentGame.SendMessage(w, message, [2][]int{
 		{currentSquare.CoordinatePosition[0]},
 		{currentSquare.CoordinatePosition[1]},
 	})
 
 	if err != nil {
-		respondWithAnError(w, http.StatusInternalServerError, "couldn't write to page", err)
+		responses.RespondWithAnError(w, http.StatusInternalServerError, "couldn't write to page", err)
 		return
 	}
 
 	userId, err := cfg.isUserLoggedIn(r)
 	if err != nil && !strings.Contains(err.Error(), "named cookie not present") {
-		logError("user not authorized", err)
+		responses.LogError("user not authorized", err)
 	}
 
 	if userId != uuid.Nil {
 		go func(w http.ResponseWriter, r *http.Request) {
 			boardState := make(map[string]string, 0)
-			for k, v := range currentGame.pieces {
+			for k, v := range currentGame.Pieces {
 				boardState[k] = v.Tile
 			}
 
 			jsonBoard, err := json.Marshal(boardState)
 
 			if err != nil {
-				respondWithAnError(w, http.StatusInternalServerError, "error marshaling board state", err)
+				responses.RespondWithAnError(w, http.StatusInternalServerError, "error marshaling board state", err)
 				return
 			}
 
-			moveDB, err := cfg.database.GetLatestMoveForMatch(r.Context(), currentGame.matchId)
+			moveDB, err := cfg.database.GetLatestMoveForMatch(r.Context(), currentGame.MatchId)
 
 			if err != nil {
-				respondWithAnError(w, http.StatusInternalServerError, "database erro", err)
+				responses.RespondWithAnError(w, http.StatusInternalServerError, "database erro", err)
 				return
 			}
 
@@ -759,36 +770,37 @@ func (cfg *appConfig) handlePromotion(w http.ResponseWriter, r *http.Request) {
 				Move:    moveDB.Move,
 			})
 			if err != nil {
-				respondWithAnError(w, http.StatusInternalServerError, "Couldn't update board for move", err)
+				responses.RespondWithAnError(w, http.StatusInternalServerError, "Couldn't update board for move", err)
 				return
 			}
 		}(w, r)
 	}
 
-	noCheck, err := currentGame.handleIfCheck(w, r, newPiece)
+	noCheck, err := currentGame.HandleIfCheck(w, r, newPiece)
 	if err != nil {
-		respondWithAnError(w, http.StatusInternalServerError, "error with handle check", err)
+		responses.RespondWithAnError(w, http.StatusInternalServerError, "error with handle check", err)
 		return
 	}
-	if noCheck && (currentGame.isBlackUnderCheck || currentGame.isWhiteUnderCheck) {
+	if noCheck && (currentGame.IsBlackUnderCheck || currentGame.IsWhiteUnderCheck) {
 		var kingName string
-		if currentGame.isWhiteUnderCheck {
+		if currentGame.IsWhiteUnderCheck {
 			kingName = "white_king"
-		} else if currentGame.isBlackUnderCheck {
+		} else if currentGame.IsBlackUnderCheck {
 			kingName = "black_king"
 		} else {
-			currentGame.endTurn(w)
+			currentGame.EndTurn(w)
+			cfg.Matches.SetMatch(currentGameName, currentGame)
 			return
 		}
 
-		currentGame.isWhiteUnderCheck = false
-		currentGame.isBlackUnderCheck = false
-		currentGame.tilesUnderAttack = []string{}
-		getKing := currentGame.pieces[kingName]
-		getKingSquare := currentGame.board[getKing.Tile]
+		currentGame.IsWhiteUnderCheck = false
+		currentGame.IsBlackUnderCheck = false
+		currentGame.TilesUnderAttack = []string{}
+		getKing := currentGame.Pieces[kingName]
+		getKingSquare := currentGame.Board[getKing.Tile]
 
 		message := fmt.Sprintf(
-			getSinglePieceMessage(),
+			responses.GetSinglePieceMessage(),
 			getKing.Name,
 			getKingSquare.Coordinates[0],
 			getKingSquare.Coordinates[1],
@@ -796,50 +808,51 @@ func (cfg *appConfig) handlePromotion(w http.ResponseWriter, r *http.Request) {
 			"",
 		)
 
-		err = currentGame.sendMessage(w, message, [2][]int{
+		err = currentGame.SendMessage(w, message, [2][]int{
 			{getKingSquare.CoordinatePosition[0]},
 			{getKingSquare.CoordinatePosition[1]},
 		})
 
 		if err != nil {
-			respondWithAnError(w, http.StatusInternalServerError, "couldn't write to page", err)
+			responses.RespondWithAnError(w, http.StatusInternalServerError, "couldn't write to page", err)
 			return
 		}
 	}
 
-	currentGame.possibleEnPessant = ""
-	currentGame.movesSinceLastCapture++
-	cfg.Matches.setMatch(c.Value, currentGame)
-	currentGame.endTurn(w)
+	currentGame.PossibleEnPessant = ""
+	currentGame.MovesSinceLastCapture++
+	cfg.Matches.SetMatch(currentGameName, currentGame)
+	currentGame.EndTurn(w)
+	cfg.Matches.SetMatch(currentGameName, currentGame)
 }
 
 func (cfg *appConfig) endGameHandler(w http.ResponseWriter, r *http.Request) {
 	currentGame, err := r.Cookie("current_game")
 	if err != nil {
-		respondWithAnError(w, http.StatusNotFound, "game not found", err)
+		responses.RespondWithAnError(w, http.StatusNotFound, "game not found", err)
 		return
 	}
 
 	err = r.ParseForm()
 	if err != nil {
-		respondWithAnError(w, http.StatusInternalServerError, "error parsing form", err)
+		responses.RespondWithAnError(w, http.StatusInternalServerError, "error parsing form", err)
 		return
 	}
 
-	saveGame, _ := cfg.Matches.getMatch(currentGame.Value)
-	if match, ok := saveGame.isOnlineMatch(); ok {
-		_ = match.players["white"].Conn.Close()
-		_ = match.players["black"].Conn.Close()
+	saveGame, _ := cfg.Matches.GetMatch(currentGame.Value)
+	if match, ok := saveGame.IsOnlineMatch(); ok {
+		_ = match.Players["white"].Conn.Close()
+		_ = match.Players["black"].Conn.Close()
 	}
 
-	delete(cfg.Matches.matches, currentGame.Value)
+	delete(cfg.Matches.Matches, currentGame.Value)
 
 	err = cfg.database.UpdateMatchOnEnd(r.Context(), database.UpdateMatchOnEndParams{
 		Result: r.FormValue("result"),
-		ID:     saveGame.matchId,
+		ID:     saveGame.MatchId,
 	})
 	if err != nil {
-		respondWithAnError(w, http.StatusInternalServerError, "error updating match", err)
+		responses.RespondWithAnError(w, http.StatusInternalServerError, "error updating match", err)
 		return
 	}
 
@@ -859,81 +872,81 @@ func (cfg *appConfig) endGameHandler(w http.ResponseWriter, r *http.Request) {
 func (cfg *appConfig) surrenderHandler(w http.ResponseWriter, r *http.Request) {
 	c, err := r.Cookie("current_game")
 	if err != nil {
-		respondWithAnError(w, http.StatusNotFound, "game not found", err)
+		responses.RespondWithAnError(w, http.StatusNotFound, "game not found", err)
 		return
 	}
 	uC, err := r.Cookie("access_token")
-	currentGame, _ := cfg.Matches.getMatch(c.Value)
+	currentGame, _ := cfg.Matches.GetMatch(c.Value)
 
 	if err == nil && uC.Value != "" && strings.Contains(c.Value, "online:") {
 		var msg string
-		connection := currentGame.online
+		connection := currentGame.Online
 		userId, err := auth.ValidateJWT(uC.Value, cfg.secret)
 		if err != nil {
-			respondWithAnError(w, http.StatusUnauthorized, "user not found", err)
+			responses.RespondWithAnError(w, http.StatusUnauthorized, "user not found", err)
 			return
 		}
-		if connection.players["white"].ID == userId {
-			msg, err = TemplString(components.EndGameModal("0-1", "black"))
+		if connection.Players["white"].ID == userId {
+			msg, err = utils.TemplString(components.EndGameModal("0-1", "black"))
 			if err != nil {
-				respondWithAnError(w, http.StatusInternalServerError, "error converting component to string", err)
+				responses.RespondWithAnError(w, http.StatusInternalServerError, "error converting component to string", err)
 				return
 			}
-		} else if connection.players["black"].ID == userId {
-			msg, err = TemplString(components.EndGameModal("1-0", "white"))
+		} else if connection.Players["black"].ID == userId {
+			msg, err = utils.TemplString(components.EndGameModal("1-0", "white"))
 			if err != nil {
-				respondWithAnError(w, http.StatusInternalServerError, "error converting component to string", err)
+				responses.RespondWithAnError(w, http.StatusInternalServerError, "error converting component to string", err)
 				return
 			}
 		}
-		err = connection.players["white"].Conn.WriteMessage(websocket.TextMessage, []byte(msg))
+		err = connection.Players["white"].Conn.WriteMessage(websocket.TextMessage, []byte(msg))
 		if err != nil {
-			respondWithAnError(w, http.StatusInternalServerError, "writing online message error", err)
+			responses.RespondWithAnError(w, http.StatusInternalServerError, "writing online message error", err)
 			return
 		}
-		err = connection.players["black"].Conn.WriteMessage(websocket.TextMessage, []byte(msg))
+		err = connection.Players["black"].Conn.WriteMessage(websocket.TextMessage, []byte(msg))
 		if err != nil {
-			respondWithAnError(w, http.StatusInternalServerError, "writing online message error", err)
+			responses.RespondWithAnError(w, http.StatusInternalServerError, "writing online message error", err)
 			return
 		}
 		return
 	}
-	if currentGame.isWhiteTurn {
+	if currentGame.IsWhiteTurn {
 		err := components.EndGameModal("0-1", "black").Render(r.Context(), w)
 		if err != nil {
-			respondWithAnError(w, http.StatusInternalServerError, "error writing the end game modal", err)
+			responses.RespondWithAnError(w, http.StatusInternalServerError, "error writing the end game modal", err)
 			return
 		}
 	} else {
 		err := components.EndGameModal("1-0", "white").Render(r.Context(), w)
 		if err != nil {
-			respondWithAnError(w, http.StatusInternalServerError, "error writing the end game modal", err)
+			responses.RespondWithAnError(w, http.StatusInternalServerError, "error writing the end game modal", err)
 			return
 		}
 	}
 }
 
 func (cfg *appConfig) handleCastle(w http.ResponseWriter, currentPiece components.Piece, currentGame string, r *http.Request) error {
-	match, _ := cfg.Matches.getMatch(currentGame)
-	onlineGame, found := match.isOnlineMatch()
+	match, _ := cfg.Matches.GetMatch(currentGame)
+	onlineGame, found := match.IsOnlineMatch()
 
 	var king components.Piece
 	var rook components.Piece
 
-	if match.selectedPiece.IsKing {
-		king = match.selectedPiece
+	if match.SelectedPiece.IsKing {
+		king = match.SelectedPiece
 		rook = currentPiece
 	} else {
 		king = currentPiece
-		rook = match.selectedPiece
+		rook = match.SelectedPiece
 	}
 
 	kTile := king.Tile
 	rTile := rook.Tile
-	savedKingTile := match.board[king.Tile]
-	savedRookTile := match.board[rook.Tile]
-	kingSquare := match.board[king.Tile]
-	rookSquare := match.board[rook.Tile]
+	savedKingTile := match.Board[king.Tile]
+	savedRookTile := match.Board[rook.Tile]
+	kingSquare := match.Board[king.Tile]
+	rookSquare := match.Board[rook.Tile]
 
 	multiplier := kingSquare.Coordinates[1] / kingSquare.CoordinatePosition[1]
 
@@ -952,7 +965,7 @@ func (cfg *appConfig) handleCastle(w http.ResponseWriter, currentPiece component
 	}
 
 	message := fmt.Sprintf(
-		getCastleMessage(),
+		responses.GetCastleMessage(),
 		king.Name,
 		kingSquare.Coordinates[0],
 		kingSquare.Coordinates[1],
@@ -963,7 +976,7 @@ func (cfg *appConfig) handleCastle(w http.ResponseWriter, currentPiece component
 		rook.Image,
 	)
 
-	err := match.sendMessage(w, message, [2][]int{
+	err := match.SendMessage(w, message, [2][]int{
 		{
 			kingSquare.CoordinatePosition[0],
 			rookSquare.CoordinatePosition[0],
@@ -978,44 +991,44 @@ func (cfg *appConfig) handleCastle(w http.ResponseWriter, currentPiece component
 		return err
 	}
 
-	rowIdx := rowIdxMap[string(king.Tile[0])]
-	king.Tile = mockBoard[rowIdx][kingSquare.Coordinates[1]/multiplier]
-	rook.Tile = mockBoard[rowIdx][rookSquare.Coordinates[1]/multiplier]
+	rowIdx := matches.RowIdxMap[string(king.Tile[0])]
+	king.Tile = matches.MockBoard[rowIdx][kingSquare.Coordinates[1]/multiplier]
+	rook.Tile = matches.MockBoard[rowIdx][rookSquare.Coordinates[1]/multiplier]
 	king.Moved = true
 	rook.Moved = true
-	newKingSquare := match.board[king.Tile]
-	newRookSquare := match.board[rook.Tile]
+	newKingSquare := match.Board[king.Tile]
+	newRookSquare := match.Board[rook.Tile]
 	newKingSquare.Piece = king
 	newRookSquare.Piece = rook
-	match.board[king.Tile] = newKingSquare
-	match.board[rook.Tile] = newRookSquare
-	match.pieces[king.Name] = king
-	match.pieces[rook.Name] = rook
+	match.Board[king.Tile] = newKingSquare
+	match.Board[rook.Tile] = newRookSquare
+	match.Pieces[king.Name] = king
+	match.Pieces[rook.Name] = rook
 	savedKingTile.Piece = components.Piece{}
 	savedRookTile.Piece = components.Piece{}
-	match.board[kTile] = savedKingTile
-	match.board[rTile] = savedRookTile
-	match.selectedPiece = components.Piece{}
-	match.isWhiteTurn = !match.isWhiteTurn
-	match.possibleEnPessant = ""
-	match.movesSinceLastCapture++
-	cfg.Matches.setMatch(currentGame, match)
+	match.Board[kTile] = savedKingTile
+	match.Board[rTile] = savedRookTile
+	match.SelectedPiece = components.Piece{}
+	match.IsWhiteTurn = !match.IsWhiteTurn
+	match.PossibleEnPessant = ""
+	match.MovesSinceLastCapture++
+	cfg.Matches.SetMatch(currentGame, match)
 
 	if kingSquare.CoordinatePosition[1]-rookSquare.CoordinatePosition[1] == 1 {
-		match.allMoves = append(match.allMoves, "O-O")
+		match.AllMoves = append(match.AllMoves, "O-O")
 		err := cfg.showMoves(match, "O-O", "king", w, r)
 		if err != nil {
 			return err
 		}
 	} else {
-		match.allMoves = append(match.allMoves, "O-O-O")
+		match.AllMoves = append(match.AllMoves, "O-O-O")
 		err := cfg.showMoves(match, "O-O-O", "king", w, r)
 		if err != nil {
 			return err
 		}
 	}
 
-	match.gameDone(w)
+	match.GameDone(w)
 
 	return nil
 }

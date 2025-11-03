@@ -10,19 +10,20 @@ import (
 	layout "github.com/NikolaTosic-sudo/chess-live/containers/layouts"
 	"github.com/NikolaTosic-sudo/chess-live/internal/auth"
 	"github.com/NikolaTosic-sudo/chess-live/internal/database"
+	"github.com/NikolaTosic-sudo/chess-live/internal/responses"
 )
 
 func (cfg *appConfig) loginOpenHandler(w http.ResponseWriter, r *http.Request) {
 	err := layout.LoginModal().Render(r.Context(), w)
 	if err != nil {
-		respondWithAnError(w, http.StatusInternalServerError, "couldn't render template", err)
+		responses.RespondWithAnError(w, http.StatusInternalServerError, "couldn't render template", err)
 	}
 }
 
 func (cfg *appConfig) closeModalHandler(w http.ResponseWriter, r *http.Request) {
 	_, err := w.Write([]byte{})
 	if err != nil {
-		respondWithAnError(w, http.StatusInternalServerError, "failed closing the modal", err)
+		responses.RespondWithAnError(w, http.StatusInternalServerError, "failed closing the modal", err)
 		return
 	}
 }
@@ -31,7 +32,7 @@ func (cfg *appConfig) signupModalHandler(w http.ResponseWriter, r *http.Request)
 	w.WriteHeader(http.StatusOK)
 	err := components.Signup().Render(r.Context(), w)
 	if err != nil {
-		respondWithAnError(w, http.StatusInternalServerError, "couldn't render template", err)
+		responses.RespondWithAnError(w, http.StatusInternalServerError, "couldn't render template", err)
 	}
 }
 
@@ -39,7 +40,7 @@ func (cfg *appConfig) loginModalHandler(w http.ResponseWriter, r *http.Request) 
 	w.WriteHeader(http.StatusOK)
 	err := components.Login().Render(r.Context(), w)
 	if err != nil {
-		respondWithAnError(w, http.StatusInternalServerError, "couldn't render template", err)
+		responses.RespondWithAnError(w, http.StatusInternalServerError, "couldn't render template", err)
 	}
 }
 
@@ -51,7 +52,7 @@ func (cfg *appConfig) signupHandler(w http.ResponseWriter, r *http.Request) {
 	hashedPassword, err := auth.HashedPassword(password)
 
 	if err != nil {
-		respondWithAnError(w, http.StatusInternalServerError, "hashing password failed", err)
+		responses.RespondWithAnError(w, http.StatusInternalServerError, "hashing password failed", err)
 		return
 	}
 
@@ -64,27 +65,27 @@ func (cfg *appConfig) signupHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		if strings.Contains(err.Error(), "violates unique constraint") {
 			message := "User with that email already exists"
-			_, err = fmt.Fprintf(w, getLogErrorMessage(), message)
+			_, err = fmt.Fprintf(w, responses.GetLogErrorMessage(), message)
 			if err != nil {
-				respondWithAnError(w, http.StatusInternalServerError, "couldn't write to page", err)
+				responses.RespondWithAnError(w, http.StatusInternalServerError, "couldn't write to page", err)
 				return
 			}
 		}
-		respondWithAnError(w, http.StatusInternalServerError, "couldn't create user", err)
+		responses.RespondWithAnError(w, http.StatusInternalServerError, "couldn't create user", err)
 		return
 	}
 
 	token, err := auth.MakeJWT(user.ID, cfg.secret)
 
 	if err != nil {
-		respondWithAnError(w, http.StatusInternalServerError, "couldn't make JWT", err)
+		responses.RespondWithAnError(w, http.StatusInternalServerError, "couldn't make JWT", err)
 		return
 	}
 
 	refreshString, err := auth.MakeRefreshToken()
 
 	if err != nil {
-		respondWithAnError(w, http.StatusInternalServerError, "couldn't generate refresh token", err)
+		responses.RespondWithAnError(w, http.StatusInternalServerError, "couldn't generate refresh token", err)
 		return
 	}
 
@@ -97,7 +98,7 @@ func (cfg *appConfig) signupHandler(w http.ResponseWriter, r *http.Request) {
 	})
 
 	if err != nil {
-		respondWithAnError(w, http.StatusInternalServerError, "couldn't generate refresh token", err)
+		responses.RespondWithAnError(w, http.StatusInternalServerError, "couldn't generate refresh token", err)
 		return
 	}
 
@@ -139,14 +140,14 @@ func (cfg *appConfig) loginHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		if strings.Contains(err.Error(), "no rows in result") {
 			message := "User with the email doesn't exist"
-			_, err := fmt.Fprintf(w, getLogErrorMessage(), message)
+			_, err := fmt.Fprintf(w, responses.GetLogErrorMessage(), message)
 			if err != nil {
-				respondWithAnError(w, http.StatusInternalServerError, "couldn't write to page", err)
+				responses.RespondWithAnError(w, http.StatusInternalServerError, "couldn't write to page", err)
 				return
 			}
 		}
 
-		respondWithAnError(w, http.StatusInternalServerError, "couldn't get user by email", err)
+		responses.RespondWithAnError(w, http.StatusInternalServerError, "couldn't get user by email", err)
 		return
 	}
 
@@ -155,27 +156,27 @@ func (cfg *appConfig) loginHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		if strings.Contains(err.Error(), "hashedPassword is not the hash of the given password") {
 			message := "Incorrect password"
-			_, err := fmt.Fprintf(w, getLogErrorMessage(), message)
+			_, err := fmt.Fprintf(w, responses.GetLogErrorMessage(), message)
 			if err != nil {
-				respondWithAnError(w, http.StatusInternalServerError, "couldn't write to page", err)
+				responses.RespondWithAnError(w, http.StatusInternalServerError, "couldn't write to page", err)
 				return
 			}
 		}
-		respondWithAnError(w, http.StatusInternalServerError, "error with checking the password", err)
+		responses.RespondWithAnError(w, http.StatusInternalServerError, "error with checking the password", err)
 		return
 	}
 
 	token, err := auth.MakeJWT(user.ID, cfg.secret)
 
 	if err != nil {
-		respondWithAnError(w, http.StatusInternalServerError, "couldn't make jwt", err)
+		responses.RespondWithAnError(w, http.StatusInternalServerError, "couldn't make jwt", err)
 		return
 	}
 
 	refreshString, err := auth.MakeRefreshToken()
 
 	if err != nil {
-		respondWithAnError(w, http.StatusInternalServerError, "couldn't make refresh token", err)
+		responses.RespondWithAnError(w, http.StatusInternalServerError, "couldn't make refresh token", err)
 		return
 	}
 
@@ -188,7 +189,7 @@ func (cfg *appConfig) loginHandler(w http.ResponseWriter, r *http.Request) {
 	})
 
 	if err != nil {
-		respondWithAnError(w, http.StatusInternalServerError, "couldn't make refresh token", err)
+		responses.RespondWithAnError(w, http.StatusInternalServerError, "couldn't make refresh token", err)
 		return
 	}
 
@@ -217,7 +218,7 @@ func (cfg *appConfig) logoutHandler(w http.ResponseWriter, r *http.Request) {
 	c, err := r.Cookie("access_token")
 
 	if err != nil {
-		logError("no token found", err)
+		responses.LogError("no token found", err)
 		w.Header().Add("Hx-Redirect", "/")
 		return
 	}
@@ -225,7 +226,7 @@ func (cfg *appConfig) logoutHandler(w http.ResponseWriter, r *http.Request) {
 	userId, err := auth.ValidateJWT(c.Value, cfg.secret)
 
 	if err != nil {
-		logError("invalid jwt", err)
+		responses.LogError("invalid jwt", err)
 		w.Header().Add("Hx-Redirect", "/")
 		return
 	}

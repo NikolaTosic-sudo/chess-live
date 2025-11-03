@@ -9,6 +9,8 @@ import (
 
 	"github.com/NikolaTosic-sudo/chess-live/containers/components"
 	"github.com/NikolaTosic-sudo/chess-live/internal/database"
+	"github.com/NikolaTosic-sudo/chess-live/internal/matches"
+	"github.com/NikolaTosic-sudo/chess-live/internal/responses"
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 	"github.com/joho/godotenv"
@@ -18,7 +20,7 @@ import (
 func main() {
 	err := godotenv.Load()
 	if err != nil {
-		logError("Couldn't load env", err)
+		responses.LogError("Couldn't load env", err)
 		return
 	}
 
@@ -39,20 +41,20 @@ func main() {
 	startingBoard := MakeBoard()
 	startingPieces := MakePieces()
 
-	matches := Matches{
-		matches: map[string]Match{
+	matches := matches.Matches{
+		Matches: map[string]matches.Match{
 			"initial": {
-				board:                startingBoard,
-				pieces:               startingPieces,
-				selectedPiece:        components.Piece{},
-				coordinateMultiplier: 80,
-				isWhiteTurn:          true,
-				isWhiteUnderCheck:    false,
-				isBlackUnderCheck:    false,
-				whiteTimer:           600,
-				blackTimer:           600,
-				addition:             0,
-				allMoves:             []string{},
+				Board:                startingBoard,
+				Pieces:               startingPieces,
+				SelectedPiece:        components.Piece{},
+				CoordinateMultiplier: 80,
+				IsWhiteTurn:          true,
+				IsWhiteUnderCheck:    false,
+				IsBlackUnderCheck:    false,
+				WhiteTimer:           600,
+				BlackTimer:           600,
+				Addition:             0,
+				AllMoves:             []string{},
 			},
 		},
 	}
@@ -64,15 +66,15 @@ func main() {
 		Matches:  matches,
 	}
 
-	cur, _ := cfg.Matches.getMatch("initial")
-	cur.UpdateCoordinates(cur.coordinateMultiplier)
+	cur, _ := cfg.Matches.GetMatch("initial")
+	cur.UpdateCoordinates(cur.CoordinateMultiplier)
 
 	http.Handle("/assets/", http.StripPrefix("/assets/", http.FileServer(http.Dir("assets"))))
 	cfg.registerAllHandlers()
 
 	err = http.ListenAndServe(fmt.Sprintf(":%v", port), nil)
 	if err != nil {
-		logError("couldn't start the server", err)
+		responses.LogError("couldn't start the server", err)
 	}
 }
 

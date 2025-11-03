@@ -11,7 +11,10 @@ import (
 	layout "github.com/NikolaTosic-sudo/chess-live/containers/layouts"
 	"github.com/NikolaTosic-sudo/chess-live/internal/auth"
 	"github.com/NikolaTosic-sudo/chess-live/internal/database"
+	"github.com/NikolaTosic-sudo/chess-live/internal/matches"
 	"github.com/NikolaTosic-sudo/chess-live/internal/queue"
+	"github.com/NikolaTosic-sudo/chess-live/internal/responses"
+	"github.com/NikolaTosic-sudo/chess-live/internal/utils"
 	"github.com/google/uuid"
 )
 
@@ -21,7 +24,7 @@ func (cfg *appConfig) boardHandler(w http.ResponseWriter, r *http.Request) {
 
 	if err != nil {
 		if !strings.Contains(err.Error(), "named cookie not present") {
-			logError("game not found", err)
+			responses.LogError("game not found", err)
 		}
 		game = "initial"
 	} else if c.Value != "" {
@@ -30,31 +33,31 @@ func (cfg *appConfig) boardHandler(w http.ResponseWriter, r *http.Request) {
 		game = "initial"
 	}
 
-	match, ok := cfg.Matches.getMatch(game)
+	match, ok := cfg.Matches.GetMatch(game)
 
 	if !ok {
-		match = cfg.Matches.getInitialMatch()
+		match = cfg.Matches.GetInitialMatch()
 	}
 
-	match.fillBoard()
+	match.FillBoard()
 
 	whitePlayer := components.PlayerStruct{
 		Image:  "/assets/images/user-icon.png",
 		Name:   "Guest",
-		Timer:  formatTime(match.whiteTimer),
+		Timer:  utils.FormatTime(match.WhiteTimer),
 		Pieces: "white",
 	}
 	blackPlayer := components.PlayerStruct{
 		Image:  "/assets/images/user-icon.png",
 		Name:   "Opponent",
-		Timer:  formatTime(match.blackTimer),
+		Timer:  utils.FormatTime(match.BlackTimer),
 		Pieces: "black",
 	}
 
-	err = layout.MainPage(match.board, match.pieces, match.coordinateMultiplier, whitePlayer, blackPlayer, match.takenPiecesWhite, match.takenPiecesBlack).Render(r.Context(), w)
+	err = layout.MainPage(match.Board, match.Pieces, match.CoordinateMultiplier, whitePlayer, blackPlayer, match.TakenPiecesWhite, match.TakenPiecesBlack).Render(r.Context(), w)
 
 	if err != nil {
-		respondWithAnErrorPage(w, r, http.StatusInternalServerError, "Couldn't render template")
+		responses.RespondWithAnErrorPage(w, r, http.StatusInternalServerError, "Couldn't render template")
 		return
 	}
 }
@@ -63,7 +66,7 @@ func (cfg *appConfig) privateBoardHandler(w http.ResponseWriter, r *http.Request
 	user, err := cfg.getUser(r)
 
 	if err != nil {
-		logError("error getting user:", err)
+		responses.LogError("error getting user:", err)
 	}
 
 	userName := user.Name
@@ -92,26 +95,26 @@ func (cfg *appConfig) privateBoardHandler(w http.ResponseWriter, r *http.Request
 		http.SetCookie(w, &sGC)
 	}
 
-	match, _ := cfg.Matches.getMatch(game)
-	match.fillBoard()
+	match, _ := cfg.Matches.GetMatch(game)
+	match.FillBoard()
 
 	whitePlayer := components.PlayerStruct{
 		Image:  "/assets/images/user-icon.png",
 		Name:   userName,
-		Timer:  formatTime(match.whiteTimer),
+		Timer:  utils.FormatTime(match.WhiteTimer),
 		Pieces: "white",
 	}
 	blackPlayer := components.PlayerStruct{
 		Image:  "/assets/images/user-icon.png",
 		Name:   "Opponent",
-		Timer:  formatTime(match.blackTimer),
+		Timer:  utils.FormatTime(match.BlackTimer),
 		Pieces: "black",
 	}
 
-	err = layout.MainPagePrivate(match.board, match.pieces, match.coordinateMultiplier, whitePlayer, blackPlayer, match.takenPiecesWhite, match.takenPiecesBlack, false).Render(r.Context(), w)
+	err = layout.MainPagePrivate(match.Board, match.Pieces, match.CoordinateMultiplier, whitePlayer, blackPlayer, match.TakenPiecesWhite, match.TakenPiecesBlack, false).Render(r.Context(), w)
 
 	if err != nil {
-		respondWithAnErrorPage(w, r, http.StatusInternalServerError, "Couldn't render template")
+		responses.RespondWithAnErrorPage(w, r, http.StatusInternalServerError, "Couldn't render template")
 		return
 	}
 }
@@ -119,42 +122,42 @@ func (cfg *appConfig) privateBoardHandler(w http.ResponseWriter, r *http.Request
 func (cfg *appConfig) onlineBoardHandler(w http.ResponseWriter, r *http.Request) {
 	user, err := cfg.getUser(r)
 	if err != nil {
-		respondWithAnErrorPage(w, r, http.StatusInternalServerError, "Please try again")
+		responses.RespondWithAnErrorPage(w, r, http.StatusInternalServerError, "Please try again")
 		return
 	}
 
 	userName := user.Name
 	userId := user.ID
 
-	onlineMatches := cfg.Matches.getAllOnlineMatches()
+	onlineMatches := cfg.Matches.GetAllOnlineMatches()
 
 	if len(onlineMatches) > 0 {
 		for gameName, match := range onlineMatches {
 
-			game := match.online
+			game := match.Online
 
-			if game.playersQueue.HasSpot() {
+			if game.PlayersQueue.HasSpot() {
 
 				multiplier, err := cfg.getMultiplier(r)
 				if err != nil {
-					respondWithAnErrorPage(w, r, http.StatusInternalServerError, "Please try again")
+					responses.RespondWithAnErrorPage(w, r, http.StatusInternalServerError, "Please try again")
 					return
 				}
 
-				game.playersQueue.Enqueue(components.OnlinePlayerStruct{
+				game.PlayersQueue.Enqueue(components.OnlinePlayerStruct{
 					ID:             userId,
 					Name:           userName,
 					Image:          "/assets/images/user-icon.png",
-					Timer:          formatTime(600),
+					Timer:          utils.FormatTime(600),
 					ReconnectTimer: 30,
 					Multiplier:     multiplier,
 				})
 
-				for color := range game.players {
-					playerDq, err := game.playersQueue.Dequeue()
+				for color := range game.Players {
+					playerDq, err := game.PlayersQueue.Dequeue()
 
 					if err != nil {
-						respondWithAnError(w, http.StatusInternalServerError, "", err)
+						responses.RespondWithAnError(w, http.StatusInternalServerError, "", err)
 						return
 					}
 
@@ -162,11 +165,11 @@ func (cfg *appConfig) onlineBoardHandler(w http.ResponseWriter, r *http.Request)
 
 					player := playerDq
 
-					game.players[color] = player
+					game.Players[color] = player
 				}
 
-				whitePlayer := game.players["white"]
-				blackPlayer := game.players["black"]
+				whitePlayer := game.Players["white"]
+				blackPlayer := game.Players["black"]
 
 				matchId, _ := cfg.database.CreateMatch(r.Context(), database.CreateMatchParams{
 					White:    whitePlayer.Name,
@@ -186,30 +189,30 @@ func (cfg *appConfig) onlineBoardHandler(w http.ResponseWriter, r *http.Request)
 				startingBoard := MakeBoard()
 				startingPieces := MakePieces()
 
-				match.board = startingBoard
-				match.pieces = startingPieces
-				match.selectedPiece = components.Piece{}
-				match.coordinateMultiplier = multiplier
-				match.isWhiteTurn = true
-				match.isWhiteUnderCheck = false
-				match.isBlackUnderCheck = false
-				match.whiteTimer = 600
-				match.blackTimer = 600
-				match.addition = 0
-				match.matchId = matchId
-				match.online = game
+				match.Board = startingBoard
+				match.Pieces = startingPieces
+				match.SelectedPiece = components.Piece{}
+				match.CoordinateMultiplier = multiplier
+				match.IsWhiteTurn = true
+				match.IsWhiteUnderCheck = false
+				match.IsBlackUnderCheck = false
+				match.WhiteTimer = 600
+				match.BlackTimer = 600
+				match.Addition = 0
+				match.MatchId = matchId
+				match.Online = game
 
-				cfg.Matches.setMatch(gameName, match)
+				cfg.Matches.SetMatch(gameName, match)
 
 				startGame := cfg.makeCookie("current_game", gameName, "/")
 
-				match.fillBoard()
+				match.FillBoard()
 				match.UpdateCoordinates(whitePlayer.Multiplier)
 				http.SetCookie(w, &startGame)
 
-				err = layout.MainPageOnline(match.board, match.pieces, whitePlayer.Multiplier, whitePlayer, blackPlayer, match.takenPiecesWhite, match.takenPiecesBlack, false).Render(r.Context(), w)
+				err = layout.MainPageOnline(match.Board, match.Pieces, whitePlayer.Multiplier, whitePlayer, blackPlayer, match.TakenPiecesWhite, match.TakenPiecesBlack, false).Render(r.Context(), w)
 				if err != nil {
-					respondWithAnErrorPage(w, r, http.StatusInternalServerError, "Couldn't render template")
+					responses.RespondWithAnErrorPage(w, r, http.StatusInternalServerError, "Couldn't render template")
 				}
 				return
 			}
@@ -220,7 +223,7 @@ func (cfg *appConfig) onlineBoardHandler(w http.ResponseWriter, r *http.Request)
 
 	randomString, err := auth.MakeRefreshToken()
 	if err != nil {
-		respondWithAnError(w, http.StatusInternalServerError, "coudln't make refresh token", err)
+		responses.RespondWithAnError(w, http.StatusInternalServerError, "coudln't make refresh token", err)
 		return
 	}
 	currentGame = fmt.Sprintf("online:%v", randomString)
@@ -231,7 +234,7 @@ func (cfg *appConfig) onlineBoardHandler(w http.ResponseWriter, r *http.Request)
 
 	multiplier, err := cfg.getMultiplier(r)
 	if err != nil {
-		respondWithAnError(w, http.StatusInternalServerError, "error getting multiplier", err)
+		responses.RespondWithAnError(w, http.StatusInternalServerError, "error getting multiplier", err)
 		return
 	}
 
@@ -243,30 +246,30 @@ func (cfg *appConfig) onlineBoardHandler(w http.ResponseWriter, r *http.Request)
 		ID:             userId,
 		Name:           userName,
 		Image:          "/assets/images/user-icon.png",
-		Timer:          formatTime(600),
+		Timer:          utils.FormatTime(600),
 		ReconnectTimer: 30,
 		Multiplier:     multiplier,
 	})
 
-	match := Match{
-		isOnline: true,
-		online: OnlineGame{
-			players: map[string]components.OnlinePlayerStruct{
+	match := matches.Match{
+		IsOnline: true,
+		Online: matches.OnlineGame{
+			Players: map[string]components.OnlinePlayerStruct{
 				"white": {},
 				"black": {},
 			},
-			message:      make(chan string),
-			playerMsg:    make(chan string),
-			player:       make(chan components.OnlinePlayerStruct),
-			playersQueue: pQ,
+			Message:      make(chan string),
+			PlayerMsg:    make(chan string),
+			Player:       make(chan components.OnlinePlayerStruct),
+			PlayersQueue: pQ,
 		},
 	}
 
-	cfg.Matches.setMatch(currentGame, match)
+	cfg.Matches.SetMatch(currentGame, match)
 
 	err = components.WaitingModal().Render(r.Context(), w)
 	if err != nil {
-		respondWithAnErrorPage(w, r, http.StatusInternalServerError, "couldn't render template")
+		responses.RespondWithAnErrorPage(w, r, http.StatusInternalServerError, "couldn't render template")
 		return
 	}
 }
@@ -276,14 +279,14 @@ func (cfg *appConfig) updateMultiplerHandler(w http.ResponseWriter, r *http.Requ
 	err := r.ParseForm()
 
 	if err != nil {
-		respondWithAnError(w, http.StatusInternalServerError, "couldn't decode request", err)
+		responses.RespondWithAnError(w, http.StatusInternalServerError, "couldn't decode request", err)
 		return
 	}
 
 	multiplier, err := strconv.Atoi(r.FormValue("multiplier"))
 
 	if err != nil {
-		respondWithAnError(w, http.StatusInternalServerError, "couldn't convert multiplier", err)
+		responses.RespondWithAnError(w, http.StatusInternalServerError, "couldn't convert multiplier", err)
 		return
 	}
 
@@ -294,29 +297,29 @@ func (cfg *appConfig) updateMultiplerHandler(w http.ResponseWriter, r *http.Requ
 	} else {
 		currentGame = c.Value
 	}
-	match, _ := cfg.Matches.getMatch(currentGame)
+	match, _ := cfg.Matches.GetMatch(currentGame)
 
-	match.coordinateMultiplier = multiplier
+	match.CoordinateMultiplier = multiplier
 	match.UpdateCoordinates(multiplier)
-	cfg.Matches.setMatch(currentGame, match)
+	cfg.Matches.SetMatch(currentGame, match)
 
 	multiplierCookie := cfg.makeCookie("multiplier", r.FormValue("multiplier"), "/")
 
 	http.SetCookie(w, &multiplierCookie)
 
-	for k, piece := range match.pieces {
-		tile := match.board[piece.Tile]
+	for k, piece := range match.Pieces {
+		tile := match.Board[piece.Tile]
 
 		_, err := fmt.Fprintf(
 			w,
-			getSinglePieceMessage(),
+			responses.GetSinglePieceMessage(),
 			k,
 			tile.Coordinates[0],
 			tile.Coordinates[1],
 			piece.Image,
 		)
 		if err != nil {
-			respondWithAnError(w, http.StatusInternalServerError, "couldn't write to page", err)
+			responses.RespondWithAnError(w, http.StatusInternalServerError, "couldn't write to page", err)
 			return
 		}
 	}
@@ -327,12 +330,12 @@ func (cfg *appConfig) startGameHandler(w http.ResponseWriter, r *http.Request) {
 	user, err := cfg.isUserLoggedIn(r)
 	if err != nil {
 		if !strings.Contains(err.Error(), "named cookie not present") {
-			logError("user not logged in", err)
+			responses.LogError("user not logged in", err)
 		}
 	}
 	err = r.ParseForm()
 	if err != nil {
-		logError("couldn't parse form", err)
+		responses.LogError("couldn't parse form", err)
 	}
 	duration := r.FormValue("duration")
 	var newGameName string
@@ -345,7 +348,7 @@ func (cfg *appConfig) startGameHandler(w http.ResponseWriter, r *http.Request) {
 		userName = fullUser.Name
 
 		if err != nil {
-			respondWithAnError(w, http.StatusNotFound, "user not found in db", err)
+			responses.RespondWithAnError(w, http.StatusNotFound, "user not found in db", err)
 		} else {
 			matchId, err = cfg.database.CreateMatch(r.Context(), database.CreateMatchParams{
 				White:    fullUser.Name,
@@ -356,7 +359,7 @@ func (cfg *appConfig) startGameHandler(w http.ResponseWriter, r *http.Request) {
 			})
 
 			if err != nil {
-				respondWithAnError(w, http.StatusInternalServerError, "couldn't create match", err)
+				responses.RespondWithAnError(w, http.StatusInternalServerError, "couldn't create match", err)
 				return
 			}
 
@@ -366,7 +369,7 @@ func (cfg *appConfig) startGameHandler(w http.ResponseWriter, r *http.Request) {
 			})
 
 			if err != nil {
-				respondWithAnError(w, http.StatusInternalServerError, "couldn't create match", err)
+				responses.RespondWithAnError(w, http.StatusInternalServerError, "couldn't create match", err)
 				return
 			}
 		}
@@ -374,7 +377,7 @@ func (cfg *appConfig) startGameHandler(w http.ResponseWriter, r *http.Request) {
 		randomString, err := auth.MakeRefreshToken()
 
 		if err != nil {
-			respondWithAnError(w, http.StatusInternalServerError, "couldn't make refresh token", err)
+			responses.RespondWithAnError(w, http.StatusInternalServerError, "couldn't make refresh token", err)
 			return
 		}
 
@@ -389,59 +392,59 @@ func (cfg *appConfig) startGameHandler(w http.ResponseWriter, r *http.Request) {
 	durationSplit := strings.Split(duration, "+")
 	timer, err := strconv.Atoi(durationSplit[0])
 	if err != nil {
-		respondWithAnError(w, http.StatusInternalServerError, "couldn't convert duration", err)
+		responses.RespondWithAnError(w, http.StatusInternalServerError, "couldn't convert duration", err)
 		return
 	}
 	addition, err := strconv.Atoi(durationSplit[1])
 	if err != nil {
-		respondWithAnError(w, http.StatusInternalServerError, "couldn't convert duration", err)
+		responses.RespondWithAnError(w, http.StatusInternalServerError, "couldn't convert duration", err)
 		return
 	}
 
 	multiplier, err := cfg.getMultiplier(r)
 
 	if err != nil {
-		respondWithAnError(w, http.StatusInternalServerError, "couldn't convert multiplier", err)
+		responses.RespondWithAnError(w, http.StatusInternalServerError, "couldn't convert multiplier", err)
 		return
 	}
 
-	cur := Match{
-		board:                startingBoard,
-		pieces:               startingPieces,
-		selectedPiece:        components.Piece{},
-		coordinateMultiplier: multiplier,
-		isWhiteTurn:          true,
-		isWhiteUnderCheck:    false,
-		isBlackUnderCheck:    false,
-		whiteTimer:           timer,
-		blackTimer:           timer,
-		addition:             addition,
-		matchId:              matchId,
+	cur := matches.Match{
+		Board:                startingBoard,
+		Pieces:               startingPieces,
+		SelectedPiece:        components.Piece{},
+		CoordinateMultiplier: multiplier,
+		IsWhiteTurn:          true,
+		IsWhiteUnderCheck:    false,
+		IsBlackUnderCheck:    false,
+		WhiteTimer:           timer,
+		BlackTimer:           timer,
+		Addition:             addition,
+		MatchId:              matchId,
 	}
 
-	cfg.Matches.setMatch(newGameName, cur)
+	cfg.Matches.SetMatch(newGameName, cur)
 
-	cur.fillBoard()
-	cur.UpdateCoordinates(cur.coordinateMultiplier)
+	cur.FillBoard()
+	cur.UpdateCoordinates(cur.CoordinateMultiplier)
 	http.SetCookie(w, &startGame)
 
 	whitePlayer := components.PlayerStruct{
 		Image:  "/assets/images/user-icon.png",
 		Name:   userName,
-		Timer:  formatTime(cur.whiteTimer),
+		Timer:  utils.FormatTime(cur.WhiteTimer),
 		Pieces: "white",
 	}
 	blackPlayer := components.PlayerStruct{
 		Image:  "/assets/images/user-icon.png",
 		Name:   "Opponent",
-		Timer:  formatTime(cur.blackTimer),
+		Timer:  utils.FormatTime(cur.BlackTimer),
 		Pieces: "black",
 	}
 
-	err = components.StartLocalGame(cur.board, cur.pieces, multiplier, whitePlayer, blackPlayer).Render(r.Context(), w)
+	err = components.StartLocalGame(cur.Board, cur.Pieces, multiplier, whitePlayer, blackPlayer).Render(r.Context(), w)
 
 	if err != nil {
-		respondWithAnError(w, http.StatusInternalServerError, "couldn't render template", err)
+		responses.RespondWithAnError(w, http.StatusInternalServerError, "couldn't render template", err)
 		return
 	}
 
@@ -451,23 +454,23 @@ func (cfg *appConfig) resumeGameHandler(w http.ResponseWriter, r *http.Request) 
 	c, err := r.Cookie("current_game")
 
 	if err != nil {
-		respondWithAnError(w, http.StatusNoContent, "no game found", err)
+		responses.RespondWithAnError(w, http.StatusNoContent, "no game found", err)
 		return
 	}
 
-	match, ok := cfg.Matches.getMatch(c.Value)
+	match, ok := cfg.Matches.GetMatch(c.Value)
 
 	if !ok {
-		respondWithAnError(w, http.StatusNoContent, "no game found", err)
+		responses.RespondWithAnError(w, http.StatusNoContent, "no game found", err)
 		return
 	}
 
-	match.fillBoard()
-	match.UpdateCoordinates(match.coordinateMultiplier)
+	match.FillBoard()
+	match.UpdateCoordinates(match.CoordinateMultiplier)
 
 	err = components.StartGameRight().Render(r.Context(), w)
 	if err != nil {
-		respondWithAnError(w, http.StatusInternalServerError, "couldn't render template", err)
+		responses.RespondWithAnError(w, http.StatusInternalServerError, "couldn't render template", err)
 		return
 	}
 }
@@ -476,35 +479,35 @@ func (cfg *appConfig) getAllMovesHandler(w http.ResponseWriter, r *http.Request)
 	c, err := r.Cookie("current_game")
 
 	if err != nil {
-		respondWithAnError(w, http.StatusNoContent, "no game found", err)
+		responses.RespondWithAnError(w, http.StatusNoContent, "no game found", err)
 		return
 	}
 
-	match, ok := cfg.Matches.getMatch(c.Value)
+	match, ok := cfg.Matches.GetMatch(c.Value)
 
 	if !ok {
-		respondWithAnError(w, http.StatusNoContent, "no game found", err)
+		responses.RespondWithAnError(w, http.StatusNoContent, "no game found", err)
 		return
 	}
 
-	for i := 1; i <= len(match.allMoves); i++ {
+	for i := 1; i <= len(match.AllMoves); i++ {
 		var message string
 		if i%2 == 0 {
 			message = fmt.Sprintf(
-				getMovesUpdateMessage(),
-				match.allMoves[i-1],
+				responses.GetMovesUpdateMessage(),
+				match.AllMoves[i-1],
 			)
 		} else {
 			message = fmt.Sprintf(
-				getMovesNumberUpdateMessage(),
+				responses.GetMovesNumberUpdateMessage(),
 				i/2+1,
-				match.allMoves[i-1],
+				match.AllMoves[i-1],
 			)
 		}
 
-		err := match.sendMessage(w, message, [2][]int{})
+		err := match.SendMessage(w, message, [2][]int{})
 		if err != nil {
-			respondWithAnError(w, http.StatusInternalServerError, "couldn't write to page", err)
+			responses.RespondWithAnError(w, http.StatusInternalServerError, "couldn't write to page", err)
 			return
 		}
 
@@ -512,10 +515,10 @@ func (cfg *appConfig) getAllMovesHandler(w http.ResponseWriter, r *http.Request)
 }
 
 func (cfg *appConfig) timeOptionHandler(w http.ResponseWriter, r *http.Request) {
-	_, err := fmt.Fprint(w, getTimePicker())
+	_, err := fmt.Fprint(w, responses.GetTimePicker())
 
 	if err != nil {
-		respondWithAnError(w, http.StatusInternalServerError, "couldn't write to page", err)
+		responses.RespondWithAnError(w, http.StatusInternalServerError, "couldn't write to page", err)
 		return
 	}
 }
@@ -525,7 +528,7 @@ func (cfg *appConfig) setTimeOption(w http.ResponseWriter, r *http.Request) {
 	err := r.ParseForm()
 
 	if err != nil {
-		respondWithAnError(w, http.StatusInternalServerError, "couldn't decode request", err)
+		responses.RespondWithAnError(w, http.StatusInternalServerError, "couldn't decode request", err)
 		return
 	}
 
@@ -536,14 +539,14 @@ func (cfg *appConfig) setTimeOption(w http.ResponseWriter, r *http.Request) {
 		a, err = strconv.Atoi(addition)
 
 		if err != nil {
-			respondWithAnError(w, http.StatusInternalServerError, "couldn't decode request", err)
+			responses.RespondWithAnError(w, http.StatusInternalServerError, "couldn't decode request", err)
 			return
 		}
 	}
 	t, err := strconv.Atoi(time)
 
 	if err != nil {
-		respondWithAnError(w, http.StatusInternalServerError, "couldn't decode request", err)
+		responses.RespondWithAnError(w, http.StatusInternalServerError, "couldn't decode request", err)
 		return
 	}
 
@@ -557,15 +560,15 @@ func (cfg *appConfig) setTimeOption(w http.ResponseWriter, r *http.Request) {
 
 	_, err = fmt.Fprintf(
 		w,
-		getTimerSwitchMessage(),
-		formatTime(t*60),
-		formatTime(t*60),
+		responses.GetTimerSwitchMessage(),
+		utils.FormatTime(t*60),
+		utils.FormatTime(t*60),
 		duration,
 		time,
 		seconds,
 	)
 	if err != nil {
-		respondWithAnError(w, http.StatusInternalServerError, "couldn't write to page", err)
+		responses.RespondWithAnError(w, http.StatusInternalServerError, "couldn't write to page", err)
 		return
 	}
 }
@@ -574,21 +577,21 @@ func (cfg *appConfig) matchHistoryHandler(w http.ResponseWriter, r *http.Request
 	c, err := r.Cookie("access_token")
 
 	if err != nil {
-		respondWithAnError(w, http.StatusNoContent, "game not found", err)
+		responses.RespondWithAnError(w, http.StatusNoContent, "game not found", err)
 		return
 	}
 
 	userId, err := auth.ValidateJWT(c.Value, cfg.secret)
 
 	if err != nil {
-		respondWithAnError(w, http.StatusUnauthorized, "unauthorized user", err)
+		responses.RespondWithAnError(w, http.StatusUnauthorized, "unauthorized user", err)
 		return
 	}
 
 	dbMatches, err := cfg.database.GetAllMatchesForUser(r.Context(), userId)
 
 	if err != nil {
-		respondWithAnError(w, http.StatusInternalServerError, "error in database", err)
+		responses.RespondWithAnError(w, http.StatusInternalServerError, "error in database", err)
 		return
 	}
 
@@ -597,7 +600,7 @@ func (cfg *appConfig) matchHistoryHandler(w http.ResponseWriter, r *http.Request
 	for i := 0; i < len(dbMatches); i++ {
 		numberOfMoves, err := cfg.database.GetNumberOfMovesPerMatch(r.Context(), dbMatches[i].ID)
 		if err != nil {
-			respondWithAnError(w, http.StatusInternalServerError, "error in database", err)
+			responses.RespondWithAnError(w, http.StatusInternalServerError, "error in database", err)
 			return
 		}
 		newMatch := components.MatchStruct{
@@ -616,7 +619,7 @@ func (cfg *appConfig) matchHistoryHandler(w http.ResponseWriter, r *http.Request
 
 	err = components.MatchHistory(matches).Render(r.Context(), w)
 	if err != nil {
-		respondWithAnError(w, http.StatusInternalServerError, "couldn't render template", err)
+		responses.RespondWithAnError(w, http.StatusInternalServerError, "couldn't render template", err)
 		return
 	}
 }
@@ -626,20 +629,20 @@ func (cfg *appConfig) playHandler(w http.ResponseWriter, r *http.Request) {
 	userC, err := r.Cookie("access_token")
 
 	if err != nil {
-		logError("user not found", err)
+		responses.LogError("user not found", err)
 		userName = "Guest"
 	} else if userC.Value != "" {
 		userId, err := auth.ValidateJWT(userC.Value, cfg.secret)
 
 		if err != nil {
-			logError("user not found", err)
+			responses.LogError("user not found", err)
 			userName = "Guest"
 		}
 
 		user, err := cfg.database.GetUserById(r.Context(), userId)
 
 		if err != nil {
-			logError("user not found", err)
+			responses.LogError("user not found", err)
 			userName = "Guest"
 		} else if user.Name != "" {
 			userName = user.Name
@@ -677,26 +680,26 @@ func (cfg *appConfig) playHandler(w http.ResponseWriter, r *http.Request) {
 		http.SetCookie(w, &sGC)
 	}
 
-	match, _ := cfg.Matches.getMatch(game)
-	match.fillBoard()
+	match, _ := cfg.Matches.GetMatch(game)
+	match.FillBoard()
 
 	whitePlayer := components.PlayerStruct{
 		Image:  "/assets/images/user-icon.png",
 		Name:   userName,
-		Timer:  formatTime(match.whiteTimer),
+		Timer:  utils.FormatTime(match.WhiteTimer),
 		Pieces: "white",
 	}
 	blackPlayer := components.PlayerStruct{
 		Image:  "/assets/images/user-icon.png",
 		Name:   "Opponent",
-		Timer:  formatTime(match.blackTimer),
+		Timer:  utils.FormatTime(match.BlackTimer),
 		Pieces: "black",
 	}
 
-	err = layout.MainPagePrivate(match.board, match.pieces, match.coordinateMultiplier, whitePlayer, blackPlayer, match.takenPiecesWhite, match.takenPiecesBlack, false).Render(r.Context(), w)
+	err = layout.MainPagePrivate(match.Board, match.Pieces, match.CoordinateMultiplier, whitePlayer, blackPlayer, match.TakenPiecesWhite, match.TakenPiecesBlack, false).Render(r.Context(), w)
 
 	if err != nil {
-		respondWithAnErrorPage(w, r, http.StatusInternalServerError, "Couldn't render template")
+		responses.RespondWithAnErrorPage(w, r, http.StatusInternalServerError, "Couldn't render template")
 		return
 	}
 }
@@ -706,14 +709,14 @@ func (cfg *appConfig) matchesHandler(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.Atoi(strId)
 
 	if err != nil {
-		respondWithAnError(w, http.StatusInternalServerError, "couldn't convert value", err)
+		responses.RespondWithAnError(w, http.StatusInternalServerError, "couldn't convert value", err)
 		return
 	}
 
 	match, err := cfg.database.GetMatchById(r.Context(), int32(id))
 
 	if err != nil {
-		respondWithAnError(w, http.StatusInternalServerError, "couldn't get match", err)
+		responses.RespondWithAnError(w, http.StatusInternalServerError, "couldn't get match", err)
 		return
 	}
 
@@ -730,7 +733,7 @@ func (cfg *appConfig) matchesHandler(w http.ResponseWriter, r *http.Request) {
 	multiplier, err := cfg.getMultiplier(r)
 
 	if err != nil {
-		respondWithAnError(w, http.StatusInternalServerError, "couldn't convert value", err)
+		responses.RespondWithAnError(w, http.StatusInternalServerError, "couldn't convert value", err)
 		return
 	}
 
@@ -739,48 +742,48 @@ func (cfg *appConfig) matchesHandler(w http.ResponseWriter, r *http.Request) {
 	startingBoard := MakeBoard()
 	startingPieces := MakePieces()
 
-	cur := Match{
-		board:                startingBoard,
-		pieces:               startingPieces,
-		selectedPiece:        components.Piece{},
-		coordinateMultiplier: multiplier,
-		isWhiteTurn:          true,
-		isWhiteUnderCheck:    false,
-		isBlackUnderCheck:    false,
-		whiteTimer:           int(match.FullTime),
-		blackTimer:           int(match.FullTime),
-		matchId:              match.ID,
+	cur := matches.Match{
+		Board:                startingBoard,
+		Pieces:               startingPieces,
+		SelectedPiece:        components.Piece{},
+		CoordinateMultiplier: multiplier,
+		IsWhiteTurn:          true,
+		IsWhiteUnderCheck:    false,
+		IsBlackUnderCheck:    false,
+		WhiteTimer:           int(match.FullTime),
+		BlackTimer:           int(match.FullTime),
+		MatchId:              match.ID,
 	}
 
-	cfg.Matches.setMatch(newGame, cur)
+	cfg.Matches.SetMatch(newGame, cur)
 
-	cur.fillBoard()
-	cur.UpdateCoordinates(cur.coordinateMultiplier)
+	cur.FillBoard()
+	cur.UpdateCoordinates(cur.CoordinateMultiplier)
 	http.SetCookie(w, &startGame)
 
 	whitePlayer := components.PlayerStruct{
 		Image:  "/assets/images/user-icon.png",
 		Name:   match.White,
-		Timer:  formatTime(int(match.FullTime)),
+		Timer:  utils.FormatTime(int(match.FullTime)),
 		Pieces: "white",
 	}
 	blackPlayer := components.PlayerStruct{
 		Image:  "/assets/images/user-icon.png",
 		Name:   match.Black,
-		Timer:  formatTime(int(match.FullTime)),
+		Timer:  utils.FormatTime(int(match.FullTime)),
 		Pieces: "black",
 	}
 
 	moves, err := cfg.database.GetAllMovesForMatch(r.Context(), match.ID)
 
 	if err != nil {
-		respondWithAnError(w, http.StatusInternalServerError, "couldn't get all moves", err)
+		responses.RespondWithAnError(w, http.StatusInternalServerError, "couldn't get all moves", err)
 		return
 	}
 
-	err = layout.MatchHistoryBoard(cur.board, cur.pieces, cur.coordinateMultiplier, whitePlayer, blackPlayer, cur.takenPiecesWhite, cur.takenPiecesBlack, moves).Render(r.Context(), w)
+	err = layout.MatchHistoryBoard(cur.Board, cur.Pieces, cur.CoordinateMultiplier, whitePlayer, blackPlayer, cur.TakenPiecesWhite, cur.TakenPiecesBlack, moves).Render(r.Context(), w)
 	if err != nil {
-		respondWithAnError(w, http.StatusInternalServerError, "couldn't render template", err)
+		responses.RespondWithAnError(w, http.StatusInternalServerError, "couldn't render template", err)
 		return
 	}
 }
@@ -790,7 +793,7 @@ func (cfg *appConfig) moveHistoryHandler(w http.ResponseWriter, r *http.Request)
 	c, err := r.Cookie("current_game")
 
 	if err != nil {
-		respondWithAnError(w, http.StatusNotFound, "no game found", err)
+		responses.RespondWithAnError(w, http.StatusNotFound, "no game found", err)
 		return
 	}
 
@@ -799,7 +802,7 @@ func (cfg *appConfig) moveHistoryHandler(w http.ResponseWriter, r *http.Request)
 	matchId, err := strconv.Atoi(cookie[1])
 
 	if err != nil {
-		respondWithAnError(w, http.StatusInternalServerError, "couldn't convert value", err)
+		responses.RespondWithAnError(w, http.StatusInternalServerError, "couldn't convert value", err)
 		return
 	}
 
@@ -809,7 +812,7 @@ func (cfg *appConfig) moveHistoryHandler(w http.ResponseWriter, r *http.Request)
 	})
 
 	if err != nil {
-		respondWithAnError(w, http.StatusInternalServerError, "couldn't get the board for the move", err)
+		responses.RespondWithAnError(w, http.StatusInternalServerError, "couldn't get the board for the move", err)
 		return
 	}
 
@@ -818,7 +821,7 @@ func (cfg *appConfig) moveHistoryHandler(w http.ResponseWriter, r *http.Request)
 	err = json.Unmarshal(board.Board, &boardState)
 
 	if err != nil {
-		respondWithAnError(w, http.StatusInternalServerError, "couldn't unmarshal board state", err)
+		responses.RespondWithAnError(w, http.StatusInternalServerError, "couldn't unmarshal board state", err)
 		return
 	}
 
@@ -831,13 +834,13 @@ func (cfg *appConfig) moveHistoryHandler(w http.ResponseWriter, r *http.Request)
 		curr.Tile = v
 		pieces[k] = curr
 	}
-	curr, _ := cfg.Matches.getMatch(c.Value)
+	curr, _ := cfg.Matches.GetMatch(c.Value)
 
-	curr.cleanFillBoard(pieces)
+	curr.CleanFillBoard(pieces)
 
-	err = components.UpdateBoardHistory(curr.board, pieces, curr.coordinateMultiplier, formatTime(int(board.WhiteTime)), formatTime(int(board.BlackTime))).Render(r.Context(), w)
+	err = components.UpdateBoardHistory(curr.Board, pieces, curr.CoordinateMultiplier, utils.FormatTime(int(board.WhiteTime)), utils.FormatTime(int(board.BlackTime))).Render(r.Context(), w)
 	if err != nil {
-		respondWithAnError(w, http.StatusInternalServerError, "couldn't render template", err)
+		responses.RespondWithAnError(w, http.StatusInternalServerError, "couldn't render template", err)
 		return
 	}
 }
