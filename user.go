@@ -20,7 +20,11 @@ func (cfg *appConfig) getUserId(r *http.Request) (uuid.UUID, error) {
 
 	userC, err := r.Cookie("access_token")
 
-	if err != nil || userC.Value == "" {
+	if err != nil {
+		return userId, err
+	}
+
+	if userC.Value == "" {
 		return userId, fmt.Errorf("invalid access token")
 	}
 
