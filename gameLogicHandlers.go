@@ -920,7 +920,6 @@ func (cfg *appConfig) surrenderHandler(w http.ResponseWriter, r *http.Request) {
 
 func (cfg *appConfig) handleCastle(w http.ResponseWriter, currentPiece components.Piece, currentGame string, r *http.Request) error {
 	match, _ := cfg.Matches.GetMatch(currentGame)
-	onlineGame, found := match.IsOnlineMatch()
 
 	var king components.Piece
 	var rook components.Piece
@@ -931,6 +930,7 @@ func (cfg *appConfig) handleCastle(w http.ResponseWriter, currentPiece component
 	} else {
 		king = currentPiece
 		rook = match.SelectedPiece
+	}
 
 	kTile := king.Tile
 	rTile := rook.Tile
