@@ -12,7 +12,6 @@ import (
 	"github.com/NikolaTosic-sudo/chess-live/internal/matches"
 	"github.com/NikolaTosic-sudo/chess-live/internal/responses"
 	"github.com/google/uuid"
-	"github.com/gorilla/websocket"
 	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
 )
@@ -76,8 +75,4 @@ func main() {
 	if err != nil {
 		responses.LogError("couldn't start the server", err)
 	}
-}
-
-var upgrader = websocket.Upgrader{
-	CheckOrigin: func(r *http.Request) bool { return true },
 }
