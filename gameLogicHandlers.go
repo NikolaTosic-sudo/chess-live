@@ -928,7 +928,6 @@ func (cfg *appConfig) handleCastle(w http.ResponseWriter, currentPiece component
 
 	var king components.Piece
 	var rook components.Piece
-	var multiplier int
 
 	if match.selectedPiece.IsKing {
 		king = match.selectedPiece
@@ -938,36 +937,14 @@ func (cfg *appConfig) handleCastle(w http.ResponseWriter, currentPiece component
 		rook = match.selectedPiece
 	}
 
-	if found {
-		userC, err := r.Cookie("access_token")
-
-		if err != nil {
-			respondWithAnErrorPage(w, r, http.StatusUnauthorized, "user not found")
-			return err
-		}
-
-		userId, err := auth.ValidateJWT(userC.Value, cfg.secret)
-
-		if err != nil {
-			respondWithAnErrorPage(w, r, http.StatusUnauthorized, "user not found")
-			return err
-		}
-
-		for _, player := range onlineGame.players {
-			if player.ID == userId {
-				multiplier = player.Multiplier
-			}
-		}
-	} else {
-		multiplier = match.coordinateMultiplier
-	}
-
 	kTile := king.Tile
 	rTile := rook.Tile
 	savedKingTile := match.board[king.Tile]
 	savedRookTile := match.board[rook.Tile]
 	kingSquare := match.board[king.Tile]
 	rookSquare := match.board[rook.Tile]
+
+	multiplier := kingSquare.Coordinates[1] / kingSquare.CoordinatePosition[1]
 
 	if kingSquare.Coordinates[1] < rookSquare.Coordinates[1] {
 		kC := kingSquare.Coordinates[1]
