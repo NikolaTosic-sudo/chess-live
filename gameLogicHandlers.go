@@ -856,15 +856,7 @@ func (cfg *appConfig) endGameHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	cGC := http.Cookie{
-		Name:     "current_game",
-		Value:    "",
-		Path:     "/",
-		MaxAge:   -1,
-		HttpOnly: true,
-		Secure:   true,
-		SameSite: http.SameSiteLaxMode,
-	}
+	cGC := cfg.removeCookie("current_game")
 	http.SetCookie(w, &cGC)
 	w.WriteHeader(http.StatusNoContent)
 }
