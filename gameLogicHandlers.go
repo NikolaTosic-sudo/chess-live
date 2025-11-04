@@ -931,7 +931,6 @@ func (cfg *appConfig) handleCastle(w http.ResponseWriter, currentPiece component
 	} else {
 		king = currentPiece
 		rook = match.SelectedPiece
-	}
 
 	kTile := king.Tile
 	rTile := rook.Tile
