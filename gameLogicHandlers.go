@@ -918,6 +918,41 @@ func (cfg *appConfig) surrenderHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func (cfg *appConfig) offerDrawHandler(w http.ResponseWriter, r *http.Request) {
+	userId, err := cfg.getUserId(r)
+	if err != nil {
+		responses.RespondWithAnError(w, http.StatusInternalServerError, "couldn't get user id", err)
+		return
+	}
+
+	c, err := r.Cookie("current_game")
+	if err != nil || c.Value == "" {
+		responses.RespondWithAnError(w, http.StatusNotFound, "game not found", err)
+		return
+	}
+
+	currentGame, _ := cfg.Matches.GetMatch(c.Value)
+	onlineGame, found := currentGame.IsOnlineMatch()
+
+	if found {
+		for _, player := range onlineGame.Players {
+			if player.ID == userId {
+				err = player.Conn.WriteMessage(websocket.TextMessage, []byte("do you accept"))
+				if err != nil {
+					responses.RespondWithAnError(w, http.StatusInternalServerError, "writing online message error", err)
+					return
+				}
+			} else {
+				err = player.Conn.WriteMessage(websocket.TextMessage, []byte("wait for opponent"))
+				if err != nil {
+					responses.RespondWithAnError(w, http.StatusInternalServerError, "writing online message error", err)
+					return
+				}
+			}
+		}
+	}
+}
+
 func (cfg *appConfig) handleCastle(w http.ResponseWriter, currentPiece components.Piece, currentGame string, r *http.Request) error {
 	match, _ := cfg.Matches.GetMatch(currentGame)
 
