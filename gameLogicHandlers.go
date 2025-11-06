@@ -937,13 +937,27 @@ func (cfg *appConfig) offerDrawHandler(w http.ResponseWriter, r *http.Request) {
 	if found {
 		for _, player := range onlineGame.Players {
 			if player.ID == userId {
-				err = player.Conn.WriteMessage(websocket.TextMessage, []byte("do you accept"))
+
+				msg, err := utils.TemplString(components.WaitForDrawModal())
+				if err != nil {
+					responses.RespondWithAnError(w, http.StatusInternalServerError, "error converting component to string", err)
+					return
+				}
+
+				err = player.Conn.WriteMessage(websocket.TextMessage, []byte(msg))
 				if err != nil {
 					responses.RespondWithAnError(w, http.StatusInternalServerError, "writing online message error", err)
 					return
 				}
+
 			} else {
-				err = player.Conn.WriteMessage(websocket.TextMessage, []byte("wait for opponent"))
+				msg, err := utils.TemplString(components.DrawOfferedModal())
+				if err != nil {
+					responses.RespondWithAnError(w, http.StatusInternalServerError, "error converting component to string", err)
+					return
+				}
+
+				err = player.Conn.WriteMessage(websocket.TextMessage, []byte(msg))
 				if err != nil {
 					responses.RespondWithAnError(w, http.StatusInternalServerError, "writing online message error", err)
 					return
