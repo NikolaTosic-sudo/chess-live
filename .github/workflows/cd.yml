@@ -18,4 +18,4 @@ jobs:
           go-version: "1.25.0"
 
       - name: Build the projecet
-        run: docker compose --build
+        run: docker compose up --build
