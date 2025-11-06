@@ -1,0 +1,19 @@
+package components
+
+templ WaitForDrawModal() {
+	<div hx-swap-oob="afterbegin:#body">
+		<div class="fixed inset-0 bg-black/60 flex items-center justify-center z-30" id="wait">
+			<div
+				id="modal-content"
+				class="w-full max-w-md bg-[#3e3a36] rounded-lg shadow-xl p-6 z-40"
+				onclick="event.stopPropagation()"
+			>
+				<div class="text-center text-white text-2xl">
+					Waiting for the opponent to accept the draw
+				</div>
+				// TODO: Add a cancel button
+			</div>
+		</div>
+	</div>
+	<div id="timer-update" hx-swap-oob="outerHTML"></div>
+}

@@ -230,7 +230,7 @@ func StartLocalGame(board map[string]Square, pieces map[string]Piece, multiplier
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 20, "</div><div class=\"h-full w-[240px] mt-10 block\"><div><div><button hx-get=\"/surrender\" hx-confirm=\"Are you sure you want to surrender\" class=\"bg-red-600 hover:bg-red-500 text-white font-medium py-2 px-5 rounded-md shadow-sm transition duration-200 cursor-pointer mt-8\">Surrender</button></div></div><div id=\"moves\" class=\"grid grid-cols-3 text-white h-moves mt-8 max-h-[320px] overflow-auto\"></div></div></div><script>\n\tconst board = document.getElementById('chess-board');\n\tlet width = board.clientWidth\n\tfunction getMultiplier() {\n\t\tif (width < 480) return 40;\n\t\tif (width < 640) return 60;\n\t\tif (width < 800) return 80;\n\t\treturn 100;\n\t}\n</script>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 20, "</div><div class=\"h-full w-[240px] mt-10 block\"><div><div><button hx-get=\"/surrender\" hx-confirm=\"Are you sure you want to surrender\" class=\"bg-red-600 hover:bg-red-500 text-white font-medium py-2 px-5 rounded-md shadow-sm transition duration-200 cursor-pointer mt-8\">Surrender</button></div></div><div id=\"moves\" class=\"grid grid-cols-3 text-white h-moves w-[240px] mt-8 max-h-[320px] overflow-auto\"></div></div></div><script>\n\tconst board = document.getElementById('chess-board');\n\tlet width = board.clientWidth\n\tfunction getMultiplier() {\n\t\tif (width < 480) return 40;\n\t\tif (width < 640) return 60;\n\t\tif (width < 800) return 80;\n\t\treturn 100;\n\t}\n</script>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

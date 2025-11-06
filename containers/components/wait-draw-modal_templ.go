@@ -8,7 +8,7 @@ package components
 import "github.com/a-h/templ"
 import templruntime "github.com/a-h/templ/runtime"
 
-func StartGameRight() templ.Component {
+func WaitForDrawModal() templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -29,7 +29,7 @@ func StartGameRight() templ.Component {
 			templ_7745c5c3_Var1 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div><div><button hx-get=\"/surrender\" hx-confirm=\"Are you sure you want to surrender\" class=\"bg-red-600 hover:bg-red-500 text-white font-medium py-2 px-5 rounded-md shadow-sm transition duration-200 cursor-pointer mt-8\">Surrender</button></div><div><button hx-get=\"/offer-draw\" hx-confirm=\"Are you sure you want to offer draw\" class=\"bg-gray-600 hover:bg-gray-500 text-white font-medium py-2 px-5 rounded-md shadow-sm transition duration-200 cursor-pointer mt-8\">Offer Draw</button></div><div hx-get=\"/all-moves\" hx-trigger=\"load\"></div><div id=\"moves\" class=\"grid grid-cols-3 text-white h-moves w-[240px] mt-8 max-h-[320px] overflow-auto\"></div></div><div id=\"overlay\" hx-swap-oob=\"true\" class=\"hidden w-board w-board-md h-board h-board-md absolute z-20 hover:cursor-default\"></div><div id=\"timer-update\" hx-get=\"/timer\" hx-trigger=\"every 1s\" hx-swap-oob=\"true\"></div><div id=\"left-side\" hx-swap-oob=\"true\" class=\"w-[240px]\"></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div hx-swap-oob=\"afterbegin:#body\"><div class=\"fixed inset-0 bg-black/60 flex items-center justify-center z-30\" id=\"wait\"><div hx-get=\"/wait-reconnect\" hx-trigger=\"every 1s delay:0.4s\"></div><div id=\"modal-content\" class=\"w-full max-w-md bg-[#3e3a36] rounded-lg shadow-xl p-6 z-40\" onclick=\"event.stopPropagation()\"><div class=\"text-center text-white text-2xl\">Waiting for the opponent to accept the draw, they have <span id=\"waiting\">30</span> seconds to respond...</div></div></div></div><div id=\"timer-update\" hx-swap-oob=\"outerHTML\"></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
