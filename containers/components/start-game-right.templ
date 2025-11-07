@@ -13,9 +13,11 @@ templ StartGameRight() {
 		</div>
 		<div>
 			<button
+				id="offer-draw"
 				hx-get="/offer-draw"
 				hx-confirm="Are you sure you want to offer draw"
 				class="bg-gray-600 hover:bg-gray-500 text-white font-medium py-2 px-5 rounded-md shadow-sm transition duration-200 cursor-pointer mt-8"
+				hx-target="this"
 			>
 				Offer Draw
 			</button>

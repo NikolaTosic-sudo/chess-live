@@ -29,7 +29,7 @@ func WaitForDrawModal() templ.Component {
 			templ_7745c5c3_Var1 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div hx-swap-oob=\"afterbegin:#body\"><div class=\"fixed inset-0 bg-black/60 flex items-center justify-center z-30\" id=\"wait\"><div hx-get=\"/wait-reconnect\" hx-trigger=\"every 1s delay:0.4s\"></div><div id=\"modal-content\" class=\"w-full max-w-md bg-[#3e3a36] rounded-lg shadow-xl p-6 z-40\" onclick=\"event.stopPropagation()\"><div class=\"text-center text-white text-2xl\">Waiting for the opponent to accept the draw, they have <span id=\"waiting\">30</span> seconds to respond...</div></div></div></div><div id=\"timer-update\" hx-swap-oob=\"outerHTML\"></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<button id=\"offer-draw\" hx-get=\"/offer-draw\" hx-confirm=\"Are you sure you want to offer draw\" class=\"bg-gray-600 hover:bg-gray-500 text-white font-medium py-2 px-5 rounded-md shadow-sm transition duration-200 cursor-pointer mt-8\" hx-target=\"this\">Offer Draw</button><div hx-swap-oob=\"afterbegin:#body\"><div class=\"fixed inset-0 bg-black/60 flex items-center justify-center z-30\" id=\"wait\"><div id=\"modal-content\" class=\"w-full max-w-md bg-[#3e3a36] rounded-lg shadow-xl p-6 z-40\" onclick=\"event.stopPropagation()\"><div class=\"text-center text-white text-2xl\">Waiting for the opponent to accept the draw</div></div></div></div><div id=\"timer-update\" hx-swap-oob=\"outerHTML\"></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

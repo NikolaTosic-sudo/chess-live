@@ -13,9 +13,8 @@ templ DrawOfferedModal() {
 				</p>
 				<div class="flex justify-center gap-4">
 					<button
-						hx-get=""
+						hx-get="/decline-draw"
 						class="px-5 py-2 text-white bg-red-600 rounded-md hover:bg-red-700 transition"
-						hx-target="this"
 					>
 						No
 					</button>
@@ -30,4 +29,5 @@ templ DrawOfferedModal() {
 			</div>
 		</div>
 	</div>
+	<div id="timer-update" hx-swap-oob="true"></div>
 }
