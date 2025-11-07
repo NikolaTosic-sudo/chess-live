@@ -175,6 +175,11 @@ func (cfg *appConfig) registerAllHandlers() {
 		},
 		{
 			method:     "GET",
+			reqPath:    "/accept-draw",
+			handleFunc: cfg.accpetDrawHandler,
+		},
+		{
+			method:     "GET",
 			reqPath:    "/wait-reconnect",
 			handleFunc: cfg.waitingForReconnect,
 		},

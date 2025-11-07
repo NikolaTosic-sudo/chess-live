@@ -657,7 +657,7 @@ func (cfg *appConfig) timerHandler(w http.ResponseWriter, r *http.Request) {
 	cfg.Matches.SetMatch(currentGame, match)
 
 	if match.IsWhiteTurn && (match.WhiteTimer < 0 || match.WhiteTimer == 0) {
-		msg, err := utils.TemplString(components.EndGameModal("0-1", "black"))
+		msg, err := utils.TemplString(components.EndGameModal("0-1", "black", false))
 		if err != nil {
 			responses.RespondWithAnError(w, http.StatusInternalServerError, "error converting component to string", err)
 			return
@@ -670,7 +670,7 @@ func (cfg *appConfig) timerHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	} else if !match.IsWhiteTurn && (match.BlackTimer < 0 || match.BlackTimer == 0) {
-		msg, err := utils.TemplString(components.EndGameModal("1-0", "white"))
+		msg, err := utils.TemplString(components.EndGameModal("1-0", "white", false))
 		if err != nil {
 			responses.RespondWithAnError(w, http.StatusInternalServerError, "error converting component to string", err)
 			return
@@ -879,13 +879,13 @@ func (cfg *appConfig) surrenderHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if connection.Players["white"].ID == userId {
-			msg, err = utils.TemplString(components.EndGameModal("0-1", "black"))
+			msg, err = utils.TemplString(components.EndGameModal("0-1", "black", false))
 			if err != nil {
 				responses.RespondWithAnError(w, http.StatusInternalServerError, "error converting component to string", err)
 				return
 			}
 		} else if connection.Players["black"].ID == userId {
-			msg, err = utils.TemplString(components.EndGameModal("1-0", "white"))
+			msg, err = utils.TemplString(components.EndGameModal("1-0", "white", false))
 			if err != nil {
 				responses.RespondWithAnError(w, http.StatusInternalServerError, "error converting component to string", err)
 				return
@@ -904,13 +904,13 @@ func (cfg *appConfig) surrenderHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if currentGame.IsWhiteTurn {
-		err := components.EndGameModal("0-1", "black").Render(r.Context(), w)
+		err := components.EndGameModal("0-1", "black", false).Render(r.Context(), w)
 		if err != nil {
 			responses.RespondWithAnError(w, http.StatusInternalServerError, "error writing the end game modal", err)
 			return
 		}
 	} else {
-		err := components.EndGameModal("1-0", "white").Render(r.Context(), w)
+		err := components.EndGameModal("1-0", "white", false).Render(r.Context(), w)
 		if err != nil {
 			responses.RespondWithAnError(w, http.StatusInternalServerError, "error writing the end game modal", err)
 			return
