@@ -170,6 +170,11 @@ func (cfg *appConfig) registerAllHandlers() {
 		},
 		{
 			method:     "GET",
+			reqPath:    "/decline-draw",
+			handleFunc: cfg.declineDrawHandler,
+		},
+		{
+			method:     "GET",
 			reqPath:    "/wait-reconnect",
 			handleFunc: cfg.waitingForReconnect,
 		},

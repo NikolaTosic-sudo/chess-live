@@ -174,11 +174,14 @@ func (cfg *appConfig) waitingForReconnect(w http.ResponseWriter, r *http.Request
 	err2 := game.Players["black"].Conn.WriteMessage(websocket.TextMessage, []byte("test"))
 
 	if err1 == nil && err2 == nil {
+
 		_, err = fmt.Fprintf(w, `<div id="wait" hx-swap-oob="outerHTML"></div>`)
 		if err != nil {
 			responses.RespondWithAnError(w, http.StatusInternalServerError, "couldn't render template", err)
 			return
 		}
+
+		return
 	}
 
 	var time int8
@@ -409,5 +412,48 @@ func (cfg *appConfig) cancelOnlineSearchHandler(w http.ResponseWriter, r *http.R
 	if err != nil {
 		responses.RespondWithAnError(w, http.StatusInternalServerError, "failed closing the modal", err)
 		return
+	}
+}
+
+func (cfg *appConfig) declineDrawHandler(w http.ResponseWriter, r *http.Request) {
+	currentGame, err := r.Cookie("current_game")
+
+	if err != nil {
+		responses.RespondWithAnError(w, http.StatusInternalServerError, "failed getting the cookie", err)
+		return
+	}
+
+	userId, err := cfg.getUserId(r)
+
+	if err != nil {
+		responses.RespondWithAnError(w, http.StatusInternalServerError, "failed getting user", err)
+		return
+	}
+
+	match, _ := cfg.Matches.GetMatch(currentGame.Value)
+
+	onlineGame, found := match.IsOnlineMatch()
+
+	if found {
+		for _, player := range onlineGame.Players {
+			if userId == player.ID {
+				_, err = fmt.Fprintf(w, `<div id="rec" hx-swap-oob="outerHTML"></div>`)
+				if err != nil {
+					responses.RespondWithAnError(w, http.StatusInternalServerError, "failed sending message", err)
+					return
+				}
+			} else {
+				msg := `
+					<div id="timer-update" hx-get="/timer" hx-trigger="every 1s" hx-swap-oob="true"></div>
+					<div id="wait" hx-swap-oob="outerHTML"></div>
+				`
+				onlineGame.PlayerMsg <- msg
+				onlineGame.Player <- player
+				if err != nil {
+					responses.RespondWithAnError(w, http.StatusInternalServerError, "failed sending message", err)
+					return
+				}
+			}
+		}
 	}
 }
