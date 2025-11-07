@@ -18,7 +18,7 @@ func (m *Match) GameDone(w http.ResponseWriter) {
 	}
 
 	if m.MovesSinceLastCapture == 50 {
-		msg, err := utils.TemplString(components.EndGameModal("1-1", ""))
+		msg, err := utils.TemplString(components.EndGameModal("1-1", "", false))
 		if err != nil {
 			responses.LogError("couldn't render end game modal", err)
 			return
@@ -57,7 +57,7 @@ func (m *Match) GameDone(w http.ResponseWriter) {
 					}
 				}
 			}
-			msg, err := utils.TemplString(components.EndGameModal("0-1", "black"))
+			msg, err := utils.TemplString(components.EndGameModal("0-1", "black", false))
 			if err != nil {
 				responses.LogError("couldn't convert component to string", err)
 				return
@@ -82,7 +82,7 @@ func (m *Match) GameDone(w http.ResponseWriter) {
 					}
 				}
 			}
-			msg, err := utils.TemplString(components.EndGameModal("1-0", "white"))
+			msg, err := utils.TemplString(components.EndGameModal("1-0", "white", false))
 			if err != nil {
 				responses.LogError("couldn't convert component to string", err)
 				return
@@ -105,7 +105,7 @@ func (m *Match) GameDone(w http.ResponseWriter) {
 					}
 				}
 			}
-			msg, err := utils.TemplString(components.EndGameModal("1-1", ""))
+			msg, err := utils.TemplString(components.EndGameModal("1-1", "", false))
 			if err != nil {
 				responses.LogError("couldn't convert component to string", err)
 				return
@@ -128,7 +128,7 @@ func (m *Match) GameDone(w http.ResponseWriter) {
 					}
 				}
 			}
-			msg, err := utils.TemplString(components.EndGameModal("1-1", ""))
+			msg, err := utils.TemplString(components.EndGameModal("1-1", "", false))
 			if err != nil {
 				responses.LogError("couldn't convert component to string", err)
 				return

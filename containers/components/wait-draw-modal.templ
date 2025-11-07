@@ -1,0 +1,28 @@
+package components
+
+templ WaitForDrawModal() {
+	<button
+		id="offer-draw"
+		hx-get="/offer-draw"
+		hx-confirm="Are you sure you want to offer draw"
+		class="bg-gray-600 hover:bg-gray-500 text-white font-medium py-2 px-5 rounded-md shadow-sm transition duration-200 cursor-pointer mt-8"
+		hx-target="this"
+	>
+		Offer Draw
+	</button>
+	<div hx-swap-oob="afterbegin:#body">
+		<div class="fixed inset-0 bg-black/60 flex items-center justify-center z-30" id="wait">
+			<div
+				id="modal-content"
+				class="w-full max-w-md bg-[#3e3a36] rounded-lg shadow-xl p-6 z-40"
+				onclick="event.stopPropagation()"
+			>
+				<div class="text-center text-white text-2xl">
+					Waiting for the opponent to accept the draw
+				</div>
+				// TODO: Add a cancel button
+			</div>
+		</div>
+	</div>
+	<div id="timer-update" hx-swap-oob="outerHTML"></div>
+}

@@ -24,6 +24,7 @@ templ StartLocalGame(board map[string]Square, pieces map[string]Piece, multiplie
 			<span id={cols[j]} class="absolute sm:text-[8px] lg:text-[12px] bottom-0 z-10" style={getPosY(j + 1, multiplier)}>{cols[j]}</span>
 			}
 			<div id={fmt.Sprintf("%v", tileSig)} hx-post="/move-to" class="tile-md tile"
+				onmouseenter="test()"
 				style={genCol(tile.Color)}></div>
 			if j == len(cols) - 1 {
 			{{ i++ }}
@@ -32,9 +33,14 @@ templ StartLocalGame(board map[string]Square, pieces map[string]Piece, multiplie
 			}
 			for k, v := range pieces {
 			{{ tile := board[v.Tile] }}
-			<span id={k} hx-post="/move" hx-swap="outerHTML"
+			<span 
+				id={k} 
+				hx-post="/move"
+				hx-swap="outerHTML"
 				class="tile-md tile hover:cursor-grab absolute transition-all"
-				style={getPiecePos(tile.Coordinates)}>
+				style={getPiecePos(tile.Coordinates)}
+				onmouseenter="test()"
+			>
 				<img src={"/assets/pieces/" + v.Image + ".svg" } />
 			</span>
 			}
@@ -53,6 +59,9 @@ templ StartLocalGame(board map[string]Square, pieces map[string]Piece, multiplie
     </div>
     </div>
 <script>
+function test() {
+	console.log("test")
+}
 	const board = document.getElementById('chess-board');
 	let width = board.clientWidth
 	function getMultiplier() {
