@@ -13,6 +13,7 @@ import (
 	"github.com/NikolaTosic-sudo/chess-live/internal/matches"
 	"github.com/NikolaTosic-sudo/chess-live/internal/responses"
 	"github.com/NikolaTosic-sudo/chess-live/internal/utils"
+	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 )
 
@@ -232,13 +233,24 @@ func (cfg *appConfig) checkOnlineHandler(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	if strings.Contains(c.Value, "online:") {
-		err := components.ReconnectModal().Render(r.Context(), w)
-		if err != nil {
-			responses.RespondWithAnError(w, http.StatusInternalServerError, "Couldn't render template", err)
-			return
+	match, found := cfg.Matches.GetMatch(c.Value)
+
+	if found {
+		onlineGame, foundOnline := match.IsOnlineMatch()
+
+		if foundOnline && onlineGame.Players["white"].ID != uuid.Nil {
+			err := components.ReconnectModal().Render(r.Context(), w)
+			if err != nil {
+				responses.RespondWithAnError(w, http.StatusInternalServerError, "Couldn't render template", err)
+				return
+			}
+		} else {
+			rmCk := cfg.removeCookie("current_game")
+			delete(cfg.Matches.Matches, c.Value)
+			http.SetCookie(w, &rmCk)
 		}
 	}
+
 	w.WriteHeader(http.StatusNoContent)
 }
 

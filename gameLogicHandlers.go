@@ -116,6 +116,7 @@ func (cfg *appConfig) moveHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		match.SelectedPiece.Moved = true
 		_, saveSelected := match.EatCleanup(currentPiece, selectedSquare, currentSquareName)
 
 		cfg.Matches.SetMatch(currentGame, match)

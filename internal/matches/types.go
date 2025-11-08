@@ -18,16 +18,13 @@ type Matches struct {
 }
 
 type Match struct {
-	//TODO: let's make board and pieces into it's own struct, so we can attach functions to it
-	Board  map[string]components.Square
-	Pieces map[string]components.Piece
-	//TODO: from the top of my head there is a lot of stuff I do with selectedPiece, so maybe we can make this into it's own struct to attach methods? this one is for discussion
-	SelectedPiece        components.Piece
-	CoordinateMultiplier int
-	IsWhiteTurn          bool
-	IsWhiteUnderCheck    bool
-	IsBlackUnderCheck    bool
-	//TODO: same here as for selected piece, maybe even for allMoves, takenPiecesBlack and takenPiecesWhite
+	Board                 map[string]components.Square
+	Pieces                map[string]components.Piece
+	SelectedPiece         components.Piece
+	CoordinateMultiplier  int
+	IsWhiteTurn           bool
+	IsWhiteUnderCheck     bool
+	IsBlackUnderCheck     bool
 	TilesUnderAttack      []string
 	BlackTimer            int
 	WhiteTimer            int
