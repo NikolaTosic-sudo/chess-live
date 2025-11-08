@@ -571,3 +571,236 @@ func getMockMatchMovesKnight() Match {
 		},
 	}
 }
+
+type MockPiecesAndResult struct {
+	name   string
+	pieces map[string]components.Piece
+	result bool
+}
+
+func getMockPiecesAndResult() []MockPiecesAndResult {
+	return []MockPiecesAndResult{
+		{
+			name: "Only 2 kings",
+			pieces: map[string]components.Piece{
+				"white_king": {
+					Image:   "white_king",
+					IsWhite: true,
+				},
+				"black_king": {
+					Image:   "black_king",
+					IsWhite: false,
+				},
+			},
+			result: true,
+		},
+		{
+			name: "2 kings and a knight",
+			pieces: map[string]components.Piece{
+				"white_king": {
+					Image:   "white_king",
+					IsWhite: true,
+				},
+				"left_white_knight": {
+					Image:   "left_white_knight",
+					IsWhite: true,
+				},
+				"black_king": {
+					Image:   "black_king",
+					IsWhite: false,
+				},
+			},
+			result: true,
+		},
+		{
+			name: "2 kings and 2 opposite knigts",
+			pieces: map[string]components.Piece{
+				"white_king": {
+					Image:   "white_king",
+					IsWhite: true,
+				},
+				"left_white_knight": {
+					Image:   "left_white_knight",
+					IsWhite: true,
+				},
+				"black_king": {
+					Image:   "black_king",
+					IsWhite: false,
+				},
+				"left_black_knight": {
+					Image:   "left_black_knight",
+					IsWhite: false,
+				},
+			},
+			result: true,
+		},
+		{
+			name: "2 kings a knight and an opposite bishop",
+			pieces: map[string]components.Piece{
+				"white_king": {
+					Image:   "white_king",
+					IsWhite: true,
+				},
+				"left_white_knight": {
+					Image:   "left_white_knight",
+					IsWhite: true,
+				},
+				"black_king": {
+					Image:   "black_king",
+					IsWhite: false,
+				},
+				"left_black_bishop": {
+					Image:   "left_black_bishop",
+					IsWhite: false,
+				},
+			},
+			result: true,
+		},
+		{
+			name: "2 kings and 2 opposite bishops",
+			pieces: map[string]components.Piece{
+				"white_king": {
+					Image:   "white_king",
+					IsWhite: true,
+				},
+				"left_white_bishop": {
+					Image:   "left_white_bishop",
+					IsWhite: true,
+				},
+				"black_king": {
+					Image:   "black_king",
+					IsWhite: false,
+				},
+				"left_black_bishop": {
+					Image:   "left_black_bishop",
+					IsWhite: false,
+				},
+			},
+			result: true,
+		},
+		{
+			name: "2 kings and a single bishop",
+			pieces: map[string]components.Piece{
+				"white_king": {
+					Image:   "white_king",
+					IsWhite: true,
+				},
+				"left_white_bishop": {
+					Image:   "left_white_bishop",
+					IsWhite: true,
+				},
+				"black_king": {
+					Image:   "black_king",
+					IsWhite: false,
+				},
+			},
+			result: true,
+		},
+		{
+			name: "2 kings, a white bishop and a white knight",
+			pieces: map[string]components.Piece{
+				"white_king": {
+					Image:   "white_king",
+					IsWhite: true,
+				},
+				"left_white_bishop": {
+					Image:   "left_white_bishop",
+					IsWhite: true,
+				},
+				"left_white_knight": {
+					Image:   "left_white_knight",
+					IsWhite: true,
+				},
+				"black_king": {
+					Image:   "black_king",
+					IsWhite: false,
+				},
+			},
+			result: false,
+		},
+		{
+			name: "2 kings and a queen",
+			pieces: map[string]components.Piece{
+				"white_king": {
+					Image:   "white_king",
+					IsWhite: true,
+				},
+				"white_queen": {
+					Image:   "white_queen",
+					IsWhite: true,
+				},
+				"black_king": {
+					Image:   "black_king",
+					IsWhite: false,
+				},
+			},
+			result: false,
+		},
+		{
+			name: "2 kings and a pawn",
+			pieces: map[string]components.Piece{
+				"white_king": {
+					Image:   "white_king",
+					IsWhite: true,
+				},
+				"white_pawn_1": {
+					Image:   "white_pawn_1",
+					IsWhite: true,
+				},
+				"black_king": {
+					Image:   "black_king",
+					IsWhite: false,
+				},
+			},
+			result: false,
+		},
+		{
+			name: "2 kings and a rook",
+			pieces: map[string]components.Piece{
+				"white_king": {
+					Image:   "white_king",
+					IsWhite: true,
+				},
+				"left_white_rook": {
+					Image:   "left_white_rook",
+					IsWhite: true,
+				},
+				"black_king": {
+					Image:   "black_king",
+					IsWhite: false,
+				},
+			},
+			result: false,
+		},
+		{
+			name: "More than 4 pieces",
+			pieces: map[string]components.Piece{
+				"white_king": {
+					Image:   "white_king",
+					IsWhite: true,
+				},
+				"left_white_knight": {
+					Image:   "left_white_knight",
+					IsWhite: true,
+				},
+				"right_white_knight": {
+					Image:   "right_white_knight",
+					IsWhite: true,
+				},
+				"black_king": {
+					Image:   "black_king",
+					IsWhite: false,
+				},
+				"right_black_knight": {
+					Image:   "right_black_knight",
+					IsWhite: false,
+				},
+				"right_black_bishop": {
+					Image:   "right_black_bishop",
+					IsWhite: false,
+				},
+			},
+			result: false,
+		},
+	}
+}

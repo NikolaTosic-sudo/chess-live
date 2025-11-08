@@ -172,8 +172,8 @@ func TestCanEat(t *testing.T) {
 		},
 		{
 			name:          "Can NOT eat black piece",
-			selectedPiece: components.Piece{IsWhite: true},
-			currentPiece:  components.Piece{IsWhite: true},
+			selectedPiece: components.Piece{IsWhite: false},
+			currentPiece:  components.Piece{IsWhite: false},
 			wantResult:    false,
 		},
 	}
@@ -184,6 +184,36 @@ func TestCanEat(t *testing.T) {
 
 			if canEatResult != tt.wantResult {
 				t.Errorf("canEat() canEatResult = %v, want %v", canEatResult, tt.wantResult)
+			}
+		})
+	}
+}
+
+func TestNotEnoughPIeces(t *testing.T) {
+	tests := []struct {
+		name       string
+		pieces     map[string]components.Piece
+		wantResult bool
+	}{}
+
+	for _, matchResult := range getMockPiecesAndResult() {
+		tests = append(tests, struct {
+			name       string
+			pieces     map[string]components.Piece
+			wantResult bool
+		}{
+			name:       matchResult.name,
+			pieces:     matchResult.pieces,
+			wantResult: matchResult.result,
+		})
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			notEnoughPieces := checkForNotEnoughPieces(tt.pieces)
+
+			if notEnoughPieces != tt.wantResult {
+				t.Errorf("checkForNotEnoughPieces() notEnoughPieces = %v, want %v", notEnoughPieces, tt.wantResult)
 			}
 		})
 	}
