@@ -33,6 +33,8 @@ func (m *Match) CheckForEnPessant(selectedSquare string, currentSquare component
 			freeTile := MockBoard[currentSquare.CoordinatePosition[0]+2][currentSquare.CoordinatePosition[1]]
 			m.PossibleEnPessant = fmt.Sprintf("black_%v", freeTile)
 		}
+	} else {
+		m.PossibleEnPessant = ""
 	}
 }
 
