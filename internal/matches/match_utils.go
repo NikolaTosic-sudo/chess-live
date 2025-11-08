@@ -2,6 +2,7 @@ package matches
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/NikolaTosic-sudo/chess-live/containers/components"
 	"github.com/google/uuid"
@@ -99,4 +100,43 @@ func (m *Match) CanPlay(piece components.Piece, onlineGame map[string]components
 	}
 
 	return false
+}
+
+func checkForNotEnoughPieces(pieces map[string]components.Piece) bool {
+	if len(pieces) > 4 {
+		return false
+	}
+
+	if len(pieces) == 2 {
+		return true
+	}
+
+	whiteCount := 0
+	blackCount := 0
+
+	for _, piece := range pieces {
+		if strings.Contains(piece.Image, "pawn") {
+			return false
+		}
+
+		if strings.Contains(piece.Image, "queen") {
+			return false
+		}
+
+		if strings.Contains(piece.Image, "rook") {
+			return false
+		}
+
+		if piece.IsWhite {
+			whiteCount += 1
+		} else {
+			blackCount += 1
+		}
+	}
+
+	if whiteCount == 3 || blackCount == 3 {
+		return false
+	}
+
+	return true
 }
