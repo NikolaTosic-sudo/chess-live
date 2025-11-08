@@ -48,6 +48,23 @@ func (m *Match) GameDone(w http.ResponseWriter) {
 		return
 	}
 
+	repeatingMoves := checkForRepeatingMoves(m)
+
+	if repeatingMoves {
+		msg, err := utils.TemplString(components.EndGameModal("1-1", "", true))
+		if err != nil {
+			responses.LogError("couldn't render end game modal", err)
+			return
+		}
+
+		err = m.SendMessage(w, msg, [2][]int{})
+		if err != nil {
+			responses.LogError("couldn't render end game modal", err)
+			return
+		}
+		return
+	}
+
 	savePiece := m.SelectedPiece
 	m.SelectedPiece = king
 	legalMoves := m.CheckLegalMoves()

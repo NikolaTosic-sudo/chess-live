@@ -142,3 +142,47 @@ func checkForNotEnoughPieces(pieces map[string]components.Piece) bool {
 
 	return true
 }
+
+func checkForRepeatingMoves(match *Match) bool {
+	snapshots := match.PiecesSnapshot
+	n := len(snapshots)
+
+	if n < 3 {
+		return false
+	}
+
+	latest := snapshots[n-1]
+
+	count := 0
+	for i := 0; i < n-1; i += 2 {
+		if samePosition(latest, snapshots[i]) {
+			count++
+		}
+	}
+
+	if count >= 2 {
+		return true
+	}
+
+	if n > 10 {
+		match.PiecesSnapshot = snapshots[n-10:]
+	}
+
+	return false
+}
+
+func samePosition(a, b map[string]components.Piece) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for name, p := range a {
+		q, ok := b[name]
+		if !ok {
+			return false
+		}
+		if p.Tile != q.Tile || p.IsWhite != q.IsWhite {
+			return false
+		}
+	}
+	return true
+}

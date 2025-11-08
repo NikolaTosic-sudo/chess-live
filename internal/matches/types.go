@@ -30,6 +30,7 @@ type Match struct {
 	WhiteTimer            int
 	Addition              int
 	AllMoves              []string
+	PiecesSnapshot        []map[string]components.Piece
 	MatchId               int32
 	MovesSinceLastCapture int8
 	PossibleEnPessant     string

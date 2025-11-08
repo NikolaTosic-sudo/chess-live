@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"maps"
 	"net/http"
 	"slices"
 	"strconv"
@@ -441,6 +442,7 @@ func (cfg *appConfig) moveToHandler(w http.ResponseWriter, r *http.Request) {
 		match.CheckForEnPessant(selectedSquare, currentSquare)
 		saveSelected := match.SelectedPiece
 		match.AllMoves = append(match.AllMoves, currentSquareName)
+
 		match.BigCleanup(currentSquareName)
 		err = cfg.showMoves(match, currentSquareName, saveSelected.Name, w, r)
 		if err != nil {
@@ -465,6 +467,10 @@ func (cfg *appConfig) moveToHandler(w http.ResponseWriter, r *http.Request) {
 		if saveSelected.IsPawn && pawnPromotion {
 			return
 		}
+		snapshot := make(map[string]components.Piece, len(match.Pieces))
+		maps.Copy(snapshot, match.Pieces)
+
+		match.PiecesSnapshot = append(match.PiecesSnapshot, snapshot)
 		match.EndTurn(w)
 		cfg.Matches.SetMatch(currentGame, match)
 		return
@@ -548,6 +554,7 @@ func (cfg *appConfig) coverCheckHandler(w http.ResponseWriter, r *http.Request) 
 		}
 		saveSelected := match.SelectedPiece
 		match.AllMoves = append(match.AllMoves, currentSquareName)
+
 		match.BigCleanup(currentSquareName)
 		err = cfg.showMoves(match, currentSquareName, saveSelected.Name, w, r)
 		if err != nil {
@@ -600,6 +607,11 @@ func (cfg *appConfig) coverCheckHandler(w http.ResponseWriter, r *http.Request) 
 		match.PossibleEnPessant = ""
 		match.MovesSinceLastCapture++
 		cfg.Matches.SetMatch(currentGame, match)
+
+		snapshot := make(map[string]components.Piece, len(match.Pieces))
+		maps.Copy(snapshot, match.Pieces)
+
+		match.PiecesSnapshot = append(match.PiecesSnapshot, snapshot)
 		match.EndTurn(w)
 		cfg.Matches.SetMatch(currentGame, match)
 
