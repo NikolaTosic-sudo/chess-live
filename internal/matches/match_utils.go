@@ -2,11 +2,16 @@ package matches
 
 import (
 	"fmt"
+	"net/http"
 	"strings"
 
 	"github.com/NikolaTosic-sudo/chess-live/containers/components"
+	"github.com/NikolaTosic-sudo/chess-live/internal/responses"
 	"github.com/google/uuid"
 )
+
+var cols = [8]string{"a", "b", "c", "d", "e", "f", "g", "h"}
+var rows = [8]int{8, 7, 6, 5, 4, 3, 2, 1}
 
 func (m *Match) FillBoard() {
 	for _, v := range m.Pieces {
@@ -102,6 +107,30 @@ func (m *Match) CanPlay(piece components.Piece, onlineGame map[string]components
 	}
 
 	return false
+}
+
+func ceilDiv(a, b int) int {
+	return (a + b - 1) / b
+}
+
+func UpdateFilesRanks(w http.ResponseWriter, multiplier int) {
+	for j, row := range rows {
+		msg := `<span id="%v" hx-swap-oob="true" class="absolute coordinates left-0 z-10" style="top: %vpx">%v</span>`
+		_, err := fmt.Fprintf(w, msg, row, j*multiplier, row)
+
+		if err != nil {
+			responses.RespondWithAnError(w, http.StatusInternalServerError, "couldn't print coordinate", err)
+		}
+	}
+
+	for i, col := range cols {
+		msg := `<span id="%v" hx-swap-oob="true" class="absolute coordinates bottom-0 z-10" style="left: %vpx">%v</span>`
+		_, err := fmt.Fprintf(w, msg, col, (i+1)*multiplier-ceilDiv(multiplier, 8), col)
+
+		if err != nil {
+			responses.RespondWithAnError(w, http.StatusInternalServerError, "couldn't print coordinate", err)
+		}
+	}
 }
 
 func checkForNotEnoughPieces(pieces map[string]components.Piece) bool {

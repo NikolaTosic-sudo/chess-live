@@ -300,6 +300,27 @@ func (cfg *appConfig) updateMultiplerHandler(w http.ResponseWriter, r *http.Requ
 	match, _ := cfg.Matches.GetMatch(currentGame)
 
 	match.CoordinateMultiplier = multiplier
+
+	onlineGame, found := match.IsOnlineMatch()
+
+	if found {
+		userId, err := cfg.getUserId(r)
+
+		if err != nil {
+			responses.RespondWithAnError(w, http.StatusInternalServerError, "couldn't get user", err)
+			return
+		}
+
+		for color, player := range onlineGame.Players {
+			if player.ID == userId {
+				player.Multiplier = multiplier
+				onlineGame.Players[color] = player
+			}
+		}
+	}
+
+	matches.UpdateFilesRanks(w, multiplier)
+
 	match.UpdateCoordinates(multiplier)
 	cfg.Matches.SetMatch(currentGame, match)
 
