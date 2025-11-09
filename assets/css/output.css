@@ -374,6 +374,9 @@
   .items-center {
     align-items: center;
   }
+  .items-start {
+    align-items: flex-start;
+  }
   .justify-between {
     justify-content: space-between;
   }
@@ -498,6 +501,9 @@
   .p-6 {
     padding: calc(var(--spacing) * 6);
   }
+  .px-1 {
+    padding-inline: calc(var(--spacing) * 1);
+  }
   .px-2 {
     padding-inline: calc(var(--spacing) * 2);
   }
@@ -533,6 +539,9 @@
   }
   .text-right {
     text-align: right;
+  }
+  .text-start {
+    text-align: start;
   }
   .text-2xl {
     font-size: var(--text-2xl);
@@ -794,11 +803,39 @@
       font-size: 12px;
     }
   }
+  .xl\:mx-0 {
+    @media (width >= 80rem) {
+      margin-inline: calc(var(--spacing) * 0);
+    }
+  }
+  .xl\:\!w-\[240px\] {
+    @media (width >= 80rem) {
+      width: 240px !important;
+    }
+  }
+  .xl\:flex-row {
+    @media (width >= 80rem) {
+      flex-direction: row;
+    }
+  }
+  .xl\:px-12 {
+    @media (width >= 80rem) {
+      padding-inline: calc(var(--spacing) * 12);
+    }
+  }
+  .xl\:text-center {
+    @media (width >= 80rem) {
+      text-align: center;
+    }
+  }
 }
 @layer utilities {
   .tile {
     height: 100px;
     width: 100px;
+  }
+  .coordinates {
+    font-size: 16px;
   }
   .h-board {
     height: 800px;
@@ -832,6 +869,9 @@
     .h-board-md {
       height: 640px;
     }
+    .coordinates {
+      font-size: 16px;
+    }
     .w-board-md {
       width: 640px;
     }
@@ -849,6 +889,9 @@
     .h-board-md {
       height: 480px;
     }
+    .coordinates {
+      font-size: 12px;
+    }
     .w-board-md {
       width: 480px;
     }
@@ -865,6 +908,9 @@
   @media (max-width: 500px) {
     .h-board-md {
       height: 320px;
+    }
+    .coordinates {
+      font-size: 8px;
     }
     .w-board-md {
       width: 320px;

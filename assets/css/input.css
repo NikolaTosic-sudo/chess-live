@@ -1,96 +1,136 @@
 @import "tailwindcss";
 
 @layer utilities {
-  .tile {
-    height: 100px;
-    width: 100px;
-  }
-  .h-board {
-    height: 800px;
-  }
-  .w-board {
-    width: 800px;
-  }
-  .h-moves {
-    max-height: 500px;
-    height: fit-content;
-    overflow: auto;
-  }
-  @media (max-width: 900px) {
-    .h-board-md {
-      height: 640px;
-    }
-    .w-board-md {
-      width: 640px;
-    }
-    .tile-md {
-      height: 80px;
-      width: 80px;
-    }
-    .h-moves {
-      max-height: 300px;
-      height: fit-content;
-      overflow: auto;
-    }
-  }
-  @media (max-height: 900px) {
-    .h-board-md {
-      height: 640px;
-    }
-    .w-board-md {
-      width: 640px;
-    }
-    .tile-md {
-      height: 80px;
-      width: 80px;
-    }
-    .h-moves {
-      max-height: 300px;
-      height: fit-content;
-      overflow: auto;
-    }
-  }
-  @media (max-width: 700px) {
-    .h-board-md {
-      height: 480px;
-    }
-    .w-board-md {
-      width: 480px;
-    }
-    .tile-md {
-      height: 60px;
-      width: 60px;
-    }
-    .h-moves {
-      max-height: 200px;
-      height: fit-content;
-      overflow: auto;
-    }
-  }
-  @media (max-width: 500px) {
-    .h-board-md {
-      height: 320px;
-    }
-    .w-board-md {
-      width: 320px;
-    }
-    .tile-md {
-      height: 40px;
-      width: 40px;
-    }
-    .h-moves {
-      max-height: 200px;
-      height: fit-content;
-      overflow: auto;
-    }
-  }
+	.tile {
+		height: 100px;
+		width: 100px;
+	}
+
+	.coordinates {
+		font-size: 16px;
+	}
+
+	.h-board {
+		height: 800px;
+	}
+
+	.w-board {
+		width: 800px;
+	}
+
+	.h-moves {
+		max-height: 500px;
+		height: fit-content;
+		overflow: auto;
+	}
+
+	@media (max-width: 900px) {
+		.h-board-md {
+			height: 640px;
+		}
+
+		.w-board-md {
+			width: 640px;
+		}
+
+		.tile-md {
+			height: 80px;
+			width: 80px;
+		}
+
+		.h-moves {
+			max-height: 300px;
+			height: fit-content;
+			overflow: auto;
+		}
+	}
+
+	@media (max-height: 900px) {
+		.h-board-md {
+			height: 640px;
+		}
+
+		.coordinates {
+			font-size: 16px;
+		}
+
+		.w-board-md {
+			width: 640px;
+		}
+
+		.tile-md {
+			height: 80px;
+			width: 80px;
+		}
+
+		.h-moves {
+			max-height: 300px;
+			height: fit-content;
+			overflow: auto;
+		}
+	}
+
+	@media (max-width: 700px) {
+		.h-board-md {
+			height: 480px;
+		}
+
+		.coordinates {
+			font-size: 12px;
+		}
+
+		.w-board-md {
+			width: 480px;
+		}
+
+		.tile-md {
+			height: 60px;
+			width: 60px;
+		}
+
+		.h-moves {
+			max-height: 200px;
+			height: fit-content;
+			overflow: auto;
+		}
+	}
+
+	@media (max-width: 500px) {
+		.h-board-md {
+			height: 320px;
+		}
+
+		.coordinates {
+			font-size: 8px;
+		}
+
+		.w-board-md {
+			width: 320px;
+		}
+
+		.tile-md {
+			height: 40px;
+			width: 40px;
+		}
+
+		.h-moves {
+			max-height: 200px;
+			height: fit-content;
+			overflow: auto;
+		}
+	}
 }
 
 @keyframes fadeInOpacity {
-  from { opacity: 0; }
-  to { opacity: 1; }
+	from {
+		opacity: 0;
+	}
+
+	to {
+		opacity: 1;
+	}
 }
 
 .fade-in-opacity {
-  animation: fadeInOpacity 0.3s ease forwards;
+	animation: fadeInOpacity 0.3s ease forwards;
 }
