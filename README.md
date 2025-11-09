@@ -59,7 +59,7 @@ my new-found knowledge of backend, and my love for chess.
 - [x] BIG REFACTOR
 - [x] Add unit tests  
 - [x] EVEN BIGGER REFACTOR
-- [ ] Polishing the game and adding some small features
+- [x] Polishing the game and adding some small features
 - [ ] Deploy to a public domain  
 
 ---
