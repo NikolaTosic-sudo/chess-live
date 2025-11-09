@@ -8,7 +8,7 @@ templ MainPagePrivate(chessBoard map[string]components.Square, pieces map[string
 		if gameAlreadyEnded {
 			@components.GameEndedModal()
 		}
-		<div id="main-private" class="flex">
+		<div id="main-private" class="flex xl:flex-row flex-col items-start">
 			<div hx-get="/api/refresh" hx-trigger="every 30m" hx-swap="none"></div>
 			<div hx-get="/check-online" hx-trigger="load"></div>
 			@components.LeftSidePrivate()

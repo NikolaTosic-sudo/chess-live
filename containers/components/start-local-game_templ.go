@@ -31,7 +31,7 @@ func StartLocalGame(board map[string]Square, pieces map[string]Piece, multiplier
 			templ_7745c5c3_Var1 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div class=\"flex\"><div class=\"w-[240px]\"></div><div id=\"chess-board\" hx-post=\"/update-multiplier\" hx-vals=\"js:{multiplier: getMultiplier()}\" hx-trigger=\"load\" hx-swap=\"none\" class=\"w-board w-board-md mx-auto mt-2 relative\"><div id=\"timer-update\" hx-get=\"/timer\" hx-trigger=\"every 1s\"></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div class=\"flex xl:flex-row flex-col items-start\"><div class=\"w-[240px]\"></div><div id=\"chess-board\" hx-post=\"/update-multiplier\" hx-vals=\"js:{multiplier: getMultiplier()}\" hx-trigger=\"load\" hx-swap=\"none\" class=\"w-board w-board-md mx-auto mt-2 relative\"><div id=\"timer-update\" hx-get=\"/timer\" hx-trigger=\"every 1s\"></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -61,14 +61,14 @@ func StartLocalGame(board map[string]Square, pieces map[string]Piece, multiplier
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "\" class=\"absolute sm:text-[8px] lg:text-[12px] left-0 z-10\" style=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "\" class=\"absolute coordinates left-0 z-10\" style=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var3 string
 				templ_7745c5c3_Var3, templ_7745c5c3_Err = templruntime.SanitizeStyleAttributeValues(getPosX(i, multiplier))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `containers/components/start-local-game.templ`, Line: 20, Col: 90}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `containers/components/start-local-game.templ`, Line: 20, Col: 73}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
 				if templ_7745c5c3_Err != nil {
@@ -110,14 +110,14 @@ func StartLocalGame(board map[string]Square, pieces map[string]Piece, multiplier
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "\" class=\"absolute sm:text-[8px] lg:text-[12px] bottom-0 z-10\" style=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "\" class=\"absolute coordinates bottom-0 z-10\" style=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var6 string
 				templ_7745c5c3_Var6, templ_7745c5c3_Err = templruntime.SanitizeStyleAttributeValues(getPosY(j+1, multiplier))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `containers/components/start-local-game.templ`, Line: 24, Col: 115}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `containers/components/start-local-game.templ`, Line: 24, Col: 98}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
 				if templ_7745c5c3_Err != nil {
@@ -130,7 +130,7 @@ func StartLocalGame(board map[string]Square, pieces map[string]Piece, multiplier
 				var templ_7745c5c3_Var7 string
 				templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinStringErrs(cols[j])
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `containers/components/start-local-game.templ`, Line: 24, Col: 125}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `containers/components/start-local-game.templ`, Line: 24, Col: 108}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var7))
 				if templ_7745c5c3_Err != nil {
@@ -154,14 +154,14 @@ func StartLocalGame(board map[string]Square, pieces map[string]Piece, multiplier
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, "\" hx-post=\"/move-to\" class=\"tile-md tile\" onmouseenter=\"test()\" style=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, "\" hx-post=\"/move-to\" class=\"tile-md tile\" style=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var9 string
 			templ_7745c5c3_Var9, templ_7745c5c3_Err = templruntime.SanitizeStyleAttributeValues(genCol(tile.Color))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `containers/components/start-local-game.templ`, Line: 28, Col: 29}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `containers/components/start-local-game.templ`, Line: 27, Col: 29}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var9))
 			if templ_7745c5c3_Err != nil {
@@ -185,7 +185,7 @@ func StartLocalGame(board map[string]Square, pieces map[string]Piece, multiplier
 			var templ_7745c5c3_Var10 string
 			templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.JoinStringErrs(k)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `containers/components/start-local-game.templ`, Line: 37, Col: 9}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `containers/components/start-local-game.templ`, Line: 36, Col: 9}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var10))
 			if templ_7745c5c3_Err != nil {
@@ -198,20 +198,20 @@ func StartLocalGame(board map[string]Square, pieces map[string]Piece, multiplier
 			var templ_7745c5c3_Var11 string
 			templ_7745c5c3_Var11, templ_7745c5c3_Err = templruntime.SanitizeStyleAttributeValues(getPiecePos(tile.Coordinates))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `containers/components/start-local-game.templ`, Line: 41, Col: 40}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `containers/components/start-local-game.templ`, Line: 40, Col: 40}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var11))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 17, "\" onmouseenter=\"test()\"><img src=\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 17, "\"><img src=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var12 string
 			templ_7745c5c3_Var12, templ_7745c5c3_Err = templ.JoinStringErrs("/assets/pieces/" + v.Image + ".svg")
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `containers/components/start-local-game.templ`, Line: 44, Col: 50}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `containers/components/start-local-game.templ`, Line: 42, Col: 50}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var12))
 			if templ_7745c5c3_Err != nil {
@@ -230,7 +230,7 @@ func StartLocalGame(board map[string]Square, pieces map[string]Piece, multiplier
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 20, "</div><div class=\"h-full w-[240px] mt-10 block\"><div><div><button hx-get=\"/surrender\" hx-confirm=\"Are you sure you want to surrender\" class=\"bg-red-600 hover:bg-red-500 text-white font-medium py-2 px-5 rounded-md shadow-sm transition duration-200 cursor-pointer mt-8\">Surrender</button></div></div><div id=\"moves\" class=\"grid grid-cols-3 text-white h-moves w-[240px] mt-8 max-h-[320px] overflow-auto\"></div></div></div><script>\nfunction test() {\n\tconsole.log(\"test\")\n}\n\tconst board = document.getElementById('chess-board');\n\tlet width = board.clientWidth\n\tfunction getMultiplier() {\n\t\tif (width < 480) return 40;\n\t\tif (width < 640) return 60;\n\t\tif (width < 800) return 80;\n\t\treturn 100;\n\t}\n</script>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 20, "</div><script>\n(() => {\n\tconst board = document.getElementById('chess-board');\n\tlet width = board.clientWidth;\n\n\tconst observer = new ResizeObserver(entries => {\n\t\tfor (let entry of entries) {\n\t\t\tconst newWidth = entry.contentRect.width;\n\n\t\t\tif (newWidth != width) {\n\t\t\t\twidth = newWidth;\n\n\t\t\t\tlet coordinate = 100;\n\t\t\t\tif (width < 800) {\n\t\t\t\t\tcoordinate = 80;\n\t\t\t\t}\n\t\t\t\tif (width < 640) {\n\t\t\t\t\tcoordinate = 60;\n\t\t\t\t}\n\t\t\t\tif (width < 480) {\n\t\t\t\t\tcoordinate = 40\n\t\t\t\t}\n\n\t\t\t\thtmx.ajax(\"POST\", \"/update-multiplier\", {\n\t\t\t\t\ttarget: \"#chess-board\",\n\t\t\t\t\tswap: \"none\",\n\t\t\t\t\tvalues: {\n\t\t\t\t\t\tmultiplier: coordinate,\n\t\t\t\t\t}\n\t\t\t\t})\n\t\t\t}\n\t\t}\n\t})\n\n\tobserver.observe(board);\n})();\n\n\tfunction getMultiplier() {\n\t\tconst localBoard = document.getElementById('chess-board');\n\t\tlet localWidth = localBoard.clientWidth;\n\t\tif (localWidth < 480) return 40;\n\t\tif (localWidth < 640) return 60;\n\t\tif (localWidth < 800) return 80;\n\t\treturn 100;\n\t}\n</script><div class=\"h-full xl:!w-[240px] mt-10 w-board w-board-md xl:mx-0 mx-auto block\"><div><div><button hx-get=\"/surrender\" hx-confirm=\"Are you sure you want to surrender\" class=\"bg-red-600 hover:bg-red-500 text-white font-medium py-2 px-5 rounded-md shadow-sm transition duration-200 cursor-pointer mt-8\">Surrender</button></div></div><div id=\"moves\" class=\"grid grid-cols-3 text-white h-moves w-[240px] mt-8 max-h-[320px] overflow-auto\"></div></div></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

@@ -53,14 +53,14 @@ func GridBoardHistory(board map[string]Square, pieces map[string]Piece, multipli
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "\" class=\"absolute sm:text-[8px] lg:text-[12px] left-0 z-10\" style=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "\" class=\"absolute coordinates left-0 z-10\" style=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var3 string
 				templ_7745c5c3_Var3, templ_7745c5c3_Err = templruntime.SanitizeStyleAttributeValues(getPosX(i, multiplier))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `containers/components/board-history.templ`, Line: 12, Col: 114}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `containers/components/board-history.templ`, Line: 12, Col: 97}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
 				if templ_7745c5c3_Err != nil {
@@ -73,7 +73,7 @@ func GridBoardHistory(board map[string]Square, pieces map[string]Piece, multipli
 				var templ_7745c5c3_Var4 string
 				templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(rows[i])
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `containers/components/board-history.templ`, Line: 12, Col: 124}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `containers/components/board-history.templ`, Line: 12, Col: 107}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
 				if templ_7745c5c3_Err != nil {
@@ -102,14 +102,14 @@ func GridBoardHistory(board map[string]Square, pieces map[string]Piece, multipli
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "\" class=\"absolute sm:text-[8px] lg:text-[12px] bottom-0 z-10\" style=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "\" class=\"absolute coordinates bottom-0 z-10\" style=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var6 string
 				templ_7745c5c3_Var6, templ_7745c5c3_Err = templruntime.SanitizeStyleAttributeValues(getPosY(j+1, multiplier))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `containers/components/board-history.templ`, Line: 15, Col: 120}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `containers/components/board-history.templ`, Line: 15, Col: 103}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
 				if templ_7745c5c3_Err != nil {
@@ -122,7 +122,7 @@ func GridBoardHistory(board map[string]Square, pieces map[string]Piece, multipli
 				var templ_7745c5c3_Var7 string
 				templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinStringErrs(cols[j])
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `containers/components/board-history.templ`, Line: 15, Col: 130}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `containers/components/board-history.templ`, Line: 15, Col: 113}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var7))
 				if templ_7745c5c3_Err != nil {

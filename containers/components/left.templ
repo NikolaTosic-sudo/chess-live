@@ -1,9 +1,14 @@
 package components
 
 templ LeftSide() {
-  <div id="left-side" class="h-full w-[240px] mt-10">
-    <button hx-get="/login" hx-target="#body" hx-swap="afterbegin" class="bg-emerald-600 hover:bg-emerald-500 text-white font-medium py-2 px-5 rounded-md shadow-sm transition duration-200 cursor-pointer">
-      Log In / Sign Up
-    </button>
-  </div>
+	<div id="left-side" class="h-full xl:!w-[240px] mt-10 w-board w-board-md xl:mx-0 mx-auto">
+		<button
+			hx-get="/login"
+			hx-target="#body"
+			hx-swap="afterbegin"
+			class="bg-emerald-600 hover:bg-emerald-500 text-white font-medium py-2 px-5 rounded-md shadow-sm transition duration-200 cursor-pointer"
+		>
+			Log In / Sign Up
+		</button>
+	</div>
 }

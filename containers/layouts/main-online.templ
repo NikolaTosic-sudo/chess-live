@@ -13,7 +13,7 @@ templ MainPageOnline(
 	enabled bool,
 ) {
 	@Layout() {
-		<div id="main-online" class="flex">
+		<div id="main-online" class="flex xl:flex-row flex-col items-start">
 			<div ws-connect="/online"></div>
 			<div hx-get="/api/refresh" hx-trigger="every 30m" hx-swap="none"></div>
 			<div class="w-[240px]"></div>

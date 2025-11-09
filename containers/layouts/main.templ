@@ -2,12 +2,14 @@ package layout
 
 import "github.com/NikolaTosic-sudo/chess-live/containers/components"
 
-templ MainPage(chessBoard map[string]components.Square, pieces map[string]components.Piece, multiplier int, whitePlayer, blackPlayer components.PlayerStruct, whiteLostPieces, blackLostPieces []string) {
-  @Layout() {
-    <div class="flex">
-      @components.LeftSide()
-      @components.GridBoard(chessBoard, pieces, multiplier, whitePlayer, blackPlayer, whiteLostPieces, blackLostPieces)
-      @components.RightSide(true)
-    </div>
-  }
+templ MainPage(chessBoard map[string]components.Square, pieces map[string]components.Piece, multiplier int, whitePlayer,
+	blackPlayer components.PlayerStruct, whiteLostPieces, blackLostPieces []string) {
+	@Layout() {
+		<div class="flex xl:flex-row flex-col items-start">
+			@components.LeftSide()
+			@components.GridBoard(chessBoard, pieces, multiplier, whitePlayer, blackPlayer, whiteLostPieces,
+				blackLostPieces)
+			@components.RightSide(true)
+		</div>
+	}
 }

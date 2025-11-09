@@ -29,7 +29,7 @@ func LeftSidePrivate() templ.Component {
 			templ_7745c5c3_Var1 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div id=\"left-side\" class=\"h-full w-[240px] mt-10 flex flex-col justify-between\"><button id=\"history\" hx-get=\"/match-history\" hx-target=\"#chess-board\" class=\"bg-amber-600 w-[200px] hover:bg-amber-500 text-white font-semibold py-2 px-4 rounded-md shadow-md cursor-pointer\">Match History</button> <button hx-get=\"/logout\" hx-confirm=\"Are you sure you want to logout\" class=\"bg-red-600 hover:bg-red-500 w-[200px] text-white font-medium py-2 px-5 rounded-md shadow-sm transition duration-200 cursor-pointer mt-8\">Log Out</button></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div id=\"left-side\" class=\"h-full xl:!w-[240px] mt-10 w-board w-board-md xl:mx-0 mx-auto flex flex-col justify-between \"><button id=\"history\" hx-get=\"/match-history\" hx-target=\"#chess-board\" class=\"bg-amber-600 w-[200px] hover:bg-amber-500 text-white font-semibold py-2 px-4 rounded-md shadow-md cursor-pointer\">Match History</button> <button hx-get=\"/logout\" hx-confirm=\"Are you sure you want to logout\" class=\"bg-red-600 hover:bg-red-500 w-[200px] text-white font-medium py-2 px-5 rounded-md shadow-sm transition duration-200 cursor-pointer mt-8\">Log Out</button></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

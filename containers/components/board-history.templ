@@ -9,10 +9,10 @@ templ GridBoardHistory(board map[string]Square, pieces map[string]Piece, multipl
       {{ tileSig := fmt.Sprintf("%v%v", rows[i], cols[j]) }}
       {{ tile := board[tileSig] }}
       if j == 0 {
-        <span id={rows[i]} class="absolute sm:text-[8px] lg:text-[12px] left-0 z-10" style={getPosX(i, multiplier)}>{rows[i]}</span>
+        <span id={rows[i]} class="absolute coordinates left-0 z-10" style={getPosX(i, multiplier)}>{rows[i]}</span>
       }
       if i == 0 {
-        <span id={cols[j]} class="absolute sm:text-[8px] lg:text-[12px] bottom-0 z-10" style={getPosY(j + 1, multiplier)}>{cols[j]}</span>
+        <span id={cols[j]} class="absolute coordinates bottom-0 z-10" style={getPosY(j + 1, multiplier)}>{cols[j]}</span>
       }
       <div id={fmt.Sprintf("%v", tileSig)} hx-post="/move-to" hx-vals='{"page": "history"}' class="tile-md tile" style={genCol(tile.Color)}></div>
       if j == len(cols) - 1 {

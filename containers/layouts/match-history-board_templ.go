@@ -10,7 +10,8 @@ import templruntime "github.com/a-h/templ/runtime"
 
 import "github.com/NikolaTosic-sudo/chess-live/containers/components"
 
-func MatchHistoryBoard(chessBoard map[string]components.Square, pieces map[string]components.Piece, multiplier int, whitePlayer, blackPlayer components.PlayerStruct, whiteLostPieces, blackLostPieces, moves []string) templ.Component {
+func MatchHistoryBoard(chessBoard map[string]components.Square, pieces map[string]components.Piece, multiplier int,
+	whitePlayer, blackPlayer components.PlayerStruct, whiteLostPieces, blackLostPieces, moves []string) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -43,7 +44,7 @@ func MatchHistoryBoard(chessBoard map[string]components.Square, pieces map[strin
 				}()
 			}
 			ctx = templ.InitializeContext(ctx)
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div id=\"main-private\" class=\"flex\" hx-target=\"#main-private\" hx-swap=\"outerHTML\"><div hx-get=\"/api/refresh\" hx-trigger=\"every 30m\" hx-swap=\"none\"></div><div id=\"overlay\" hx-swap-oob=\"true\" class=\"hidden w-board w-board-md h-board h-board-md absolute z-20 hover:cursor-default\"></div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div id=\"main-private\" class=\"flex xl:flex-row flex-col items-start\" hx-target=\"#main-private\" hx-swap=\"outerHTML\"><div hx-get=\"/api/refresh\" hx-trigger=\"every 30m\" hx-swap=\"none\"></div><div id=\"overlay\" hx-swap-oob=\"true\" class=\"hidden w-board w-board-md h-board h-board-md absolute z-20 hover:cursor-default\"></div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

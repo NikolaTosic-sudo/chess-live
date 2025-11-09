@@ -52,7 +52,7 @@ func MainPageOnline(
 				}()
 			}
 			ctx = templ.InitializeContext(ctx)
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div id=\"main-online\" class=\"flex\"><div ws-connect=\"/online\"></div><div hx-get=\"/api/refresh\" hx-trigger=\"every 30m\" hx-swap=\"none\"></div><div class=\"w-[240px]\"></div><div id=\"timer-update\" hx-get=\"/timer\"")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div id=\"main-online\" class=\"flex xl:flex-row flex-col items-start\"><div ws-connect=\"/online\"></div><div hx-get=\"/api/refresh\" hx-trigger=\"every 30m\" hx-swap=\"none\"></div><div class=\"w-[240px]\"></div><div id=\"timer-update\" hx-get=\"/timer\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

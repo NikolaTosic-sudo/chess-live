@@ -3,7 +3,7 @@ package components
 import "fmt"
 
 templ StartLocalGame(board map[string]Square, pieces map[string]Piece, multiplier int, whitePlayer, blackPlayer PlayerStruct) {
-<div class="flex">
+<div class="flex xl:flex-row flex-col items-start">
 <div class="w-[240px]"></div>
 <div id="chess-board" hx-post="/update-multiplier" hx-vals="js:{multiplier: getMultiplier()}" hx-trigger="load"
 	hx-swap="none" class="w-board w-board-md mx-auto mt-2 relative">
@@ -17,14 +17,13 @@ templ StartLocalGame(board map[string]Square, pieces map[string]Piece, multiplie
 			{{ tile :=board[tileSig] }} 
 			if j==0 {
 				<span id={rows[i]}
-			class="absolute sm:text-[8px] lg:text-[12px] left-0 z-10" style={getPosX(i, multiplier)}>
+			class="absolute coordinates left-0 z-10" style={getPosX(i, multiplier)}>
 			{rows[i]}</span>
 			}
 			if i == 0 {
-			<span id={cols[j]} class="absolute sm:text-[8px] lg:text-[12px] bottom-0 z-10" style={getPosY(j + 1, multiplier)}>{cols[j]}</span>
+			<span id={cols[j]} class="absolute coordinates bottom-0 z-10" style={getPosY(j + 1, multiplier)}>{cols[j]}</span>
 			}
 			<div id={fmt.Sprintf("%v", tileSig)} hx-post="/move-to" class="tile-md tile"
-				onmouseenter="test()"
 				style={genCol(tile.Color)}></div>
 			if j == len(cols) - 1 {
 			{{ i++ }}
@@ -39,7 +38,6 @@ templ StartLocalGame(board map[string]Square, pieces map[string]Piece, multiplie
 				hx-swap="outerHTML"
 				class="tile-md tile hover:cursor-grab absolute transition-all"
 				style={getPiecePos(tile.Coordinates)}
-				onmouseenter="test()"
 			>
 				<img src={"/assets/pieces/" + v.Image + ".svg" } />
 			</span>
@@ -47,7 +45,55 @@ templ StartLocalGame(board map[string]Square, pieces map[string]Piece, multiplie
 	</div>
 	@Player(whitePlayer, []string{})
 </div>
-<div class="h-full w-[240px] mt-10 block">
+
+<script>
+(() => {
+	const board = document.getElementById('chess-board');
+	let width = board.clientWidth;
+
+	const observer = new ResizeObserver(entries => {
+		for (let entry of entries) {
+			const newWidth = entry.contentRect.width;
+
+			if (newWidth != width) {
+				width = newWidth;
+
+				let coordinate = 100;
+				if (width < 800) {
+					coordinate = 80;
+				}
+				if (width < 640) {
+					coordinate = 60;
+				}
+				if (width < 480) {
+					coordinate = 40
+				}
+
+				htmx.ajax("POST", "/update-multiplier", {
+					target: "#chess-board",
+					swap: "none",
+					values: {
+						multiplier: coordinate,
+					}
+				})
+			}
+		}
+	})
+
+	observer.observe(board);
+})();
+
+	function getMultiplier() {
+		const localBoard = document.getElementById('chess-board');
+		let localWidth = localBoard.clientWidth;
+		if (localWidth < 480) return 40;
+		if (localWidth < 640) return 60;
+		if (localWidth < 800) return 80;
+		return 100;
+	}
+</script>
+
+<div class="h-full xl:!w-[240px] mt-10 w-board w-board-md xl:mx-0 mx-auto block">
   <div>
     <div>
       <button hx-get="/surrender" hx-confirm="Are you sure you want to surrender" class="bg-red-600 hover:bg-red-500 text-white font-medium py-2 px-5 rounded-md shadow-sm transition duration-200 cursor-pointer mt-8">
@@ -58,17 +104,4 @@ templ StartLocalGame(board map[string]Square, pieces map[string]Piece, multiplie
     <div id="moves" class="grid grid-cols-3 text-white h-moves w-[240px] mt-8 max-h-[320px] overflow-auto"></div>
     </div>
     </div>
-<script>
-function test() {
-	console.log("test")
-}
-	const board = document.getElementById('chess-board');
-	let width = board.clientWidth
-	function getMultiplier() {
-		if (width < 480) return 40;
-		if (width < 640) return 60;
-		if (width < 800) return 80;
-		return 100;
-	}
-</script>
 }

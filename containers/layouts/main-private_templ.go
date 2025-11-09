@@ -50,7 +50,7 @@ func MainPagePrivate(chessBoard map[string]components.Square, pieces map[string]
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, " <div id=\"main-private\" class=\"flex\"><div hx-get=\"/api/refresh\" hx-trigger=\"every 30m\" hx-swap=\"none\"></div><div hx-get=\"/check-online\" hx-trigger=\"load\"></div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, " <div id=\"main-private\" class=\"flex xl:flex-row flex-col items-start\"><div hx-get=\"/api/refresh\" hx-trigger=\"every 30m\" hx-swap=\"none\"></div><div hx-get=\"/check-online\" hx-trigger=\"load\"></div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

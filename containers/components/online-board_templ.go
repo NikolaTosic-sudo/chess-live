@@ -61,14 +61,14 @@ func OnlineGridBoard(board map[string]Square, pieces map[string]Piece, multiplie
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "\" class=\"absolute sm:text-[8px] lg:text-[12px] left-0 z-10\" style=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "\" class=\"absolute coordinates left-0 z-10\" style=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var3 string
 				templ_7745c5c3_Var3, templ_7745c5c3_Err = templruntime.SanitizeStyleAttributeValues(getPosX(i, multiplier))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `containers/components/online-board.templ`, Line: 16, Col: 118}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `containers/components/online-board.templ`, Line: 16, Col: 101}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
 				if templ_7745c5c3_Err != nil {
@@ -81,7 +81,7 @@ func OnlineGridBoard(board map[string]Square, pieces map[string]Piece, multiplie
 				var templ_7745c5c3_Var4 string
 				templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.JoinStringErrs(rows[i])
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `containers/components/online-board.templ`, Line: 16, Col: 128}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `containers/components/online-board.templ`, Line: 16, Col: 111}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
 				if templ_7745c5c3_Err != nil {
@@ -110,14 +110,14 @@ func OnlineGridBoard(board map[string]Square, pieces map[string]Piece, multiplie
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "\" class=\"absolute sm:text-[8px] lg:text-[12px] bottom-0 z-10\" style=\"")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "\" class=\"absolute coordinates bottom-0 z-10\" style=\"")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				var templ_7745c5c3_Var6 string
 				templ_7745c5c3_Var6, templ_7745c5c3_Err = templruntime.SanitizeStyleAttributeValues(getPosY(j+1, multiplier))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `containers/components/online-board.templ`, Line: 19, Col: 124}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `containers/components/online-board.templ`, Line: 19, Col: 107}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
 				if templ_7745c5c3_Err != nil {
@@ -130,7 +130,7 @@ func OnlineGridBoard(board map[string]Square, pieces map[string]Piece, multiplie
 				var templ_7745c5c3_Var7 string
 				templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinStringErrs(cols[j])
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `containers/components/online-board.templ`, Line: 19, Col: 134}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `containers/components/online-board.templ`, Line: 19, Col: 117}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var7))
 				if templ_7745c5c3_Err != nil {
@@ -230,7 +230,7 @@ func OnlineGridBoard(board map[string]Square, pieces map[string]Piece, multiplie
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 20, "</div><script>\n    const board = document.getElementById('chess-board');\n    let width = board.clientWidth\n    function getMultiplier() {\n      if (width < 480) return 40;\n      if (width < 640) return 60;\n      if (width < 800) return 80;\n      return 100;\n    }\n  </script>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 20, "</div><script>\n(() => {\n\tconst board = document.getElementById('chess-board');\n\tlet width = board.clientWidth;\n\n\tconst observer = new ResizeObserver(entries => {\n\t\tfor (let entry of entries) {\n\t\t\tconst newWidth = entry.contentRect.width;\n\n\t\t\tif (newWidth != width) {\n\t\t\t\twidth = newWidth;\n\n\t\t\t\tlet coordinate = 100;\n\t\t\t\tif (width < 800) {\n\t\t\t\t\tcoordinate = 80;\n\t\t\t\t}\n\t\t\t\tif (width < 640) {\n\t\t\t\t\tcoordinate = 60;\n\t\t\t\t}\n\t\t\t\tif (width < 480) {\n\t\t\t\t\tcoordinate = 40\n\t\t\t\t}\n\n\t\t\t\thtmx.ajax(\"POST\", \"/update-multiplier\", {\n\t\t\t\t\ttarget: \"#chess-board\",\n\t\t\t\t\tswap: \"none\",\n\t\t\t\t\tvalues: {\n\t\t\t\t\t\tmultiplier: coordinate,\n\t\t\t\t\t}\n\t\t\t\t})\n\t\t\t}\n\t\t}\n\t})\n\n\tobserver.observe(board);\n})();\n\n\tfunction getMultiplier() {\n\t\tconst localBoard = document.getElementById('chess-board');\n\t\tlet localWidth = localBoard.clientWidth;\n\t\tif (localWidth < 480) return 40;\n\t\tif (localWidth < 640) return 60;\n\t\tif (localWidth < 800) return 80;\n\t\treturn 100;\n\t}\n  </script>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
