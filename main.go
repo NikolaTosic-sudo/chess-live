@@ -20,7 +20,6 @@ func main() {
 	err := godotenv.Load()
 	if err != nil {
 		responses.LogError("Couldn't load env", err)
-		return
 	}
 
 	defer func() {
