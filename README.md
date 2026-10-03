@@ -3,8 +3,7 @@
 A modern web-based chess platform built with **Go**, **HTMX**, **Templ**, and **PostgreSQL**.  
 The app supports both **local and online play**, user authentication, match history, and game reviews.
 
-> ⚠️ The project is still under active development. Currently, online play is only available with yourself...in a different browser 😅  
-> Docker setup is available and public hosting will be available soon.
+> Docker setup is available and it's publicly hosted
 
 ---
 
