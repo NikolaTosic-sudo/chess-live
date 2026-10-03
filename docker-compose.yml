@@ -7,8 +7,6 @@ services:
       POSTGRES_USER: user
       POSTGRES_DB: chess
       POSTGRES_PASSWORD: secret
-    ports:
-      - "5432:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U user -d chess"]
       interval: 5s

@@ -1,6 +1,6 @@
 module github.com/NikolaTosic-sudo/chess-live
 
-go 1.25.1
+go 1.26.1
 
 require (
 	github.com/a-h/templ v0.3.943

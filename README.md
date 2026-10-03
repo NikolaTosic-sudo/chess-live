@@ -1,10 +1,10 @@
 # Chess Live ♟️
 
 A modern web-based chess platform built with **Go**, **HTMX**, **Templ**, and **PostgreSQL**.  
-The app supports both **local and online play**, user authentication, match history, and game reviews.  
+The app supports both **local and online play**, user authentication, match history, and game reviews.
 
 > ⚠️ The project is still under active development. Currently, online play is only available with yourself...in a different browser 😅  
-> Docker setup is available and public hosting will be available soon.  
+> Docker setup is available and public hosting will be available soon.
 
 ---
 
@@ -32,35 +32,35 @@ my new-found knowledge of backend, and my love for chess.
 
 ## ✨ Features
 
-- **User Accounts**: Login and signup functionality.  
-- **Play Chess Locally**: Start a match on the same device.  
-- **Play Chess Online**: Real-time multiplayer powered by **WebSockets**.  
-- **Match History**: View a list of your past games.  
-- **Game Review**: Replay old games move by move.  
+- **User Accounts**: Login and signup functionality.
+- **Play Chess Locally**: Start a match on the same device.
+- **Play Chess Online**: Real-time multiplayer powered by **WebSockets**.
+- **Match History**: View a list of your past games.
+- **Game Review**: Replay old games move by move.
 
 ---
 
 ## 🛠️ Tech Stack
 
-- **Backend**: [Go](https://go.dev/)  
-- **Frontend**: [HTMX](https://htmx.org/) + [Templ](https://templ.guide/)  
-- **Database**: [PostgreSQL](https://www.postgresql.org/)  
-- **Real-time Communication**: WebSockets  
+- **Backend**: [Go](https://go.dev/)
+- **Frontend**: [HTMX](https://htmx.org/) + [Templ](https://templ.guide/)
+- **Database**: [PostgreSQL](https://www.postgresql.org/)
+- **Real-time Communication**: WebSockets
 
 ---
 
 ## 🚧 Roadmap
 
-- [x] Add **Docker support** for easy local hosting  
+- [x] Add **Docker support** for easy local hosting
 - [x] Better error handling
 - [x] Better use of Go routines
 - [x] Finished adding rules to the game
 - [x] Tighting WebSocket implementation
 - [x] BIG REFACTOR
-- [x] Add unit tests  
+- [x] Add unit tests
 - [x] EVEN BIGGER REFACTOR
 - [x] Polishing the game and adding some small features
-- [ ] Deploy to a public domain  
+- [ ] Deploy to a public domain
 
 ---
 
@@ -69,11 +69,13 @@ my new-found knowledge of backend, and my love for chess.
 ### <img src="https://www.docker.com/wp-content/uploads/2022/03/Moby-logo.png" alt="docker" width="40"/> Running with Docker
 
 ### First time
+
 ```bash
 docker compose up --build
 ```
 
 ### Next runs
+
 ```bash
 docker compose up
 ```
@@ -91,6 +93,7 @@ This ensures Docker picks up the new code and dependencies.
 - ✅ **First run** → always use `--build`
 - ✅ **After any code changes** (your own or pulled from GitHub) → run with `--build`
 - ⚡ **No code changes** and just restarting the app → you can skip rebuilding and run:
+
 ```bash
 docker compose up
 ```
@@ -116,4 +119,5 @@ cd chess-live
 If you'd like to contribute, please fork the repository and open a pull request to the `main` branch.
 
 ## 📜 License
+
 This project is licensed under the [MIT License](LICENSE).
