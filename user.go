@@ -13,13 +13,11 @@ import (
 
 func (cfg *appConfig) getUserId(r *http.Request) (uuid.UUID, error) {
 	userId, err := uuid.NewUUID()
-
 	if err != nil {
 		return userId, err
 	}
 
 	userC, err := r.Cookie("access_token")
-
 	if err != nil {
 		return userId, err
 	}
@@ -29,7 +27,6 @@ func (cfg *appConfig) getUserId(r *http.Request) (uuid.UUID, error) {
 	}
 
 	userId, err = auth.ValidateJWT(userC.Value, cfg.secret)
-
 	if err != nil {
 		return userId, err
 	}
@@ -41,13 +38,11 @@ func (cfg *appConfig) getUser(r *http.Request) (database.User, error) {
 	user := database.User{}
 
 	userId, err := cfg.getUserId(r)
-
 	if err != nil {
 		return user, err
 	}
 
 	user, err = cfg.database.GetUserById(r.Context(), userId)
-
 	if err != nil {
 		responses.LogError("user not found in the database", err)
 		return user, err
@@ -64,7 +59,7 @@ func (cfg *appConfig) removeCookiePath(name, path string) http.Cookie {
 		MaxAge:   -1,
 		HttpOnly: true,
 		Secure:   true,
-		SameSite: http.SameSiteLaxMode,
+		SameSite: http.SameSiteNoneMode,
 	}
 
 	return cookie
@@ -84,7 +79,7 @@ func (cfg *appConfig) makeCookieMaxAge(name, value, path string, maxAge int) htt
 		MaxAge:   maxAge,
 		HttpOnly: true,
 		Secure:   true,
-		SameSite: http.SameSiteLaxMode,
+		SameSite: http.SameSiteNoneMode,
 	}
 
 	return cookie
