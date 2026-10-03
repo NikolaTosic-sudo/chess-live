@@ -14,7 +14,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: "1.25.1"
+          go-version: "1.26.1"
 
       - name: Run the tests
         run: go test ./... -cover
@@ -30,13 +30,13 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: "1.25.1"
-      
+          go-version: "1.26.1"
+
       - name: Check for styling
         run: test -z $(go fmt ./...)
 
       - name: Install staticcheck
         run: go install honnef.co/go/tools/cmd/staticcheck@latest
-      
+
       - name: Lint check with staticcheck
         run: staticcheck ./...
