@@ -60,7 +60,7 @@ my new-found knowledge of backend, and my love for chess.
 - [x] Add unit tests
 - [x] EVEN BIGGER REFACTOR
 - [x] Polishing the game and adding some small features
-- [ ] Deploy to a public domain
+- [x] Deploy to a public domain - https://chess.pieetas.com/
 
 ---
 
